@@ -1,0 +1,20 @@
+{
+  "name": "reviewuserstory",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sfn": "^3.741.0",
+    "aws-lambda": "^1.0.7"
+  }
+}
