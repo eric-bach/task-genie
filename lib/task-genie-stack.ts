@@ -107,6 +107,24 @@ export class TaskGenieStack extends cdk.Stack {
     });
     azureDevOpsPat.grantRead(createTasksFunction);
 
+    const addCommentFunction = new NodejsFunction(this, 'AddComment', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      functionName: `${APP_NAME}-add-comment`,
+      handler: 'handler',
+      entry: path.resolve(__dirname, '../src/lambda/addComment/index.ts'),
+      layers: [powertoolsLayer],
+      memorySize: 512,
+      timeout: cdk.Duration.seconds(10),
+      environment: {
+        AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
+        // POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      bundling: {
+        externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
+      },
+    });
+    azureDevOpsPat.grantRead(addCommentFunction);
+
     // Step Function tasks
     const evaluateTasksTask = new tasks.LambdaInvoke(this, 'EvaluateTasksTask', {
       lambdaFunction: evaluateTasksFunction,
@@ -123,13 +141,15 @@ export class TaskGenieStack extends cdk.Stack {
       outputPath: '$.Payload',
     });
 
-    // Choice state to handle errors
-    const failState = new Fail(this, 'Incomplete user story', {
-      cause: 'User story is not complete',
-      error: 'User story is not complete',
+    const addCommentTask = new tasks.LambdaInvoke(this, 'AddCommentTask', {
+      lambdaFunction: addCommentFunction,
+      outputPath: '$.Payload',
     });
+
+    // Choice state to handle errors
+
     const choice = new Choice(this, 'User story is complete?')
-      .when(Condition.numberEquals('$.statusCode', 400), failState)
+      .when(Condition.numberEquals('$.statusCode', 400), addCommentTask)
       .otherwise(defineTasksTask.next(createTasksTask));
     const definition = evaluateTasksTask.next(choice);
 

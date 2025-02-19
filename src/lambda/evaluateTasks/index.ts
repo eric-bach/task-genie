@@ -71,6 +71,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     return {
       statusCode: 400,
       body: JSON.stringify({
+        workItemId: event.workItemId,
         message: 'Work Item does not meet quality bar',
         comment: jsonResponse.comment,
       }),
