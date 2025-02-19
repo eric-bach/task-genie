@@ -9,6 +9,7 @@ import path = require('path');
 import * as dotenv from 'dotenv';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 
 dotenv.config();
 
@@ -106,6 +107,12 @@ export class TaskGenieStack extends cdk.Stack {
       },
     });
     azureDevOpsPat.grantRead(createTasksFunction);
+    createTasksFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['cloudwatch:PutMetricData'],
+        resources: ['*'],
+      })
+    );
 
     const addCommentFunction = new NodejsFunction(this, 'AddComment', {
       runtime: lambda.Runtime.NODEJS_20_X,
@@ -210,6 +217,36 @@ export class TaskGenieStack extends cdk.Stack {
       },
     });
     stepFunctionsEndpoint.connections.allowFrom(parseUserStory, Port.tcp(443));
+
+    // Dashboard
+    const dashboard = new Dashboard(this, 'MyDashboard', {
+      dashboardName: 'task-genie-dashboard',
+    });
+
+    const tasksGeneratedMetric = new Metric({
+      namespace: 'Azure DevOps',
+      metricName: 'TasksGenerated',
+      dimensionsMap: { Tasks: 'Tasks' },
+    });
+    const graphWidget = new GaugeWidget({
+      title: 'Tasks Generated',
+      metrics: [tasksGeneratedMetric],
+      width: 6,
+      leftYAxis: { min: 0, max: 100 },
+    });
+    const userStoriesUpdatedMetric = new Metric({
+      namespace: 'Azure DevOps',
+      metricName: 'UserStoriesUpdated',
+      dimensionsMap: { 'User Story': 'User Stories' },
+    });
+    const graphWidget2 = new GaugeWidget({
+      title: 'User Stories Updated',
+      metrics: [userStoriesUpdatedMetric],
+      width: 6,
+      leftYAxis: { min: 0, max: 100 },
+    });
+
+    dashboard.addWidgets(graphWidget, graphWidget2);
 
     // Outputs
     new cdk.CfnOutput(this, 'ParseUserStoryFunctionUrl', {
