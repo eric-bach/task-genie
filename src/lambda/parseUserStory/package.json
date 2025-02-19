@@ -1,5 +1,5 @@
 {
-  "name": "definetasks",
+  "name": "reviewuserstory",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.14.0",
-    "@aws-sdk/client-bedrock-runtime": "^3.741.0",
+    "@aws-sdk/client-sfn": "^3.741.0",
     "@middy/core": "^6.0.0",
     "aws-lambda": "^1.0.7"
   }
