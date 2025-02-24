@@ -223,30 +223,48 @@ export class TaskGenieStack extends cdk.Stack {
       dashboardName: 'task-genie-dashboard',
     });
 
+    // Metrics
     const tasksGeneratedMetric = new Metric({
       namespace: 'Azure DevOps',
       metricName: 'TasksGenerated',
       dimensionsMap: { Tasks: 'Tasks' },
     });
-    const graphWidget = new GaugeWidget({
-      title: 'Tasks Generated',
-      metrics: [tasksGeneratedMetric],
-      width: 6,
-      leftYAxis: { min: 0, max: 100 },
-    });
+
     const userStoriesUpdatedMetric = new Metric({
       namespace: 'Azure DevOps',
       metricName: 'UserStoriesUpdated',
       dimensionsMap: { 'User Story': 'User Stories' },
     });
-    const graphWidget2 = new GaugeWidget({
+
+    const incompleteUserStoriesMetric = new Metric({
+      namespace: 'Azure DevOps',
+      metricName: 'IncompleteUserStories',
+      dimensionsMap: { 'User Story': 'User Stories' },
+    });
+
+    // Widgets
+    const tasksGeneratedWidget = new GaugeWidget({
+      title: 'Tasks Generated',
+      metrics: [tasksGeneratedMetric],
+      width: 6,
+      leftYAxis: { min: 0, max: 100 },
+    });
+
+    const userStoriesUpdatedWidget = new GaugeWidget({
       title: 'User Stories Updated',
       metrics: [userStoriesUpdatedMetric],
       width: 6,
       leftYAxis: { min: 0, max: 100 },
     });
 
-    dashboard.addWidgets(graphWidget, graphWidget2);
+    const incompleteUserStoriesWidget = new GaugeWidget({
+      title: 'Incomplete User Stories',
+      metrics: [incompleteUserStoriesMetric],
+      width: 6,
+      leftYAxis: { min: 0, max: 100 },
+    });
+
+    dashboard.addWidgets(tasksGeneratedWidget, userStoriesUpdatedWidget, incompleteUserStoriesWidget);
 
     // Outputs
     new cdk.CfnOutput(this, 'ParseUserStoryFunctionUrl', {

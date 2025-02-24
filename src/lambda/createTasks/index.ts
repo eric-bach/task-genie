@@ -3,7 +3,8 @@ import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { CloudWatchClient, PutMetricDataCommand, PutMetricDataCommandInput } from '@aws-sdk/client-cloudwatch';
+import { CloudWatchClient, StandardUnit } from '@aws-sdk/client-cloudwatch';
+import { createMetric } from './helpers/cloudwatch';
 
 type Task = { title: string; description: string };
 
@@ -25,54 +26,33 @@ const lambdaHandler = async (event: any, context: Context) => {
 
   await createTasks(workItemId, tasks);
 
-  // TODO Clean up adding metrics
-  const params: PutMetricDataCommandInput = {
-    MetricData: [
+  // Add TasksGenerated metric
+  const tasksGeneratedMetric = {
+    MetricName: 'TasksGenerated',
+    Dimensions: [
       {
-        MetricName: 'TasksGenerated',
-        Dimensions: [
-          {
-            Name: 'Tasks',
-            Value: 'Tasks',
-          },
-        ],
-        Unit: 'None',
-        Value: tasks.length,
+        Name: 'Tasks',
+        Value: 'Tasks',
       },
     ],
-    Namespace: 'Azure DevOps',
+    Unit: StandardUnit.Count,
+    Value: tasks.length,
   };
-  const command = new PutMetricDataCommand(params);
-  try {
-    const response = await client.send(command);
-    logger.info(`Custom metric published successfully: ${JSON.stringify(response)}`);
-  } catch (error) {
-    logger.error(`Error publishing custom metric: ${error}`);
-  }
-  // Metrics2
-  const params2: PutMetricDataCommandInput = {
-    MetricData: [
+  await createMetric(client, logger, tasksGeneratedMetric);
+
+  // Add UserStoriesUpdated metric
+  const userStoriesUpdatedMetric = {
+    MetricName: 'UserStoriesUpdated',
+    Dimensions: [
       {
-        MetricName: 'UserStoriesUpdated',
-        Dimensions: [
-          {
-            Name: 'User Story',
-            Value: 'User Stories',
-          },
-        ],
-        Unit: 'None',
-        Value: 1,
+        Name: 'User Story',
+        Value: 'User Stories',
       },
     ],
-    Namespace: 'Azure DevOps',
+    Unit: StandardUnit.Count,
+    Value: 1,
   };
-  const command2 = new PutMetricDataCommand(params2);
-  try {
-    const response = await client.send(command2);
-    logger.info(`Custom metric published successfully: ${JSON.stringify(response)}`);
-  } catch (error) {
-    logger.error(`Error publishing custom metric: ${error}`);
-  }
+  await createMetric(client, logger, userStoriesUpdatedMetric);
 
   logger.debug('All tasks created');
 

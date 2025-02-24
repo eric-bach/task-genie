@@ -4,10 +4,14 @@ import { ConversationRole } from '@aws-sdk/client-bedrock-runtime';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
+import { CloudWatchClient, StandardUnit } from '@aws-sdk/client-cloudwatch';
+import { createMetric } from './helpers/cloudwatch';
 
 const bedrockUrl = `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`;
 const bedrockClient = new bedrock.BedrockRuntimeClient({ endpoint: bedrockUrl });
 const bedrockModelId = process.env.AWS_BEDROCK_MODEL_ID;
+
+const client = new CloudWatchClient({ region: process.env.AWS_REGION });
 
 const logger = new Logger({ serviceName: 'evaluateTasks' });
 
@@ -65,6 +69,20 @@ const lambdaHandler = async (event: any, context: Context) => {
     }
 
     // TODO Add comment to work item
+
+    // Add TasksGenerated metric
+    const tasksGeneratedMetric = {
+      MetricName: 'IncompleteUserStories',
+      Dimensions: [
+        {
+          Name: 'User Story',
+          Value: 'User Stories',
+        },
+      ],
+      Unit: StandardUnit.Count,
+      Value: 1,
+    };
+    await createMetric(client, logger, tasksGeneratedMetric);
 
     logger.error('Work Item does not meet quality bar: ', jsonResponse.comment);
 
