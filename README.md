@@ -1,14 +1,36 @@
-# Welcome to your CDK TypeScript project
+# Task Genie
 
-This is a blank project for CDK development with TypeScript.
+![architecture](/docs/architecture.png)
 
-The `cdk.json` file tells the CDK Toolkit how to execute your app.
+## Getting Started
 
-## Useful commands
+### Pre-requisites
 
-* `npm run build`   compile typescript to js
-* `npm run watch`   watch for changes and compile
-* `npm run test`    perform the jest unit tests
-* `npx cdk deploy`  deploy this stack to your default AWS account/region
-* `npx cdk diff`    compare deployed stack with current state
-* `npx cdk synth`   emits the synthesized CloudFormation template
+1. Create a PAT in AzureDevOps
+
+### Deployment
+
+1. Update the .env with the parameters
+
+   ```
+   AZURE_DEVOPS_PAT=
+   AWS_BEDROCK_MODEL_ID=
+   GITHUB_ORGANIZATION=
+   GITHUB_REPOSITORY=
+   ```
+
+2. Install dependencies
+
+   ```
+   npm run install
+   ```
+
+3. Deploy the backend
+
+   ```
+   npm run deploy
+   ```
+
+### Post-setup (one-time)
+
+1. Create 4 Service hooks in the ADO project setttings

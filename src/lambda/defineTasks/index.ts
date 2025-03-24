@@ -1,26 +1,39 @@
 import { Context } from 'aws-lambda';
-import * as bedrock from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockRuntimeClient,
+  ConversationRole,
+  ConverseCommand,
+  ConverseCommandInput,
+} from '@aws-sdk/client-bedrock-runtime';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 
 type Task = { title: string; description: string };
 
+const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
+
 const bedrockUrl = `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`;
-const bedrockClient = new bedrock.BedrockRuntimeClient({ endpoint: bedrockUrl });
+const bedrockClient = new BedrockRuntimeClient({ endpoint: bedrockUrl });
+
+if (AWS_BEDROCK_MODEL_ID === undefined) {
+  throw new Error('AWS_BEDROCK_MODEL_ID environment variable is required');
+}
 
 const logger = new Logger({ serviceName: 'defineTasks' });
 
 const lambdaHandler = async (event: any, context: Context) => {
   const body = JSON.parse(event.body || '{}');
 
-  const workItemId = body.workItemId;
-  const description = body.description;
-  const acceptanceCriteria = body.acceptanceCriteria;
+  const { workItemId, title, description, acceptanceCriteria, changedBy } = body;
 
-  logger.debug('WorkItemId: ', workItemId);
-  logger.debug('Description: ', description);
-  logger.debug('Acceptance Criteria: ', acceptanceCriteria);
+  logger.debug('Parsed work item', {
+    work_item_id: workItemId,
+    work_item_changed_by: changedBy,
+    work_item_title: title,
+    work_item_description: description,
+    work_item_acceptance_criteria: acceptanceCriteria,
+  });
 
   const userMessage = `You are a technical project manager for Azure DevOps Work Items, who breaks down work items that into tasks where there may be multiple individuals involved or the time expected to complete is longer than 2 hours.
     You will return a result in a JSON format with one attribute key being tasks. This is a list. If no tasks are needed this will be empty.
@@ -30,27 +43,28 @@ const lambdaHandler = async (event: any, context: Context) => {
     Investigation and analysis should not have separate tasks.
     Not tasks for analyzing, no tasks for regression testing.
     Each task must be able to be deployed separately (increasing deployment frequency). Do not make any assumptions, only use the existing knowledge you have.
+    Add a prefix to each task title to denote it's order in the sequence of tasks to be completed. For example, if there are 3 tasks, the first task would have a title of "1. Task Title".
     Only return JSON, no text. JSON should be a single line`;
 
   const conversation = [
     {
-      role: bedrock.ConversationRole.USER,
+      role: ConversationRole.USER,
       content: [{ text: userMessage }],
     },
   ];
 
-  const input: bedrock.ConverseCommandInput = {
-    modelId: process.env.AWS_BEDROCK_MODEL_ID,
+  const input: ConverseCommandInput = {
+    modelId: AWS_BEDROCK_MODEL_ID,
     messages: conversation,
     inferenceConfig: { maxTokens: 2048, temperature: 0.5, topP: 0.9 },
   };
 
-  logger.info('Sending input to Bedrock:', JSON.stringify(input, null, 2));
+  logger.info(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`);
 
-  const command = new bedrock.ConverseCommand(input);
+  const command = new ConverseCommand(input);
   const response = await bedrockClient.send(command);
 
-  logger.info('Response:', JSON.stringify(response, null, 2));
+  logger.info('Bedrock model invoked', { response: response.output });
 
   // Get tasks
   const text: string = response.output?.message?.content
@@ -58,12 +72,13 @@ const lambdaHandler = async (event: any, context: Context) => {
     : '{tasks:[{}]}';
   const tasks: Task[] = JSON.parse(text).tasks;
 
-  logger.debug('Identified Tasks:', JSON.stringify(tasks));
+  logger.debug('Identified Tasks', { tasks: JSON.stringify(tasks) });
 
   return {
     statusCode: 200,
     body: JSON.stringify({
-      workItemId: workItemId,
+      workItemId,
+      changedBy,
       tasks,
     }),
   };
