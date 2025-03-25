@@ -34,3 +34,8 @@
 ### Post-setup (one-time)
 
 1. Create 4 Service hooks in the ADO project setttings
+
+# References
+
+https://www.youtube.com/watch?v=POn5WYFw4xU
+https://github.com/aws-samples/genai-for-devops/tree/main/automating-kanban-workflows

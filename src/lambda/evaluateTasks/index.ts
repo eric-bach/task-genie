@@ -6,7 +6,6 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { createMetric } from './helpers/cloudwatch';
-import { json } from 'stream/consumers';
 
 const bedrockUrl = `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`;
 const bedrockClient = new BedrockRuntimeClient({ endpoint: bedrockUrl });
@@ -23,7 +22,7 @@ if (AWS_BEDROCK_MODEL_ID === undefined) {
 const lambdaHandler = async (event: any, context: Context) => {
   const { workItemId, title, description, acceptanceCriteria, changedBy } = event;
 
-  logger.debug(`Parsed work item ${workItemId}`, {
+  logger.info(`Received work item ${workItemId}`, {
     work_item_id: workItemId,
     work_item_changed_by: changedBy,
     work_item_title: title,
@@ -52,56 +51,67 @@ const lambdaHandler = async (event: any, context: Context) => {
     inferenceConfig: { maxTokens: 512, temperature: 0.5, topP: 0.9 },
   };
 
-  logger.info(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`);
+  try {
+    logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { messages: JSON.stringify(conversation) });
 
-  const command = new ConverseCommand(input);
-  const response = await bedrockClient.send(command);
+    const command = new ConverseCommand(input);
+    const response = await bedrockClient.send(command);
 
-  logger.info('Bedrock model invoked', { response: response.output });
+    logger.info('Bedrock model invoked', { response: response.output });
 
-  const content = response.output?.message?.content;
+    const content = response.output?.message?.content;
 
-  if (content && content[0].text) {
-    const jsonResponse = JSON.parse(content[0].text);
+    if (content && content[0].text) {
+      const jsonResponse = JSON.parse(content[0].text);
 
-    if (jsonResponse.pass === true) {
-      logger.info('Work Item meets quality bar');
+      if (jsonResponse.pass === true) {
+        logger.info(`Work item ${workItemId} meets requirements`, { work_item_id: workItemId });
+
+        return {
+          statusCode: 200,
+          body: JSON.stringify({
+            workItemId,
+            changedBy,
+            title,
+            description,
+            acceptanceCriteria,
+          }),
+        };
+      }
+
+      logger.error(`Work item ${workItemId} does not meet requirements`, { reason: jsonResponse.comment });
+
+      // Add IncompleteUserStories metric
+      const tasksGeneratedMetric = {
+        MetricName: 'IncompleteUserStories',
+        Dimensions: [
+          {
+            Name: 'User Story',
+            Value: 'User Stories',
+          },
+        ],
+        Unit: StandardUnit.Count,
+        Value: 1,
+      };
+      await createMetric(client, logger, tasksGeneratedMetric);
 
       return {
-        statusCode: 200,
+        statusCode: 400,
         body: JSON.stringify({
           workItemId,
           changedBy,
-          title,
-          description,
-          acceptanceCriteria,
+          comment: jsonResponse.comment,
         }),
       };
     }
-
-    // TODO Creat a CloudWatch Metrics VPC endpoint for this to work
-    // Add TasksGenerated metric
-    const tasksGeneratedMetric = {
-      MetricName: 'IncompleteUserStories',
-      Dimensions: [
-        {
-          Name: 'User Story',
-          Value: 'User Stories',
-        },
-      ],
-      Unit: StandardUnit.Count,
-      Value: 1,
-    };
-    await createMetric(client, logger, tasksGeneratedMetric);
-
-    logger.error('Work Item does not meet quality bar', { reason: jsonResponse.comment });
+  } catch (error: any) {
+    logger.error('An error occurred', { error: error });
 
     return {
-      statusCode: 400,
+      statusCode: 500,
       body: JSON.stringify({
-        workItemId,
-        changedBy,
-        response: `Work Item does not have sufficient details<br />${jsonResponse.comment}`,
+        message: 'Internal Server Error',
+        error: error.message,
       }),
     };
   }

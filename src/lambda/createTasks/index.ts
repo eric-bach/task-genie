@@ -28,7 +28,7 @@ const lambdaHandler = async (event: any, context: Context) => {
 
   const { workItemId, changedBy, tasks } = body;
 
-  logger.debug(`Parsed work item ${workItemId}`, {
+  logger.info(`Received work item ${workItemId}`, {
     work_item_id: workItemId,
     work_item_changed_by: changedBy,
     work_item_tasks: tasks,
@@ -69,7 +69,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     body: JSON.stringify({
       workItemId,
       changedBy,
-      response: `Work item successfully updated with ${tasks.length} tasks`,
+      comment: `Work item successfully updated with ${tasks.length} tasks`,
     }),
   };
 };
@@ -92,7 +92,7 @@ const getHeaders = async (): Promise<HeadersInit> => {
 };
 
 const createTasks = async (workItemId: string, tasks: Task[]) => {
-  logger.debug(`Creating ${tasks.length} tasks`, { tasks: tasks });
+  logger.info(`Creating ${tasks.length} total tasks`, { tasks: tasks });
 
   const headers = await getHeaders();
 
@@ -160,7 +160,7 @@ const linkTask = async (headers: HeadersInit, workItemId: string, taskId: string
         "path": "/relations/-",
         "value": {
           "rel": "System.LinkTypes.Hierarchy-Forward",
-          "url": "https://amaabca.visualstudio.com/eric-test/_apis/wit/workItems/${taskId}",
+          "url": "https://${GITHUB_ORGANIZATION}.visualstudio.com/${GITHUB_REPOSITORY}/_apis/wit/workItems/${taskId}",
           "attributes": {
             "comment": "Linking dependency"
           }

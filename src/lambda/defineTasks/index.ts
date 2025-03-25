@@ -27,7 +27,7 @@ const lambdaHandler = async (event: any, context: Context) => {
 
   const { workItemId, title, description, acceptanceCriteria, changedBy } = body;
 
-  logger.debug('Parsed work item', {
+  logger.info(`Received work item ${workItemId}`, {
     work_item_id: workItemId,
     work_item_changed_by: changedBy,
     work_item_title: title,
@@ -59,29 +59,39 @@ const lambdaHandler = async (event: any, context: Context) => {
     inferenceConfig: { maxTokens: 2048, temperature: 0.5, topP: 0.9 },
   };
 
-  logger.info(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`);
+  try {
+    logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { messages: JSON.stringify(conversation) });
 
-  const command = new ConverseCommand(input);
-  const response = await bedrockClient.send(command);
+    const command = new ConverseCommand(input);
+    const response = await bedrockClient.send(command);
 
-  logger.info('Bedrock model invoked', { response: response.output });
+    logger.info('Bedrock model invoked', { response: response.output });
 
-  // Get tasks
-  const text: string = response.output?.message?.content
-    ? response.output?.message?.content[0].text || '{tasks:[{}]}'
-    : '{tasks:[{}]}';
-  const tasks: Task[] = JSON.parse(text).tasks;
+    // Get tasks
+    const text: string = response.output?.message?.content
+      ? response.output?.message?.content[0].text || '{tasks:[{}]}'
+      : '{tasks:[{}]}';
+    const tasks: Task[] = JSON.parse(text).tasks;
 
-  logger.debug('Identified Tasks', { tasks: JSON.stringify(tasks) });
+    logger.info(`Identified ${tasks.length} tasks`, { tasks: JSON.stringify(tasks) });
 
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      workItemId,
-      changedBy,
-      tasks,
-    }),
-  };
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        workItemId,
+        changedBy,
+        tasks,
+      }),
+    };
+  } catch (error) {
+    logger.error('Error occurred', { error: error });
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Internal server error',
+      }),
+    };
+  }
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));

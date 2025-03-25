@@ -21,16 +21,16 @@ const lambdaHandler = async (event: any, context: Context) => {
   const body = JSON.parse(event.body || '{}');
 
   const statusCode = event.statusCode;
-  const { workItemId, changedBy, response } = body;
+  const { workItemId, changedBy, comment } = body;
 
-  logger.debug(`Received work item ${workItemId}`, {
+  logger.info(`Received work item ${workItemId}`, {
     work_item_id: workItemId,
     work_item_changed_by: changedBy,
     status_code: statusCode,
-    response: response,
+    comment: comment,
   });
 
-  const addCommentResponse = await addComment(workItemId, changedBy, statusCode, response);
+  const addCommentResponse = await addComment(workItemId, changedBy, statusCode, comment);
 
   return {
     statusCode: 200,
@@ -61,14 +61,14 @@ const addComment = async (
   workItemId: string,
   changedBy: string,
   statusCode: number,
-  response: string
+  comment: string
 ): Promise<string> => {
-  logger.debug('Adding comment to work item', { work_item_id: workItemId, status_code: statusCode });
+  logger.info('Adding comment to work item', { work_item_id: workItemId, status_code: statusCode });
 
   const headers = await getHeaders();
 
   const body = JSON.stringify({
-    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${changedBy}</a> ${response}</div>`,
+    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${changedBy}</a> ${comment}</div>`,
   });
 
   try {
@@ -90,10 +90,10 @@ const addComment = async (
     } else {
       throw new Error('Failed to add comment');
     }
-  } catch (error) {
-    logger.error('Error adding comment', { error: error });
+  } catch (error: any) {
+    logger.error('An error occurred', { error: error });
 
-    return '';
+    return error.message;
   }
 };
 

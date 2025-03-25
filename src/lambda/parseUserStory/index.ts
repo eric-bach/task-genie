@@ -52,7 +52,7 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
     const acceptanceCriteria = removeHtmlTags(
       JSON.parse(JSON.stringify(body.resource.revision.fields['Microsoft.VSTS.Common.AcceptanceCriteria']))
     );
-    logger.debug('Parsed work item', {
+    logger.info('Received work item', {
       work_item_id: workItemId,
       work_item_changed_by: changedBy,
       work_item_title: title,
@@ -101,7 +101,7 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
 const removeHtmlTags = (input: string) => {
   const htmlRegex = /<[^>]*>/g;
 
-  return input.replace(htmlRegex, '');
+  return input.replace(htmlRegex, '').trim();
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
