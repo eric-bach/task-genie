@@ -24,56 +24,69 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
       !body.resource.workItemId ||
       !body.resource.revision ||
       !body.resource.revision.fields ||
+      !body.resource.revision.fields['System.ChangedBy'] ||
+      !body.resource.revision.fields['System.Title'] ||
       !body.resource.revision.fields['System.Description'] ||
       !body.resource.revision.fields['Microsoft.VSTS.Common.AcceptanceCriteria']
     ) {
-      logger.info('Skipping: missing required fields in the request body');
+      logger.info('Work item is missing one or more required fields', {
+        work_item_id: body.resource.workItemId ?? 0,
+        work_item_changed_by: body.resource.revision.fields['System.ChangedBy'] ?? '',
+        work_item_title: body.resource.revision.fields['System.Title'] ?? '',
+        work_item_description: body.resource.revision.fields['System.Description'] ?? '',
+        work_item_acceptance_criteria: body.resource.revision.fields['Microsoft.VSTS.Common.AcceptanceCriteria'] ?? '',
+      });
 
       return {
         statusCode: 200,
         body: JSON.stringify({
-          message: 'Missing required fields in the request body',
+          message: 'Work item is missing one or more required fields',
         }),
       };
     }
 
     const workItemId = body.resource.workItemId;
-    logger.debug('Work Item ID: ', workItemId);
-
+    const changedBy = removeHtmlTags(JSON.parse(JSON.stringify(body.resource.revision.fields['System.ChangedBy'])));
+    const title = removeHtmlTags(JSON.parse(JSON.stringify(body.resource.revision.fields['System.Title'])));
     const description = removeHtmlTags(JSON.parse(JSON.stringify(body.resource.revision.fields['System.Description'])));
-    logger.debug('Description: ', description);
-
     const acceptanceCriteria = removeHtmlTags(
       JSON.parse(JSON.stringify(body.resource.revision.fields['Microsoft.VSTS.Common.AcceptanceCriteria']))
     );
-    logger.debug('Acceptance Criteria: ', acceptanceCriteria);
+    logger.info('Received work item', {
+      work_item_id: workItemId,
+      work_item_changed_by: changedBy,
+      work_item_title: title,
+      work_item_description: description,
+      work_item_acceptance_criteria: acceptanceCriteria,
+    });
 
     const startExecutionCommand = new StartExecutionCommand({
       stateMachineArn,
       input: JSON.stringify({
-        workItemId: workItemId,
-        description: description,
-        acceptanceCriteria: acceptanceCriteria,
+        workItemId,
+        changedBy,
+        title,
+        description,
+        acceptanceCriteria,
       }),
     });
 
-    logger.info('Executing state machine: ', stateMachineArn);
+    logger.info('Executing state machine', { state_maching_arn: stateMachineArn });
 
     const executionResult = await sfnClient.send(startExecutionCommand);
 
-    logger.info('Result: ', JSON.stringify(executionResult));
+    logger.info('State machine executed', { result: JSON.stringify(executionResult) });
 
     const response = {
       statusCode: 200,
       body: JSON.stringify({
-        message: 'Step Function execution started successfully!',
+        message: 'Step Function execution started successfully',
         executionArn: executionResult.executionArn,
-        input: description,
       }),
     };
     return response;
   } catch (error: any) {
-    logger.error('An error occurred', error);
+    logger.error('An error occurred', { error: error });
 
     return {
       statusCode: 500,
@@ -88,7 +101,7 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
 const removeHtmlTags = (input: string) => {
   const htmlRegex = /<[^>]*>/g;
 
-  return input.replace(htmlRegex, '');
+  return input.replace(htmlRegex, '').trim();
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));

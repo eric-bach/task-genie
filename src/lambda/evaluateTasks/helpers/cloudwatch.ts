@@ -16,8 +16,8 @@ export async function createMetric(client: CloudWatchClient, logger: Logger, met
 
   try {
     const response = await client.send(command);
-    logger.info(`Custom metric published successfully: ${JSON.stringify(response)}`);
+    logger.info('Custom metric created', { response: JSON.stringify(response) });
   } catch (error) {
-    logger.error(`Error publishing custom metric: ${error}`);
+    logger.error('Error creating custom metric', { error: error });
   }
 }

@@ -4,27 +4,38 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 
-const ORGANIZATION = 'amaabca';
-const PROJECT = 'eric-test';
+const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
+const GITHUB_REPOSITORY = process.env.GITHUB_REPOSITORY;
+
+if (GITHUB_ORGANIZATION === undefined) {
+  throw new Error('GITHUB_ORGANIZATION environment variable is required');
+}
+
+if (GITHUB_REPOSITORY === undefined) {
+  throw new Error('GITHUB_REPOSITORY environment variable is required');
+}
 
 const logger = new Logger({ serviceName: 'addComment' });
 
 const lambdaHandler = async (event: any, context: Context) => {
   const body = JSON.parse(event.body || '{}');
 
-  const workItemId = body.workItemId;
+  const statusCode = event.statusCode;
+  const { workItemId, changedBy, comment } = body;
 
-  logger.debug('WorkItemId: ', workItemId);
+  logger.info(`Received work item ${workItemId}`, {
+    work_item_id: workItemId,
+    work_item_changed_by: changedBy,
+    status_code: statusCode,
+    comment: comment,
+  });
 
-  await addComment(workItemId);
-
-  logger.debug('Work item updated');
+  const addCommentResponse = await addComment(workItemId, changedBy, statusCode, comment);
 
   return {
     statusCode: 200,
     body: JSON.stringify({
-      // TODO Return proper work item and tasks
-      input: { workItemId: event.workItemId },
+      response: addCommentResponse,
     }),
   };
 };
@@ -46,38 +57,43 @@ const getHeaders = async (): Promise<HeadersInit> => {
   };
 };
 
-const addComment = async (workItemId: string) => {
-  logger.info('Updating work item');
+const addComment = async (
+  workItemId: string,
+  changedBy: string,
+  statusCode: number,
+  comment: string
+): Promise<string> => {
+  logger.info('Adding comment to work item', { work_item_id: workItemId, status_code: statusCode });
 
   const headers = await getHeaders();
 
-  await createTask(headers, workItemId);
-
-  logger.info('Work item updated');
-};
-
-const createTask = async (header: HeadersInit, workItemId: string) => {
-  const body = JSON.stringify({ text: 'User story does not have sufficient details. Please provide more details.' });
+  const body = JSON.stringify({
+    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${changedBy}</a> ${comment}</div>`,
+  });
 
   try {
-    const url = `https://${ORGANIZATION}.visualstudio.com/${PROJECT}/_apis/wit/workitems/${workItemId}/comments?api-version=7.1-preview.4`;
+    const url = `https://${GITHUB_ORGANIZATION}.visualstudio.com/${GITHUB_REPOSITORY}/_apis/wit/workItems/${workItemId}/comments?api-version=7.1-preview.4`;
 
     const response = await fetch(url, {
       method: 'POST',
-      headers: header,
+      headers: headers,
       body: body,
     });
 
-    logger.debug('ADO response', JSON.stringify(response));
+    logger.debug('Add comment response', { response: JSON.stringify(response) });
 
     if (response.ok) {
       const data = await response.json();
       logger.info(`Added comment to work item ${data.id}`);
+
+      return body;
     } else {
       throw new Error('Failed to add comment');
     }
-  } catch (error) {
-    logger.error(JSON.stringify(error));
+  } catch (error: any) {
+    logger.error('An error occurred', { error: error });
+
+    return error.message;
   }
 };
 

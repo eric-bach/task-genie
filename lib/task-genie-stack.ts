@@ -56,11 +56,18 @@ export class TaskGenieStack extends cdk.Stack {
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
     });
+    evaluateTasksFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['cloudwatch:PutMetricData'],
+        resources: ['*'],
+      })
+    );
     evaluateTasksFunction.addToRolePolicy(
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
@@ -79,6 +86,7 @@ export class TaskGenieStack extends cdk.Stack {
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
@@ -101,6 +109,9 @@ export class TaskGenieStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
+        GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
+        GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
@@ -124,7 +135,9 @@ export class TaskGenieStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(10),
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
-        // POWERTOOLS_LOG_LEVEL: 'DEBUG',
+        GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
+        GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
@@ -157,7 +170,7 @@ export class TaskGenieStack extends cdk.Stack {
 
     const choice = new Choice(this, 'User story is complete?')
       .when(Condition.numberEquals('$.statusCode', 400), addCommentTask)
-      .otherwise(defineTasksTask.next(createTasksTask));
+      .otherwise(defineTasksTask.next(createTasksTask.next(addCommentTask)));
     const definition = evaluateTasksTask.next(choice);
 
     // Step Function
@@ -179,6 +192,7 @@ export class TaskGenieStack extends cdk.Stack {
         POWERTOOLS_LOGGER_LOG_EVENT: 'true',
         STATE_MACHINE_ARN: stateMachine.stateMachineArn,
         AWS_VPC_ID: vpc.vpcId,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
@@ -192,6 +206,18 @@ export class TaskGenieStack extends cdk.Stack {
     // Grant the parseUserStory function permissions to start the Step Function execution
     stateMachine.grantStartExecution(parseUserStory);
 
+    // Create an interface VPC endpoint for CloudWatch Metrics
+    const cloudwatchEndpoint = vpc.addInterfaceEndpoint('CloudWatchEndpoint', {
+      service: {
+        name: `com.amazonaws.${this.region}.monitoring`,
+        port: 443,
+      },
+      subnets: {
+        subnetType: SubnetType.PRIVATE_ISOLATED,
+      },
+    });
+    cloudwatchEndpoint.connections.allowFrom(evaluateTasksFunction, Port.tcp(443));
+
     // Create an interface VPC endpoint for Bedrock
     const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
       service: {
@@ -202,7 +228,6 @@ export class TaskGenieStack extends cdk.Stack {
         subnetType: SubnetType.PRIVATE_ISOLATED,
       },
     });
-
     bedrockEndpoint.connections.allowFrom(evaluateTasksFunction, Port.tcp(443));
     bedrockEndpoint.connections.allowFrom(defineTasksFunction, Port.tcp(443));
 
