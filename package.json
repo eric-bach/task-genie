@@ -9,13 +9,18 @@
     "build-all": "find ./src/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '🚧 Building {}' ; -execdir sh -c 'npm run build' ;",
     "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile observability2",
     "install-all": "find ./src/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ; && find ./test -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ;",
+    "bedrock:evaluateTasks": "npx ts-node bedrock/evaluateTasks.ts",
+    "bedrock:defineTasks": "npx ts-node bedrock/defineTasks.ts",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk"
   },
   "devDependencies": {
+    "@types/jest": "^29.5.14",
     "@types/node": "22.7.9",
     "aws-cdk": "2.177.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.0",
     "ts-node": "^10.9.2",
     "typescript": "~5.6.3"
   },
@@ -23,5 +28,8 @@
     "aws-cdk-lib": "2.177.0",
     "constructs": "^10.0.0",
     "dotenv": "^16.4.7"
+  },
+  "resolutions": {
+    "@smithy/core": "latest"
   }
 }

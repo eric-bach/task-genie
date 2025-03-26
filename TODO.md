@@ -1,5 +1,7 @@
 Task Genie - Architecture
 
+- Create test scripts to test prompts with predefined user stories
+  - Add user more real story examples to tests
 - Identify Azure authentication requirements
   - https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops
 - Observability
@@ -12,3 +14,4 @@ Task Genie - Architecture
   - https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops
 - Documentation
   - Add documentation on how to create ADO Service Hooks
+- Add Knowledge Bases

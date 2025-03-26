@@ -150,7 +150,7 @@ const createTask = async (header: HeadersInit, workItemId: string, task: Task) =
   }
 };
 
-const linkTask = async (headers: HeadersInit, workItemId: string, taskId: string) => {
+const linkTask = async (headers: HeadersInit, workItemId: string, taskId: string): Promise<void> => {
   try {
     const url = `https://${GITHUB_ORGANIZATION}.visualstudio.com/${GITHUB_REPOSITORY}/_apis/wit/workitems/${workItemId}?api-version=7.1`;
 
@@ -181,8 +181,6 @@ const linkTask = async (headers: HeadersInit, workItemId: string, taskId: string
     if (response.ok) {
       const data = await response.json();
       logger.info(`Linked task Id ${data.id}`);
-
-      return response;
     }
 
     throw new Error('Failed to link task');
