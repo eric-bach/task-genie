@@ -5,11 +5,12 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Choice, Condition, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
-import path = require('path');
 import * as dotenv from 'dotenv';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
+import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
+import * as path from 'path';
 
 dotenv.config();
 
@@ -18,6 +19,43 @@ const APP_NAME = 'task-genie';
 export class TaskGenieStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // Cognito user pool
+    const userPool = new UserPool(this, 'TaskGenieUserPool', {
+      userPoolName: 'task_genie_user_pool',
+      selfSignUpEnabled: true,
+      accountRecovery: AccountRecovery.EMAIL_ONLY,
+      autoVerify: {
+        email: true,
+      },
+      signInAliases: {
+        username: false,
+        email: true,
+      },
+      standardAttributes: {
+        email: {
+          required: true,
+          mutable: true,
+        },
+      },
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Cognito user pool domain
+    new UserPoolDomain(this, 'TaskGenieUserPoolDomain', {
+      userPool: userPool,
+      cognitoDomain: {
+        domainPrefix: 'taskgenie',
+      },
+    });
+
+    // Cognito user client
+    const userPoolClient = new UserPoolClient(this, 'TaskGenieUserClient', {
+      userPoolClientName: 'task_genie_user_client',
+      accessTokenValidity: cdk.Duration.hours(8),
+      idTokenValidity: cdk.Duration.hours(8),
+      userPool,
+    });
 
     const vpc = new Vpc(this, 'VPC', {
       cidr: '10.0.0.0/16',
