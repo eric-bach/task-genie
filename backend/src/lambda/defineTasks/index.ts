@@ -35,10 +35,10 @@ const lambdaHandler = async (event: any, context: Context) => {
     work_item_acceptance_criteria: acceptanceCriteria,
   });
 
-  const userMessage = `You are a technical project manager for Azure DevOps Work Items, who breaks down work items that into tasks where there may be multiple individuals involved or the time expected to complete is longer than 2 hours.
+  const userMessage = `You are a technical product owner for Azure DevOps Work Items, who breaks down work items that into tasks where there may be multiple individuals involved or the time expected to complete is longer than 2 hours.
     You will return a result in a JSON format with one attribute key being tasks. This is a list. If no tasks are needed this will be empty.
     Each would be an object in the list with a key of title and a key of description. Split by logical divisions and provide as much guidance as possible. Make sure the ticket description is high quality.
-    The parent task description to review is: ${description} along with the acceptance criteria: ${acceptanceCriteria}.
+    The parent task title to review is: ${title} along with the description: ${description} and along with the acceptance criteria: ${acceptanceCriteria}.
     Only generate tasks where it is completely neccessary. These are tasks completed by software development engineers, frontend developers and/or DevOps Engineers. Do not include tasks to do testing (including unit and integration) or deployment as this is part of the SDLC.
     Investigation and analysis should not have separate tasks.
     Not tasks for analyzing, no tasks for regression testing.

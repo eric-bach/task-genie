@@ -35,7 +35,18 @@
 
 1. Create 4 Service hooks in the ADO project setttings
 
-# References
+## Refining the AI Prompt
+
+1. Edit the prompts and inputs in `bedrock/evaluateTasks.ts` and `bedrock/defineTasks.ts`
+
+2. Run the following commands to run the scripts to test the prompts and inputs in order to refine the prompt
+
+   ```
+   npm run bedrock:evaluateTasks
+   npm run bedrock:defineTasks
+   ```
+
+## References
 
 https://www.youtube.com/watch?v=POn5WYFw4xU
 https://github.com/aws-samples/genai-for-devops/tree/main/automating-kanban-workflows

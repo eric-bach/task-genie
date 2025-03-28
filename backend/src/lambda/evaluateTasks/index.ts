@@ -1,6 +1,10 @@
 import { Context } from 'aws-lambda';
-import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput } from '@aws-sdk/client-bedrock-runtime';
-import { ConversationRole } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockRuntimeClient,
+  ConverseCommand,
+  ConverseCommandInput,
+  ConversationRole,
+} from '@aws-sdk/client-bedrock-runtime';
 import { CloudWatchClient, StandardUnit } from '@aws-sdk/client-cloudwatch';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
@@ -61,49 +65,51 @@ const lambdaHandler = async (event: any, context: Context) => {
 
     const content = response.output?.message?.content;
 
-    if (content && content[0].text) {
-      const jsonResponse = JSON.parse(content[0].text);
+    if (!content || !content[0].text) {
+      logger.error('No content found in response', { response: response });
+      throw new Error('No content found in response');
+    }
 
-      if (jsonResponse.pass === true) {
-        logger.info(`Work item ${workItemId} meets requirements`, { work_item_id: workItemId });
-
-        return {
-          statusCode: 200,
-          body: JSON.stringify({
-            workItemId,
-            changedBy,
-            title,
-            description,
-            acceptanceCriteria,
-          }),
-        };
-      }
-
-      logger.error(`Work item ${workItemId} does not meet requirements`, { reason: jsonResponse.comment });
-
-      // Add IncompleteUserStories metric
-      const tasksGeneratedMetric = {
-        MetricName: 'IncompleteUserStories',
-        Dimensions: [
-          {
-            Name: 'User Story',
-            Value: 'User Stories',
-          },
-        ],
-        Unit: StandardUnit.Count,
-        Value: 1,
-      };
-      await createMetric(client, logger, tasksGeneratedMetric);
+    const jsonResponse = JSON.parse(content[0].text);
+    if (jsonResponse.pass === true) {
+      logger.info(`Work item ${workItemId} meets requirements`, { work_item_id: workItemId });
 
       return {
-        statusCode: 400,
+        statusCode: 200,
         body: JSON.stringify({
           workItemId,
           changedBy,
-          comment: jsonResponse.comment,
+          title,
+          description,
+          acceptanceCriteria,
         }),
       };
     }
+
+    logger.error(`Work item ${workItemId} does not meet requirements`, { reason: jsonResponse.comment });
+
+    // Add IncompleteUserStories metric
+    const tasksGeneratedMetric = {
+      MetricName: 'IncompleteUserStories',
+      Dimensions: [
+        {
+          Name: 'User Story',
+          Value: 'User Stories',
+        },
+      ],
+      Unit: StandardUnit.Count,
+      Value: 1,
+    };
+    await createMetric(client, logger, tasksGeneratedMetric);
+
+    return {
+      statusCode: 400,
+      body: JSON.stringify({
+        workItemId,
+        changedBy,
+        comment: jsonResponse.comment,
+      }),
+    };
   } catch (error: any) {
     logger.error('An error occurred', { error: error });
 
