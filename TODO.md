@@ -1,14 +1,23 @@
 Task Genie - Architecture
 
+- Add frontend to test prompts - include free input and pre-defined templates
+
+  X Initial Nextjs app
+  X Add Cognito backend
+  X Add Amplify Auth
+  X Add shadcn
+  X Add shadcn blocks - https://nsui.irung.me/
+  X Add public landing page
+  X Add sidebar
+  X Build form for user story
+  X Build form to display validations and generated tasks
+
+  - Add AppSync API to lambdas with cognito auth
+  - Hookup POST to lamda
+
 - Create test scripts to test prompts with predefined user stories
   - Add user more real story examples to tests
   - Refine AI prompts
-- Add frontend to test prompts - include free input and pre-defined templates
-
-  - Initial Nextjs app
-  - Add Cognito backend
-  - Add Amplify Auth
-
 - Identify Azure authentication requirements
   - https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops
 - Observability
