@@ -9,7 +9,7 @@ import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
-import { ApiKey, Cors, LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { ApiKey, ApiKeySourceType, Cors, LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
@@ -291,6 +291,7 @@ export class TaskGenieStack extends Stack {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
       },
+      apiKeySourceType: ApiKeySourceType.HEADER,
     });
     const webhookIntegration = new LambdaIntegration(parseUserStory);
 
@@ -414,10 +415,9 @@ export class TaskGenieStack extends Stack {
      * ### Outputs
      */
 
-    // Outputs
-    // new cdk.CfnOutput(this, 'ParseUserStoryFunctionUrl', {
-    //   value: parseUserStoryFunctionUrl.url,
-    // });
+    new CfnOutput(this, 'CognitoUserPoolId', {
+      value: userPool.userPoolId,
+    });
 
     new CfnOutput(this, 'CognitoUserPoolClientId', {
       value: userPoolClient.userPoolClientId,
@@ -425,10 +425,6 @@ export class TaskGenieStack extends Stack {
 
     new CfnOutput(this, 'ApiGatewayUrl', {
       value: api.url,
-    });
-
-    new CfnOutput(this, 'StateMachineArn', {
-      value: stateMachine.stateMachineArn,
     });
   }
 }

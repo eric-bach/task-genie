@@ -25,6 +25,31 @@ const formSchema = z.object({
   }),
 });
 
+export async function callWebhookAPI() {
+  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/webhook`;
+  const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+      },
+      //body: JSON.stringify({ message: 'Hello from Next.js!' }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Response:', data);
+  } catch (error) {
+    console.error('Error calling webhook:', error);
+  }
+}
+
 export function UserStoryForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -42,10 +67,13 @@ export function UserStoryForm() {
 
     // Simulate API call to Azure DevOps
     try {
-      // In a real application, you would make an API call to Azure DevOps here
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
       console.log('Form values:', values);
+
+      // // In a real application, you would make an API call to Azure DevOps here
+      // await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      const result = await callWebhookAPI();
+      console.log('Result', result);
 
       toast.success('User Story Created', {
         description: `Successfully created user story: ${values.title}`,
