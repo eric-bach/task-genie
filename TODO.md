@@ -13,9 +13,14 @@ Task Genie - Architecture
   X Build form to display validations and generated tasks
   X Add API GW with API Key (x-api-key) authorizer
   X Update ADO Service Hooks to include x-api-key header
+  X Hookup NextJS client to POST to API GW with x-api-key header
 
-  - Hookup NextJS client to POST to API GW with x-api-key header
-    - Send the same payload as ADO Service Hook would
+  - How to get the result that the user story does not meet requirements?
+
+    - Display the validation error on the form
+
+  - Update backend to not create ADO tasks (from the UI) if the WorkItemId = 0?
+    - Display the generated tasks on the form
 
 - Create test scripts to test prompts with predefined user stories
   - Add user more real story examples to tests

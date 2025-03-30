@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 
 const formSchema = z.object({
   title: z.string().min(5, {
@@ -25,20 +26,36 @@ const formSchema = z.object({
   }),
 });
 
-export async function callWebhookAPI() {
+export async function callWebhookAPI(userId: string, title: string, description: string, acceptanceCriteria: string) {
   const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/webhook`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 
   try {
+    const body = {
+      resource: {
+        // TODO How to tell the backend to just generate tasks and not to create them in ADO
+        workItemId: 0,
+        revision: {
+          fields: {
+            'System.ChangedBy': userId,
+            'System.Title': title,
+            'System.Description': description,
+            'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
+          },
+        },
+      },
+    };
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
       },
-      //body: JSON.stringify({ message: 'Hello from Next.js!' }),
+      body: JSON.stringify(body),
     });
 
+    // TODO Handle response
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -52,6 +69,7 @@ export async function callWebhookAPI() {
 
 export function UserStoryForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuthenticator();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -68,11 +86,14 @@ export function UserStoryForm() {
     // Simulate API call to Azure DevOps
     try {
       console.log('Form values:', values);
+      const { title, description, acceptanceCriteria } = values;
 
       // // In a real application, you would make an API call to Azure DevOps here
       // await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      const result = await callWebhookAPI();
+      const userId = user.signInDetails?.loginId || '';
+
+      const result = await callWebhookAPI(userId, title, description, acceptanceCriteria);
       console.log('Result', result);
 
       toast.success('User Story Created', {
