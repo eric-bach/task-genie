@@ -12,8 +12,9 @@ Task Genie - Architecture
   X Build form for user story
   X Build form to display validations and generated tasks
 
-  - Add AppSync API to lambdas with cognito auth
-  - Hookup POST to lamda
+  - Add API GW with API Key (x-api-key) authorizer
+  - Hookup NextJS client to POST to API GW with x-api-key header
+  - Update ADO Service Hooks to include x-api-key header
 
 - Create test scripts to test prompts with predefined user stories
   - Add user more real story examples to tests

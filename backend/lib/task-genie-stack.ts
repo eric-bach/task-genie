@@ -1,26 +1,45 @@
-import * as cdk from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import * as lambda from 'aws-cdk-lib/aws-lambda';
+import { LayerVersion, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Choice, Condition, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
-import * as tasks from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import * as ssm from 'aws-cdk-lib/aws-ssm';
-import * as dotenv from 'dotenv';
+import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
+import { ApiKey, Cors, LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
+import * as dotenv from 'dotenv';
 
 dotenv.config();
 
 const APP_NAME = 'task-genie';
 
-export class TaskGenieStack extends cdk.Stack {
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+export class TaskGenieStack extends Stack {
+  /**
+   * Constructs a new instance of the TaskGenieStack.
+   *
+   * This stack sets up the infrastructure for the Task Genie application, including:
+   * - Cognito User Pool for user authentication and management.
+   * - VPC for networking.
+   * - Lambda functions for task evaluation, definition, creation, and commenting.
+   * - Step Functions for orchestrating task workflows.
+   * - API Gateway for handling Azure DevOps webhooks.
+   * - CloudWatch Dashboard for monitoring metrics.
+   *
+   * @param scope - The scope in which this stack is defined.
+   * @param id - The scoped ID of the stack.
+   * @param props - Stack properties.
+   */
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
-    // Cognito user pool
+    /*
+     * ### Amazon Cognito
+     */
+
     const userPool = new UserPool(this, 'TaskGenieUserPool', {
       userPoolName: 'task_genie_user_pool',
       selfSignUpEnabled: true,
@@ -38,10 +57,9 @@ export class TaskGenieStack extends cdk.Stack {
           mutable: true,
         },
       },
-      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // Cognito user pool domain
     new UserPoolDomain(this, 'TaskGenieUserPoolDomain', {
       userPool: userPool,
       cognitoDomain: {
@@ -49,13 +67,16 @@ export class TaskGenieStack extends cdk.Stack {
       },
     });
 
-    // Cognito user client
     const userPoolClient = new UserPoolClient(this, 'TaskGenieUserClient', {
       userPoolClientName: 'task_genie_user_client',
-      accessTokenValidity: cdk.Duration.hours(8),
-      idTokenValidity: cdk.Duration.hours(8),
+      accessTokenValidity: Duration.hours(8),
+      idTokenValidity: Duration.hours(8),
       userPool,
     });
+
+    /*
+     * ### AWS VPC
+     */
 
     const vpc = new Vpc(this, 'VPC', {
       cidr: '10.0.0.0/16',
@@ -71,26 +92,34 @@ export class TaskGenieStack extends cdk.Stack {
       restrictDefaultSecurityGroup: true,
     });
 
-    const azureDevOpsPat = new ssm.StringParameter(this, 'AzureDevOpsPAT', {
+    /*
+     * ### Tokens
+     */
+
+    const azureDevOpsPat = new StringParameter(this, 'AzureDevOpsPAT', {
       parameterName: `/${APP_NAME}/azure-devops-pat`,
       stringValue: process.env.AZURE_DEVOPS_PAT || '',
       description: 'Azure DevOps Personal Access Token',
     });
 
-    const powertoolsLayer = lambda.LayerVersion.fromLayerVersionArn(
+    /*
+     * ### AWS Lambda
+     */
+
+    const powertoolsLayer = LayerVersion.fromLayerVersionArn(
       this,
       'PowertoolsLayer',
-      `arn:aws:lambda:${cdk.Stack.of(this).region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:20`
+      `arn:aws:lambda:${Stack.of(this).region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:20`
     );
 
     const evaluateTasksFunction = new NodejsFunction(this, 'EvaluateTasks', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_22_X,
       functionName: `${APP_NAME}-evaluate-tasks`,
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/evaluateTasks/index.ts'),
       layers: [powertoolsLayer],
       memorySize: 768,
-      timeout: cdk.Duration.seconds(60),
+      timeout: Duration.seconds(60),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -114,13 +143,13 @@ export class TaskGenieStack extends cdk.Stack {
     );
 
     const defineTasksFunction = new NodejsFunction(this, 'DefineTasks', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_22_X,
       functionName: `${APP_NAME}-define-tasks`,
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/defineTasks/index.ts'),
       layers: [powertoolsLayer],
       memorySize: 768,
-      timeout: cdk.Duration.seconds(60),
+      timeout: Duration.seconds(60),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -138,13 +167,13 @@ export class TaskGenieStack extends cdk.Stack {
     );
 
     const createTasksFunction = new NodejsFunction(this, 'CreateTasks', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_22_X,
       functionName: `${APP_NAME}-create-tasks`,
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/createTasks/index.ts'),
       layers: [powertoolsLayer],
       memorySize: 512,
-      timeout: cdk.Duration.seconds(10),
+      timeout: Duration.seconds(10),
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
@@ -164,13 +193,13 @@ export class TaskGenieStack extends cdk.Stack {
     );
 
     const addCommentFunction = new NodejsFunction(this, 'AddComment', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_22_X,
       functionName: `${APP_NAME}-add-comment`,
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/addComment/index.ts'),
       layers: [powertoolsLayer],
       memorySize: 512,
-      timeout: cdk.Duration.seconds(10),
+      timeout: Duration.seconds(10),
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
@@ -183,29 +212,32 @@ export class TaskGenieStack extends cdk.Stack {
     });
     azureDevOpsPat.grantRead(addCommentFunction);
 
-    // Step Function tasks
-    const evaluateTasksTask = new tasks.LambdaInvoke(this, 'EvaluateTasksTask', {
+    /*
+     * ### AWS Step Functions
+     */
+
+    // Tasks
+    const evaluateTasksTask = new LambdaInvoke(this, 'EvaluateTasksTask', {
       lambdaFunction: evaluateTasksFunction,
       outputPath: '$.Payload',
     });
 
-    const defineTasksTask = new tasks.LambdaInvoke(this, 'DefineTasksTask', {
+    const defineTasksTask = new LambdaInvoke(this, 'DefineTasksTask', {
       lambdaFunction: defineTasksFunction,
       outputPath: '$.Payload',
     });
 
-    const createTasksTask = new tasks.LambdaInvoke(this, 'CreateTasksTask', {
+    const createTasksTask = new LambdaInvoke(this, 'CreateTasksTask', {
       lambdaFunction: createTasksFunction,
       outputPath: '$.Payload',
     });
 
-    const addCommentTask = new tasks.LambdaInvoke(this, 'AddCommentTask', {
+    const addCommentTask = new LambdaInvoke(this, 'AddCommentTask', {
       lambdaFunction: addCommentFunction,
       outputPath: '$.Payload',
     });
 
-    // Choice state to handle errors
-
+    // Choice state
     const choice = new Choice(this, 'User story is complete?')
       .when(Condition.numberEquals('$.statusCode', 400), addCommentTask)
       .otherwise(defineTasksTask.next(createTasksTask.next(addCommentTask)));
@@ -214,17 +246,21 @@ export class TaskGenieStack extends cdk.Stack {
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
       definition,
-      timeout: cdk.Duration.minutes(5),
+      timeout: Duration.minutes(5),
     });
 
+    /*
+     * ### AWS Lambda
+     */
+
     const parseUserStory = new NodejsFunction(this, 'ParseUserStory', {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: Runtime.NODEJS_20_X,
       functionName: `${APP_NAME}-parse-user-story`,
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/parseUserStory/index.ts'),
       layers: [powertoolsLayer],
       memorySize: 384,
-      timeout: cdk.Duration.seconds(10),
+      timeout: Duration.seconds(10),
       vpc,
       environment: {
         POWERTOOLS_LOGGER_LOG_EVENT: 'true',
@@ -237,14 +273,55 @@ export class TaskGenieStack extends cdk.Stack {
       },
     });
 
-    const parseUserStoryFunctionUrl = parseUserStory.addFunctionUrl({
-      authType: lambda.FunctionUrlAuthType.NONE,
-    });
+    // const parseUserStoryFunctionUrl = parseUserStory.addFunctionUrl({
+    //   authType: lambda.FunctionUrlAuthType.NONE,
+    // });
 
     // Grant the parseUserStory function permissions to start the Step Function execution
     stateMachine.grantStartExecution(parseUserStory);
 
-    // Create an interface VPC endpoint for CloudWatch Metrics
+    /*
+     * ### Amazon API Gateway
+     */
+
+    const api = new RestApi(this, 'WebhookApi', {
+      restApiName: 'AzureDevOpsWebhookAPI',
+      description: 'API Gateway to handle Azure DevOps Service Hooks.',
+      defaultCorsPreflightOptions: {
+        allowOrigins: Cors.ALL_ORIGINS,
+        allowMethods: Cors.ALL_METHODS,
+      },
+    });
+    const webhookIntegration = new LambdaIntegration(parseUserStory);
+
+    // Add method with API key authentication
+    const webhookResource = api.root.addResource('webhook');
+    webhookResource.addMethod('POST', webhookIntegration, {
+      apiKeyRequired: true, // Enable API Key Authentication
+    });
+
+    // Add API key
+    const apiKey = new ApiKey(this, 'WebhookApiKey', {
+      apiKeyName: 'WebhookApiKey',
+    });
+    const usagePlan = api.addUsagePlan('WebhookUsagePlan', {
+      name: 'WebhookUsagePlan',
+      throttle: {
+        rateLimit: 10,
+        burstLimit: 2,
+      },
+    });
+
+    usagePlan.addApiKey(apiKey);
+    usagePlan.addApiStage({
+      stage: api.deploymentStage,
+    });
+
+    /*
+     * ### Amazon VPC Endpoints
+     */
+
+    // Interface VPC endpoint for CloudWatch Metrics
     const cloudwatchEndpoint = vpc.addInterfaceEndpoint('CloudWatchEndpoint', {
       service: {
         name: `com.amazonaws.${this.region}.monitoring`,
@@ -256,7 +333,7 @@ export class TaskGenieStack extends cdk.Stack {
     });
     cloudwatchEndpoint.connections.allowFrom(evaluateTasksFunction, Port.tcp(443));
 
-    // Create an interface VPC endpoint for Bedrock
+    // Interface VPC endpoint for Bedrock
     const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
       service: {
         name: `com.amazonaws.${this.region}.bedrock-runtime`,
@@ -269,7 +346,7 @@ export class TaskGenieStack extends cdk.Stack {
     bedrockEndpoint.connections.allowFrom(evaluateTasksFunction, Port.tcp(443));
     bedrockEndpoint.connections.allowFrom(defineTasksFunction, Port.tcp(443));
 
-    // Create an interface VPC endpoint for Step Functions
+    // Interface VPC endpoint for Step Functions
     const stepFunctionsEndpoint = vpc.addInterfaceEndpoint('StepFunctionsEndpoint', {
       service: {
         name: `com.amazonaws.${this.region}.states`,
@@ -280,6 +357,10 @@ export class TaskGenieStack extends cdk.Stack {
       },
     });
     stepFunctionsEndpoint.connections.allowFrom(parseUserStory, Port.tcp(443));
+
+    /*
+     * ### Amazon CloudWatch
+     */
 
     // Dashboard
     const dashboard = new Dashboard(this, 'MyDashboard', {
@@ -329,12 +410,24 @@ export class TaskGenieStack extends cdk.Stack {
 
     dashboard.addWidgets(tasksGeneratedWidget, userStoriesUpdatedWidget, incompleteUserStoriesWidget);
 
+    /*
+     * ### Outputs
+     */
+
     // Outputs
-    new cdk.CfnOutput(this, 'ParseUserStoryFunctionUrl', {
-      value: parseUserStoryFunctionUrl.url,
+    // new cdk.CfnOutput(this, 'ParseUserStoryFunctionUrl', {
+    //   value: parseUserStoryFunctionUrl.url,
+    // });
+
+    new CfnOutput(this, 'CognitoUserPoolClientId', {
+      value: userPoolClient.userPoolClientId,
     });
 
-    new cdk.CfnOutput(this, 'StateMachineArn', {
+    new CfnOutput(this, 'ApiGatewayUrl', {
+      value: api.url,
+    });
+
+    new CfnOutput(this, 'StateMachineArn', {
       value: stateMachine.stateMachineArn,
     });
   }
