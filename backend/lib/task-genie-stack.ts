@@ -2,14 +2,23 @@ import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-l
 import { Construct } from 'constructs';
 import { LayerVersion, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Choice, Condition, StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
+import { Choice, Condition, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
-import { ApiKey, ApiKeySourceType, Cors, LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import {
+  ApiKey,
+  ApiKeySourceType,
+  AwsIntegration,
+  Cors,
+  LambdaIntegration,
+  RestApi,
+  StepFunctionsIntegration,
+  StepFunctionsRestApi,
+} from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 
@@ -246,6 +255,7 @@ export class TaskGenieStack extends Stack {
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
       definition,
+      stateMachineType: StateMachineType.EXPRESS,
       timeout: Duration.minutes(5),
     });
 
@@ -286,7 +296,7 @@ export class TaskGenieStack extends Stack {
 
     const api = new RestApi(this, 'WebhookApi', {
       restApiName: 'AzureDevOpsWebhookAPI',
-      description: 'API Gateway to handle Azure DevOps Service Hooks.',
+      description: 'API Gateway to handle Azure DevOps Service Hooks',
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
@@ -294,6 +304,58 @@ export class TaskGenieStack extends Stack {
       apiKeySourceType: ApiKeySourceType.HEADER,
     });
     const webhookIntegration = new LambdaIntegration(parseUserStory);
+
+    const stepFunctionsApi = new StepFunctionsRestApi(this, 'StepFunctionsApi', {
+      restApiName: 'TaskGenieAPI',
+      description: 'API Gateway to handle Task Genie UI',
+      stateMachine: stateMachine,
+      defaultCorsPreflightOptions: {
+        allowOrigins: Cors.ALL_ORIGINS,
+        allowMethods: Cors.ALL_METHODS,
+      },
+      apiKeySourceType: ApiKeySourceType.HEADER,
+    });
+    // Add a POST method to invoke the state machine
+    const stepFunctionsIntegration = new AwsIntegration({
+      service: 'states',
+      action: 'StartSyncExecution', // Synchronous execution of Step Functions
+      integrationHttpMethod: 'POST',
+      options: {
+        credentialsRole: new Role(this, 'ApiGatewayRole', {
+          assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
+          inlinePolicies: {
+            StepFunctionsInvokePolicy: new PolicyDocument({
+              statements: [
+                new PolicyStatement({
+                  actions: ['states:StartSyncExecution'],
+                  resources: [stateMachine.stateMachineArn],
+                }),
+              ],
+            }),
+          },
+        }),
+        timeout: Duration.minutes(5),
+        requestTemplates: {
+          'application/json': `{
+              "input": "$util.escapeJavaScript($input.body)",
+              "stateMachineArn": "${stateMachine.stateMachineArn}"
+            }`,
+        },
+        integrationResponses: [
+          {
+            statusCode: '200',
+            responseTemplates: {
+              'application/json': "$input.path('$.output')",
+            },
+          },
+        ],
+      },
+    });
+    const stepFunctionsResource = stepFunctionsApi.root.addResource('ui');
+    stepFunctionsResource.addMethod('POST', stepFunctionsIntegration, {
+      methodResponses: [{ statusCode: '200' }],
+      apiKeyRequired: true,
+    });
 
     // Add method with API key authentication
     const webhookResource = api.root.addResource('webhook');
@@ -425,6 +487,10 @@ export class TaskGenieStack extends Stack {
 
     new CfnOutput(this, 'ApiGatewayUrl', {
       value: api.url,
+    });
+
+    new CfnOutput(this, 'StepFunctionsApiGatewayUrl', {
+      value: stepFunctionsApi.url,
     });
   }
 }

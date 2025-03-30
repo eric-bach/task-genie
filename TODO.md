@@ -15,12 +15,16 @@ Task Genie - Architecture
   X Update ADO Service Hooks to include x-api-key header
   X Hookup NextJS client to POST to API GW with x-api-key header
 
-  - How to get the result that the user story does not meet requirements?
-
-    - Display the validation error on the form
-
   - Update backend to not create ADO tasks (from the UI) if the WorkItemId = 0?
+    X Create synchronous express step functions
+    X Create a webhook API or infinite timeout API GW for the step function (UI bypasses parseUserStory)
+    X Update UI POST to call new API
+    - Test the API call works from the UI
     - Display the generated tasks on the form
+  - How to get the result that the user story does not meet requirements?
+    - Return in the step function the response
+    - Display the validation error on the form
+  - Update the existing API endpoint to IP whitelist Azure DevOps IPs
 
 - Create test scripts to test prompts with predefined user stories
   - Add user more real story examples to tests

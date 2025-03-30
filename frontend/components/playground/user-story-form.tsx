@@ -46,13 +46,22 @@ export async function callWebhookAPI(userId: string, title: string, description:
       },
     };
 
+    const event = {
+      workItemId: 0,
+      title,
+      description,
+      acceptanceCriteria,
+      changeBy: userId,
+    };
+
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
       },
-      body: JSON.stringify(body),
+      //body: JSON.stringify(body),
+      body: JSON.stringify(event),
     });
 
     // TODO Handle response
