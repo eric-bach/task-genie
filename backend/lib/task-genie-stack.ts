@@ -2,11 +2,11 @@ import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-l
 import { Construct } from 'constructs';
 import { LayerVersion, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
-import { Choice, Condition, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
+import { Choice, Condition, LogLevel, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { IpAddresses, Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import {
@@ -23,6 +23,7 @@ import {
 } from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 
 dotenv.config();
 
@@ -90,7 +91,7 @@ export class TaskGenieStack extends Stack {
      */
 
     const vpc = new Vpc(this, 'VPC', {
-      cidr: '10.0.0.0/16',
+      ipAddresses: IpAddresses.cidr('10.0.0.0/16'),
       natGateways: 0,
       maxAzs: 1,
       subnetConfiguration: [
@@ -259,6 +260,15 @@ export class TaskGenieStack extends Stack {
       definition,
       stateMachineType: StateMachineType.EXPRESS,
       timeout: Duration.minutes(5),
+      tracingEnabled: true,
+      logs: {
+        destination: new LogGroup(this, 'StateMachineLogGroup', {
+          retention: RetentionDays.ONE_WEEK,
+          removalPolicy: RemovalPolicy.DESTROY,
+        }),
+        level: LogLevel.ALL,
+        includeExecutionData: true,
+      },
     });
 
     /*
