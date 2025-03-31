@@ -27,7 +27,7 @@ const formSchema = z.object({
 });
 
 export async function callWebhookAPI(userId: string, title: string, description: string, acceptanceCriteria: string) {
-  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/webhook`;
+  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/test`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 
   try {
@@ -151,7 +151,11 @@ export function UserStoryForm() {
                   <FormItem className='flex-grow'>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea placeholder='Provide a detailed description of the user story...' className='min-h-[120px]' {...field} />
+                      <Textarea
+                        placeholder='Provide a detailed description of the user story...'
+                        className='min-h-[120px]'
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -167,7 +171,9 @@ export function UserStoryForm() {
                     <FormControl>
                       <Textarea placeholder='List the acceptance criteria...' className='min-h-[180px]' {...field} />
                     </FormControl>
-                    <FormDescription>Define what conditions must be met for this story to be considered complete.</FormDescription>
+                    <FormDescription>
+                      Define what conditions must be met for this story to be considered complete.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

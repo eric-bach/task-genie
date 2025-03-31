@@ -19,6 +19,8 @@ Task Genie - Architecture
     X Create synchronous express step functions
     X Create a webhook API or infinite timeout API GW for the step function (UI bypasses parseUserStory)
     X Update UI POST to call new API
+    - Update step function to allow calling directly from UI and custom prompts
+    - Add form to customize AI prompt in UI
     - Test the API call works from the UI
     - Display the generated tasks on the form
   - How to get the result that the user story does not meet requirements?

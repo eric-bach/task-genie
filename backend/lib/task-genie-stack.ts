@@ -284,11 +284,6 @@ export class TaskGenieStack extends Stack {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
     });
-
-    // const parseUserStoryFunctionUrl = parseUserStory.addFunctionUrl({
-    //   authType: lambda.FunctionUrlAuthType.NONE,
-    // });
-
     // Grant the parseUserStory function permissions to start the Step Function execution
     stateMachine.grantStartExecution(parseUserStory);
 
@@ -311,67 +306,14 @@ export class TaskGenieStack extends Stack {
     const lambdaWebhookIntegration = new LambdaIntegration(parseUserStory);
     const stepFunctionsIntegration = StepFunctionsIntegration.startExecution(stateMachine);
 
-    // const stepFunctionsApi = new StepFunctionsRestApi(this, 'StepFunctionsApi', {
-    //   restApiName: 'TaskGenieAPI',
-    //   description: 'API Gateway to handle Task Genie UI',
-    //   stateMachine: stateMachine,
-    //   endpointTypes: [EndpointType.REGIONAL],
-    //   defaultCorsPreflightOptions: {
-    //     allowOrigins: Cors.ALL_ORIGINS,
-    //     allowMethods: Cors.ALL_METHODS,
-    //   },
-    //   apiKeySourceType: ApiKeySourceType.HEADER,
-    // });
-    // Add a POST method to invoke the state machine
-    // const stepFunctionsIntegration = new AwsIntegration({
-    //   service: 'states',
-    //   action: 'StartSyncExecution', // Synchronous execution of Step Functions
-    //   integrationHttpMethod: 'POST',
-    //   options: {
-    //     credentialsRole: new Role(this, 'ApiGatewayRole', {
-    //       assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
-    //       inlinePolicies: {
-    //         StepFunctionsInvokePolicy: new PolicyDocument({
-    //           statements: [
-    //             new PolicyStatement({
-    //               actions: ['states:StartSyncExecution'],
-    //               resources: [stateMachine.stateMachineArn],
-    //             }),
-    //           ],
-    //         }),
-    //       },
-    //     }),
-    //     // timeout: Duration.minutes(5),
-    //     requestTemplates: {
-    //       'application/json': `{
-    //           "input": "$util.escapeJavaScript($input.body)",
-    //           "stateMachineArn": "${stateMachine.stateMachineArn}"
-    //         }`,
-    //     },
-    //     integrationResponses: [
-    //       {
-    //         statusCode: '200',
-    //         responseTemplates: {
-    //           'application/json': "$input.path('$.output')",
-    //         },
-    //       },
-    //     ],
-    //   },
-    // });
-
     // Resources and Methods
     const stepFunctionsResource = api.root.addResource('test');
-    // stepFunctionsResource.addMethod('POST', stepFunctionsIntegration, {
-    //   methodResponses: [{ statusCode: '200' }],
-    //   apiKeyRequired: true,
-    // });
     stepFunctionsResource.addMethod('POST', stepFunctionsIntegration, {
       apiKeyRequired: true,
     });
 
-    // Add method with API key authentication
-    const webhookResource = api.root.addResource('create');
-    webhookResource.addMethod('POST', lambdaWebhookIntegration, {
+    const lambdaResource = api.root.addResource('create');
+    lambdaResource.addMethod('POST', lambdaWebhookIntegration, {
       apiKeyRequired: true,
     });
 
@@ -499,10 +441,6 @@ export class TaskGenieStack extends Stack {
 
     new CfnOutput(this, 'ApiGatewayUrl', {
       value: api.url,
-    });
-
-    new CfnOutput(this, 'StepFunctionsApiGatewayUrl', {
-      value: stepFunctionsApi.url,
     });
   }
 }
