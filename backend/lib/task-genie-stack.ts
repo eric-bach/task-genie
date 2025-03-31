@@ -12,18 +12,15 @@ import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-c
 import {
   ApiKey,
   ApiKeySourceType,
-  AuthorizationType,
-  AwsIntegration,
   Cors,
   EndpointType,
   LambdaIntegration,
   RestApi,
   StepFunctionsIntegration,
-  StepFunctionsRestApi,
 } from 'aws-cdk-lib/aws-apigateway';
+import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 
 dotenv.config();
 
