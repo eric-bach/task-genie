@@ -20,6 +20,10 @@ Task Genie - Architecture
     X Create a webhook API or infinite timeout API GW for the step function (UI bypasses parseUserStory)
     X Update UI POST to call new API
     - Update step function to allow calling directly from UI and custom prompts
+      X Merge parseUserStory and evaluateUserStory
+      X Remove step functions VPC endpoint
+      - Update step function state transitions
+      - Build out finalizeResponse to return response
     - Add form to customize AI prompt in UI
     - Test the API call works from the UI
     - Display the generated tasks on the form

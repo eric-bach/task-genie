@@ -121,11 +121,11 @@ export class TaskGenieStack extends Stack {
       `arn:aws:lambda:${Stack.of(this).region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:20`
     );
 
-    const evaluateTasksFunction = new NodejsFunction(this, 'EvaluateTasks', {
+    const evaluateUserStoryFunction = new NodejsFunction(this, 'EvaluateUserStory', {
       runtime: Runtime.NODEJS_22_X,
-      functionName: `${APP_NAME}-evaluate-tasks`,
+      functionName: `${APP_NAME}-evaluate-user-story`,
       handler: 'handler',
-      entry: path.resolve(__dirname, '../src/lambda/evaluateTasks/index.ts'),
+      entry: path.resolve(__dirname, '../src/lambda/EvaluateUserStory/index.ts'),
       layers: [powertoolsLayer],
       memorySize: 768,
       timeout: Duration.seconds(60),
@@ -138,13 +138,13 @@ export class TaskGenieStack extends Stack {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
     });
-    evaluateTasksFunction.addToRolePolicy(
+    evaluateUserStoryFunction.addToRolePolicy(
       new PolicyStatement({
         actions: ['cloudwatch:PutMetricData'],
         resources: ['*'],
       })
     );
-    evaluateTasksFunction.addToRolePolicy(
+    evaluateUserStoryFunction.addToRolePolicy(
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
         resources: [`arn:aws:bedrock:${this.region}::foundation-model/${process.env.AWS_BEDROCK_MODEL_ID}`],
@@ -221,13 +221,30 @@ export class TaskGenieStack extends Stack {
     });
     azureDevOpsPat.grantRead(addCommentFunction);
 
+    const sendResponseFunction = new NodejsFunction(this, 'SendResponse', {
+      runtime: Runtime.NODEJS_22_X,
+      functionName: `${APP_NAME}-send-response`,
+      handler: 'handler',
+      entry: path.resolve(__dirname, '../src/lambda/sendResponse/index.ts'),
+      layers: [powertoolsLayer],
+      memorySize: 512,
+      timeout: Duration.seconds(10),
+      environment: {
+        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      bundling: {
+        externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
+      },
+    });
+
     /*
      * ### AWS Step Functions
      */
 
     // Tasks
-    const evaluateTasksTask = new LambdaInvoke(this, 'EvaluateTasksTask', {
-      lambdaFunction: evaluateTasksFunction,
+    const evaluateUserStoryTask = new LambdaInvoke(this, 'EvaluateUserStoryTask', {
+      lambdaFunction: evaluateUserStoryFunction,
       outputPath: '$.Payload',
     });
 
@@ -250,7 +267,7 @@ export class TaskGenieStack extends Stack {
     const choice = new Choice(this, 'User story is complete?')
       .when(Condition.numberEquals('$.statusCode', 400), addCommentTask)
       .otherwise(defineTasksTask.next(createTasksTask.next(addCommentTask)));
-    const definition = evaluateTasksTask.next(choice);
+    const definition = evaluateUserStoryTask.next(choice);
 
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
@@ -269,32 +286,6 @@ export class TaskGenieStack extends Stack {
     });
 
     /*
-     * ### AWS Lambda
-     */
-
-    const parseUserStory = new NodejsFunction(this, 'ParseUserStory', {
-      runtime: Runtime.NODEJS_20_X,
-      functionName: `${APP_NAME}-parse-user-story`,
-      handler: 'handler',
-      entry: path.resolve(__dirname, '../src/lambda/parseUserStory/index.ts'),
-      layers: [powertoolsLayer],
-      memorySize: 384,
-      timeout: Duration.seconds(10),
-      vpc,
-      environment: {
-        POWERTOOLS_LOGGER_LOG_EVENT: 'true',
-        STATE_MACHINE_ARN: stateMachine.stateMachineArn,
-        AWS_VPC_ID: vpc.vpcId,
-        POWERTOOLS_LOG_LEVEL: 'DEBUG',
-      },
-      bundling: {
-        externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
-      },
-    });
-    // Grant the parseUserStory function permissions to start the Step Function execution
-    stateMachine.grantStartExecution(parseUserStory);
-
-    /*
      * ### Amazon API Gateway
      */
 
@@ -310,7 +301,7 @@ export class TaskGenieStack extends Stack {
     });
 
     // Integrations
-    const lambdaWebhookIntegration = new LambdaIntegration(parseUserStory);
+    const lambdaWebhookIntegration = new LambdaIntegration(evaluateUserStoryFunction);
     const stepFunctionsIntegration = StepFunctionsIntegration.startExecution(stateMachine);
 
     // Resources and Methods
@@ -355,7 +346,7 @@ export class TaskGenieStack extends Stack {
         subnetType: SubnetType.PRIVATE_ISOLATED,
       },
     });
-    cloudwatchEndpoint.connections.allowFrom(evaluateTasksFunction, Port.tcp(443));
+    cloudwatchEndpoint.connections.allowFrom(evaluateUserStoryFunction, Port.tcp(443));
 
     // Interface VPC endpoint for Bedrock
     const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
@@ -367,20 +358,8 @@ export class TaskGenieStack extends Stack {
         subnetType: SubnetType.PRIVATE_ISOLATED,
       },
     });
-    bedrockEndpoint.connections.allowFrom(evaluateTasksFunction, Port.tcp(443));
+    bedrockEndpoint.connections.allowFrom(evaluateUserStoryFunction, Port.tcp(443));
     bedrockEndpoint.connections.allowFrom(defineTasksFunction, Port.tcp(443));
-
-    // Interface VPC endpoint for Step Functions
-    const stepFunctionsEndpoint = vpc.addInterfaceEndpoint('StepFunctionsEndpoint', {
-      service: {
-        name: `com.amazonaws.${this.region}.states`,
-        port: 443,
-      },
-      subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
-      },
-    });
-    stepFunctionsEndpoint.connections.allowFrom(parseUserStory, Port.tcp(443));
 
     /*
      * ### Amazon CloudWatch
