@@ -2,23 +2,7 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-
-export interface WorkItem {
-  workItemId: number;
-  changedBy: string;
-  title: string;
-  description: string;
-  acceptanceCriteria: string;
-}
-
-export interface Task {
-  title: string;
-  description: string;
-}
-
-export interface Comment {
-  text: string;
-}
+import { WorkItem, Task, Comment } from '../../shared/types';
 
 const logger = new Logger({ serviceName: 'sendResponse' });
 
@@ -32,6 +16,8 @@ const lambdaHandler = async (event: any, context: Context) => {
     // Parse work item
     const { workItem, tasks, comment } = parseWorkItemAndTasksAndCommentAndError(body);
 
+    logger.info('✅ Final response is valid');
+
     return {
       statusCode: event.statusCode,
       body: {
@@ -43,7 +29,7 @@ const lambdaHandler = async (event: any, context: Context) => {
       },
     };
   } catch (error: any) {
-    logger.error('An unexpected error occurred', { error: error });
+    logger.error('💣 An unexpected error occurred', { error: error });
 
     return {
       statusCode: 500,

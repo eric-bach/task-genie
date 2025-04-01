@@ -3,23 +3,7 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { addComment } from './helpers/azureDevOps';
-
-export interface WorkItem {
-  workItemId: number;
-  changedBy: string;
-  title: string;
-  description: string;
-  acceptanceCriteria: string;
-}
-
-export interface Task {
-  title: string;
-  description: string;
-}
-
-export interface Comment {
-  text: string;
-}
+import { WorkItem, Task, Comment } from '../../shared/types';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
 if (GITHUB_ORGANIZATION === undefined) {
@@ -42,7 +26,9 @@ const lambdaHandler = async (event: any, context: Context) => {
     const { workItem, tasks, comment } = parseWorkItemAndTasksAndComment(body);
 
     // Add comment
-    const result = await addComment(workItem, comment);
+    await addComment(workItem, comment);
+
+    logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
 
     return {
       statusCode: 200,
@@ -53,7 +39,7 @@ const lambdaHandler = async (event: any, context: Context) => {
       },
     };
   } catch (error: any) {
-    logger.error('An unexpected error occurred', { error: error });
+    logger.error('💣 An unexpected error occurred', { error: error });
 
     return {
       statusCode: 500,

@@ -10,23 +10,7 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { createIncompleteUserStoriesMetric } from './helpers/cloudwatch';
-
-interface WorkItem {
-  workItemId: number;
-  changedBy: string;
-  title: string;
-  description: string;
-  acceptanceCriteria: string;
-}
-
-export interface Comment {
-  text: string;
-}
-
-interface BedrockResponse {
-  pass: boolean;
-  comment: string;
-}
+import { WorkItem, Comment, BedrockResponse } from '../../shared/types';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
@@ -61,8 +45,8 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
     const result = await evaluateBedrock(workItem);
 
     if (result.pass !== true) {
-      const comment = { text: result.comment };
-      logger.error(`Work item ${workItem.workItemId} does not meet requirements`, { comment: comment });
+      const comment: Comment = { text: result.comment };
+      logger.error(`❌ Work item ${workItem.workItemId} does not meet requirements`, { comment: comment });
 
       // Create CloudWatch metric
       await createIncompleteUserStoriesMetric();
@@ -76,14 +60,14 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
       };
     }
 
-    logger.info(`Work item ${workItem.workItemId} meets requirements`, { work_item_id: workItem.workItemId });
+    logger.info(`✅ Work item ${workItem.workItemId} meets requirements`, { work_item_id: workItem.workItemId });
 
     return {
       statusCode: 200,
       body: { workItem },
     };
   } catch (error: any) {
-    logger.error('Error processing work item', { error: error });
+    logger.error('💣 Error processing work item', { error: error });
 
     return {
       statusCode: 500,

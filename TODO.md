@@ -27,15 +27,13 @@ Task Genie - Architecture
       X Test why some tasks are not always linked
       X Test API for different use cases
       X Add a isValid (true/false) and modified (true/false) in the response
-      - Move interface types to common type file
+      X Move interface types to common type file
+      X Add emoji to logs to make it easier to identify errors
       - Allow prompt as an input parameter
-      - Add emoji to logs to make it easier to identify errors
     - Add form to customize AI prompt in UI
     - Test the API call works from the UI
     - Display the generated tasks on the form
-  - How to get the result that the user story does not meet requirements?
-    - Return in the step function the response
-    - Display the validation error on the form
+  - Optimize lambda compute settings
   - Update the existing API endpoint to IP whitelist Azure DevOps IPs
 
 - Create test scripts to test prompts with predefined user stories

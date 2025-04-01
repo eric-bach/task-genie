@@ -8,19 +8,7 @@ import {
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-
-interface WorkItem {
-  workItemId: number;
-  changedBy: string;
-  title: string;
-  description: string;
-  acceptanceCriteria: string;
-}
-
-interface Task {
-  title: string;
-  description: string;
-}
+import { WorkItem, Task } from '../../shared/types';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
@@ -43,7 +31,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 
     // Invoke Bedrock
     const tasks = await evaluateBedrock(workItem);
-    logger.info(`Identified ${tasks.length} tasks`, { tasks: JSON.stringify(tasks) });
+    logger.info(`✅ Identified ${tasks.length} tasks`, { tasks: JSON.stringify(tasks) });
 
     return {
       statusCode: 200,
@@ -53,7 +41,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
       },
     };
   } catch (error: any) {
-    logger.error('An unexpected error occurred', { error: error });
+    logger.error('💣 An unexpected error occurred', { error: error });
 
     return {
       statusCode: 500,

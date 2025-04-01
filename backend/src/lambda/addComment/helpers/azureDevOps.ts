@@ -1,5 +1,6 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
-import { WorkItem, Comment, logger, GITHUB_ORGANIZATION, GITHUB_REPOSITORY } from '../index';
+import { logger, GITHUB_ORGANIZATION, GITHUB_REPOSITORY } from '../index';
+import { WorkItem, Comment } from '../../../shared/types';
 
 export const getParameter = async (name: string): Promise<string> => {
   const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
