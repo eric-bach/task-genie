@@ -23,6 +23,7 @@ Task Genie - Architecture
       X Merge parseUserStory and evaluateUserStory
       X Remove step functions VPC endpoint
       - Update step function state transitions
+      - Allow prompt as an input parameter
       - Build out finalizeResponse to return response
     - Add form to customize AI prompt in UI
     - Test the API call works from the UI

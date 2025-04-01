@@ -47,7 +47,7 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
       });
 
       return {
-        statusCode: 200, // Must return 200 to be able to test Azure DevOps Service Hooks in the console
+        statusCode: 400, // Returning 400 will prevent testing the Service Hook in the ADO console but required for the step function state transitions
         body: JSON.stringify({
           message: 'Work item is missing one or more required fields',
         }),

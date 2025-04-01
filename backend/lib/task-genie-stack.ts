@@ -263,11 +263,22 @@ export class TaskGenieStack extends Stack {
       outputPath: '$.Payload',
     });
 
+    const sendResponseTask = new LambdaInvoke(this, 'SendResponseTask', {
+      lambdaFunction: sendResponseFunction,
+      outputPath: '$.Payload',
+    });
+
     // Choice state
-    const choice = new Choice(this, 'User story is complete?')
-      .when(Condition.numberEquals('$.statusCode', 400), addCommentTask)
-      .otherwise(defineTasksTask.next(createTasksTask.next(addCommentTask)));
-    const definition = evaluateUserStoryTask.next(choice);
+    const addCommentChoice = new Choice(this, 'Add comment?')
+      .when(Condition.numberGreaterThan('$.body.workItemId', 0), addCommentTask.next(sendResponseTask))
+      .otherwise(sendResponseTask);
+    const createTaskChoice = new Choice(this, 'Create task?')
+      .when(Condition.numberGreaterThan('$.body.workItemId', 0), createTasksTask.next(addCommentTask))
+      .otherwise(sendResponseTask);
+    const userStoryCompleteChoice = new Choice(this, 'User story is complete?')
+      .when(Condition.numberEquals('$.statusCode', 400), addCommentChoice)
+      .otherwise(defineTasksTask.next(createTaskChoice));
+    const definition = evaluateUserStoryTask.next(userStoryCompleteChoice);
 
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
