@@ -22,9 +22,10 @@ Task Genie - Architecture
     - Update step function to allow calling directly from UI and custom prompts
       X Merge parseUserStory and evaluateUserStory
       X Remove step functions VPC endpoint
-      - Update step function state transitions
+      X Update step function state transitions
+      - Move interface types to common type file
+      - Build out finalizeResponse to accept input from Tasks and return API response
       - Allow prompt as an input parameter
-      - Build out finalizeResponse to return response
     - Add form to customize AI prompt in UI
     - Test the API call works from the UI
     - Display the generated tasks on the form

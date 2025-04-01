@@ -32,8 +32,14 @@ export async function callWebhookAPI(userId: string, title: string, description:
 
   try {
     const body = {
+      // TODO: Add prompt here
+      // prompt: {
+      //   evaluateUserStoryPrompt: // Prompt to evaluate user story
+      //   defineTaskPrompt:         // Prompt to define tasks
+      // inferenceConfig: { maxTokens: 512, temperature: 0.5, topP: 0.9 },
+      // },
       resource: {
-        // TODO How to tell the backend to just generate tasks and not to create them in ADO
+        // TODO: How to tell the backend to just generate tasks and not to create them in ADO
         workItemId: 0,
         revision: {
           fields: {
@@ -46,22 +52,13 @@ export async function callWebhookAPI(userId: string, title: string, description:
       },
     };
 
-    const event = {
-      workItemId: 0,
-      title,
-      description,
-      acceptanceCriteria,
-      changeBy: userId,
-    };
-
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
       },
-      //body: JSON.stringify(body),
-      body: JSON.stringify(event),
+      body: JSON.stringify(body),
     });
 
     // TODO Handle response
@@ -151,11 +148,7 @@ export function UserStoryForm() {
                   <FormItem className='flex-grow'>
                     <FormLabel>Description</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder='Provide a detailed description of the user story...'
-                        className='min-h-[120px]'
-                        {...field}
-                      />
+                      <Textarea placeholder='Provide a detailed description of the user story...' className='min-h-[120px]' {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -171,9 +164,7 @@ export function UserStoryForm() {
                     <FormControl>
                       <Textarea placeholder='List the acceptance criteria...' className='min-h-[180px]' {...field} />
                     </FormControl>
-                    <FormDescription>
-                      Define what conditions must be met for this story to be considered complete.
-                    </FormDescription>
+                    <FormDescription>Define what conditions must be met for this story to be considered complete.</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

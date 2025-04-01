@@ -1,12 +1,7 @@
-import {
-  CloudWatchClient,
-  MetricDatum,
-  PutMetricDataCommand,
-  PutMetricDataCommandInput,
-} from '@aws-sdk/client-cloudwatch';
-import { Logger } from '@aws-lambda-powertools/logger';
+import { MetricDatum, PutMetricDataCommand, PutMetricDataCommandInput, StandardUnit } from '@aws-sdk/client-cloudwatch';
+import { cloudWatchClient, logger } from '..';
 
-export async function createMetric(client: CloudWatchClient, logger: Logger, metric: MetricDatum) {
+async function createMetric(metric: MetricDatum) {
   const params: PutMetricDataCommandInput = {
     MetricData: [metric],
     Namespace: 'Azure DevOps',
@@ -15,9 +10,43 @@ export async function createMetric(client: CloudWatchClient, logger: Logger, met
   const command = new PutMetricDataCommand(params);
 
   try {
-    const response = await client.send(command);
+    const response = await cloudWatchClient.send(command);
     logger.info('Custom metric created', { response: JSON.stringify(response) });
   } catch (error) {
     logger.error('Error creating custom metric', { error: error });
   }
+}
+
+export async function createTaskGeneratedMetric(value: number) {
+  // Add TasksGenerated metric
+  const tasksGeneratedMetric = {
+    MetricName: 'TasksGenerated',
+    Dimensions: [
+      {
+        Name: 'Tasks',
+        Value: 'Tasks',
+      },
+    ],
+    Unit: StandardUnit.Count,
+    Value: value,
+  };
+
+  await createMetric(tasksGeneratedMetric);
+}
+
+export async function createUserStoriesUpdatedMetric() {
+  // Add UserStoriesUpdated metric
+  const userStoriesUpdatedMetric = {
+    MetricName: 'UserStoriesUpdated',
+    Dimensions: [
+      {
+        Name: 'User Story',
+        Value: 'User Stories',
+      },
+    ],
+    Unit: StandardUnit.Count,
+    Value: 1,
+  };
+
+  await createMetric(userStoriesUpdatedMetric);
 }
