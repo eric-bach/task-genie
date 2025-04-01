@@ -11,7 +11,7 @@ async function createMetric(metric: MetricDatum) {
 
   try {
     const response = await cloudWatchClient.send(command);
-    logger.info('Custom metric created', { response: JSON.stringify(response) });
+    logger.info(`${metric.MetricName} metric created`, { response: JSON.stringify(response) });
   } catch (error) {
     logger.error('Error creating custom metric', { error: error });
   }

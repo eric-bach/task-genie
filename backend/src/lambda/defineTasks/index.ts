@@ -1,5 +1,10 @@
 import { Context } from 'aws-lambda';
-import { BedrockRuntimeClient, ConversationRole, ConverseCommand, ConverseCommandInput } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockRuntimeClient,
+  ConversationRole,
+  ConverseCommand,
+  ConverseCommandInput,
+} from '@aws-sdk/client-bedrock-runtime';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
@@ -42,45 +47,39 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
+      body: {
         workItem,
         tasks,
-      }),
+      },
     };
   } catch (error: any) {
     logger.error('An unexpected error occurred', { error: error });
 
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        message: error.message,
-      }),
+      error: error.message,
     };
   }
 };
 
-const validateEventBody = (bodyString: string | undefined) => {
-  if (!bodyString) {
+const validateEventBody = (body: any) => {
+  if (!body || !body.workItem) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
   }
 
-  try {
-    return JSON.parse(bodyString);
-  } catch (error) {
-    throw new Error('Invalid event payload: unable to parse request body.');
-  }
+  return body;
 };
 
 const parseWorkItemFields = (body: any): WorkItem => {
   const workItem = {
-    workItemId: body.workItemId,
-    changedBy: body.changeBy,
-    title: body.title,
-    description: body.description,
-    acceptanceCriteria: body.acceptanceCriteria,
+    workItemId: body.workItem.workItemId,
+    changedBy: body.workItem.changeBy,
+    title: body.workItem.title,
+    description: body.workItem.description,
+    acceptanceCriteria: body.workItem.acceptanceCriteria,
   };
 
-  logger.info(`Received work item ${body.workItemId}`, {
+  logger.info(`Received work item ${workItem.workItemId}`, {
     workItem: workItem,
   });
 
@@ -122,7 +121,9 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<Task[]> => {
     logger.info('Bedrock model invoked', { response: response.output });
 
     // Get tasks
-    const text: string = response.output?.message?.content ? response.output?.message?.content[0].text || '{tasks:[{}]}' : '{tasks:[{}]}';
+    const text: string = response.output?.message?.content
+      ? response.output?.message?.content[0].text || '{tasks:[{}]}'
+      : '{tasks:[{}]}';
     const tasks: Task[] = JSON.parse(text).tasks;
 
     return tasks;

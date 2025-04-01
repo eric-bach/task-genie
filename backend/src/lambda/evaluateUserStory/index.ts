@@ -1,5 +1,10 @@
 import { APIGatewayProxyEventV2, Context } from 'aws-lambda';
-import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, ConversationRole } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockRuntimeClient,
+  ConverseCommand,
+  ConverseCommandInput,
+  ConversationRole,
+} from '@aws-sdk/client-bedrock-runtime';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
@@ -12,6 +17,10 @@ interface WorkItem {
   title: string;
   description: string;
   acceptanceCriteria: string;
+}
+
+export interface Comment {
+  text: string;
 }
 
 interface BedrockResponse {
@@ -37,7 +46,12 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
     const body = validateEventBody(event.body);
 
     // Validate required fields in the work item
-    const requiredFields = ['System.ChangedBy', 'System.Title', 'System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria'];
+    const requiredFields = [
+      'System.ChangedBy',
+      'System.Title',
+      'System.Description',
+      'Microsoft.VSTS.Common.AcceptanceCriteria',
+    ];
     validateWorkItemFields(body.resource, requiredFields);
 
     // Parse and sanitize fields
@@ -47,17 +61,18 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
     const result = await evaluateBedrock(workItem);
 
     if (result.pass !== true) {
-      logger.error(`Work item ${workItem.workItemId} does not meet requirements`, { reason: result.comment });
+      const comment = { text: result.comment };
+      logger.error(`Work item ${workItem.workItemId} does not meet requirements`, { comment: comment });
 
       // Create CloudWatch metric
       await createIncompleteUserStoriesMetric();
 
       return {
         statusCode: 400,
-        body: JSON.stringify({
+        body: {
           workItem,
-          comment: result.comment,
-        }),
+          comment,
+        },
       };
     }
 
@@ -65,34 +80,36 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ workItem }),
+      body: { workItem },
     };
   } catch (error: any) {
     logger.error('Error processing work item', { error: error });
 
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        message: error.message,
-      }),
+      error: error.message,
     };
   }
 };
 
-const validateEventBody = (bodyString: string | undefined) => {
-  if (!bodyString) {
+const validateEventBody = (body: any) => {
+  if (!body) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
   }
 
-  try {
-    return JSON.parse(bodyString);
-  } catch (error) {
-    throw new Error('Invalid event payload: unable to parse request body.');
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch (error) {
+      throw new Error('Invalid JSON format in request body.');
+    }
   }
+
+  return body;
 };
 
 const validateWorkItemFields = (resource: any, requiredFields: string[]) => {
-  if (!resource || !resource.workItemId || !resource.revision || !resource.revision.fields) {
+  if (!resource || resource.workItemId < 0 || !resource.revision || !resource.revision.fields) {
     throw new Error('Work item resource or revision fields are missing.');
   }
 

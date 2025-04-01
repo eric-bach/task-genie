@@ -268,17 +268,33 @@ export class TaskGenieStack extends Stack {
       outputPath: '$.Payload',
     });
 
-    // Choice state
-    const addCommentChoice = new Choice(this, 'Add comment?')
-      .when(Condition.numberGreaterThan('$.body.workItemId', 0), addCommentTask.next(sendResponseTask))
-      .otherwise(sendResponseTask);
-    const createTaskChoice = new Choice(this, 'Create task?')
-      .when(Condition.numberGreaterThan('$.body.workItemId', 0), createTasksTask.next(addCommentTask))
-      .otherwise(sendResponseTask);
-    const userStoryCompleteChoice = new Choice(this, 'User story is complete?')
-      .when(Condition.numberEquals('$.statusCode', 400), addCommentChoice)
-      .otherwise(defineTasksTask.next(createTaskChoice));
-    const definition = evaluateUserStoryTask.next(userStoryCompleteChoice);
+    // State Machine Definition
+    const definition = evaluateUserStoryTask.next(
+      new Choice(this, 'User story is defined?')
+        .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
+        .otherwise(
+          new Choice(this, 'User story is complete?')
+            .when(
+              Condition.numberEquals('$.statusCode', 400),
+              new Choice(this, 'Add comment?')
+                .when(
+                  Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
+                  addCommentTask.next(sendResponseTask)
+                )
+                .otherwise(sendResponseTask)
+            )
+            .otherwise(
+              defineTasksTask.next(
+                new Choice(this, 'Create task?')
+                  .when(
+                    Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
+                    createTasksTask.next(addCommentTask)
+                  )
+                  .otherwise(sendResponseTask)
+              )
+            )
+        )
+    );
 
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
@@ -312,17 +328,11 @@ export class TaskGenieStack extends Stack {
     });
 
     // Integrations
-    const lambdaWebhookIntegration = new LambdaIntegration(evaluateUserStoryFunction);
     const stepFunctionsIntegration = StepFunctionsIntegration.startExecution(stateMachine);
 
     // Resources and Methods
-    const stepFunctionsResource = api.root.addResource('test');
+    const stepFunctionsResource = api.root.addResource('wish').addResource('grant');
     stepFunctionsResource.addMethod('POST', stepFunctionsIntegration, {
-      apiKeyRequired: true,
-    });
-
-    const lambdaResource = api.root.addResource('create');
-    lambdaResource.addMethod('POST', lambdaWebhookIntegration, {
       apiKeyRequired: true,
     });
 

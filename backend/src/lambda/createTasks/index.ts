@@ -15,6 +15,7 @@ interface WorkItem {
 }
 
 export interface Task {
+  taskId?: number;
   title: string;
   description: string;
 }
@@ -55,46 +56,41 @@ const lambdaHandler = async (event: any, context: Context) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({
+      body: {
         workItem,
+        tasks,
         comment,
-      }),
+      },
     };
   } catch (error: any) {
     logger.error('An unexpected error occurred', { error: error });
 
     return {
       statusCode: 500,
-      body: JSON.stringify({
-        message: error.message,
-      }),
+      error: error.message,
     };
   }
 };
 
-const validateEventBody = (bodyString: string | undefined) => {
-  if (!bodyString) {
+const validateEventBody = (body: any) => {
+  if (!body) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
   }
 
-  try {
-    return JSON.parse(bodyString);
-  } catch (error) {
-    throw new Error('Invalid event payload: unable to parse request body.');
-  }
+  return body;
 };
 
 const parseWorkItemAndTasks = (body: any): { workItem: WorkItem; tasks: Task[] } => {
   const workItem = {
-    workItemId: body.workItemId,
-    changedBy: body.changeBy,
-    title: body.title,
-    description: body.description,
-    acceptanceCriteria: body.acceptanceCriteria,
+    workItemId: body.workItem.workItemId,
+    changedBy: body.workItem.changeBy,
+    title: body.workItem.title,
+    description: body.workItem.description,
+    acceptanceCriteria: body.workItem.acceptanceCriteria,
   };
   const tasks = body.tasks;
 
-  logger.info(`Received work item ${body.workItemId} and ${body.tasks.length} tasks`, {
+  logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
     tasks,
   });

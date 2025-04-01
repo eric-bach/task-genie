@@ -23,14 +23,19 @@ export const createTasks = async (workItemId: number, tasks: Task[]) => {
 
   const headers = await getHeaders();
 
+  let taskId = 0;
+  let i = 0;
   for (const task of tasks) {
-    await createTask(headers, workItemId, task);
+    taskId = await createTask(headers, workItemId, task, ++i);
+
+    // Set task Id
+    task.taskId = taskId;
   }
 
   logger.info(`All ${tasks.length} tasks created`);
 };
 
-const createTask = async (header: HeadersInit, workItemId: number, task: Task) => {
+const createTask = async (header: HeadersInit, workItemId: number, task: Task, i: number): Promise<number> => {
   const taskFields = [
     {
       op: 'add',
@@ -54,7 +59,7 @@ const createTask = async (header: HeadersInit, workItemId: number, task: Task) =
   try {
     const url = `https://${GITHUB_ORGANIZATION}.visualstudio.com/${GITHUB_REPOSITORY}/_apis/wit/workitems/$task?api-version=7.1`;
 
-    logger.debug('Creating task', { task: task });
+    logger.debug(`Creating task (${i})`, { task: task });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -62,18 +67,21 @@ const createTask = async (header: HeadersInit, workItemId: number, task: Task) =
       body: body,
     });
 
-    logger.debug('Create task response', { response: JSON.stringify(response) });
+    // logger.debug('Create task response', { response: JSON.stringify(response) });
 
-    if (response.ok) {
-      const data = await response.json();
-      logger.info(`Created task Id ${data.id}`);
-
-      await linkTask(header, workItemId, data.id);
-    } else {
+    if (!response.ok) {
       throw new Error('Failed to create task');
     }
+
+    const data = await response.json();
+    logger.info(`Created task ${data.id}`);
+
+    await linkTask(header, workItemId, data.id);
+
+    return data.id;
   } catch (error) {
     logger.error('Error creating task', { error: error });
+    throw new Error('Error creating task');
   }
 };
 
@@ -103,11 +111,13 @@ const linkTask = async (headers: HeadersInit, workItemId: number, taskId: string
       body: body,
     });
 
-    logger.debug('Link task repsonse', { response: JSON.stringify(response) });
+    // logger.debug('Link task repsonse', { response: JSON.stringify(response) });
 
     if (response.ok) {
       const data = await response.json();
-      logger.info(`Linked task Id ${data.id}`);
+      logger.info(`Linked task ${data.id}`);
+
+      return;
     }
 
     throw new Error('Failed to link task');

@@ -23,9 +23,13 @@ Task Genie - Architecture
       X Merge parseUserStory and evaluateUserStory
       X Remove step functions VPC endpoint
       X Update step function state transitions
+      X Build out finalizeResponse to accept input from Tasks and return API response
+      X Test why some tasks are not always linked
+      X Test API for different use cases
+      X Add a isValid (true/false) and modified (true/false) in the response
       - Move interface types to common type file
-      - Build out finalizeResponse to accept input from Tasks and return API response
       - Allow prompt as an input parameter
+      - Add emoji to logs to make it easier to identify errors
     - Add form to customize AI prompt in UI
     - Test the API call works from the UI
     - Display the generated tasks on the form

@@ -23,7 +23,7 @@ export async function createIncompleteUserStoriesMetric() {
 
   try {
     const result = await cloudWatchClient.send(command);
-    logger.info('Custom metric created', { response: JSON.stringify(result) });
+    logger.info('IncompleteUserStories metric created', { response: JSON.stringify(result) });
   } catch (error) {
     logger.error('Error creating custom metric', { error: error });
   }
