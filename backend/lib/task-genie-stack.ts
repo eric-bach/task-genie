@@ -272,27 +272,19 @@ export class TaskGenieStack extends Stack {
     const definition = evaluateUserStoryTask.next(
       new Choice(this, 'User story is defined?')
         .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
+        .when(
+          Condition.numberEquals('$.statusCode', 400),
+          new Choice(this, 'Add comment?')
+            .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), addCommentTask.next(sendResponseTask))
+            .otherwise(sendResponseTask)
+        )
         .otherwise(
-          new Choice(this, 'User story is complete?')
-            .when(
-              Condition.numberEquals('$.statusCode', 400),
-              new Choice(this, 'Add comment?')
-                .when(
-                  Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-                  addCommentTask.next(sendResponseTask)
-                )
-                .otherwise(sendResponseTask)
-            )
-            .otherwise(
-              defineTasksTask.next(
-                new Choice(this, 'Create task?')
-                  .when(
-                    Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-                    createTasksTask.next(addCommentTask)
-                  )
-                  .otherwise(sendResponseTask)
-              )
-            )
+          defineTasksTask.next(
+            new Choice(this, 'Create task?')
+              .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
+              .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), createTasksTask.next(addCommentTask))
+              .otherwise(sendResponseTask)
+          )
         )
     );
 

@@ -10,7 +10,7 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { createIncompleteUserStoriesMetric } from './helpers/cloudwatch';
-import { WorkItem, Comment, BedrockResponse } from '../../shared/types';
+import { WorkItem, Comment, BedrockResponse, WorkItemRequest } from '../../shared/types';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
@@ -30,16 +30,10 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
     const body = validateEventBody(event.body);
 
     // Validate required fields in the work item
-    const requiredFields = [
-      'System.ChangedBy',
-      'System.Title',
-      'System.Description',
-      'Microsoft.VSTS.Common.AcceptanceCriteria',
-    ];
-    validateWorkItemFields(body.resource, requiredFields);
+    validateWorkItem(body.resource);
 
     // Parse and sanitize fields
-    const workItem = parseWorkItemFields(body);
+    const { workItem, params } = parseEventBody(body);
 
     // Invoke Bedrock
     const result = await evaluateBedrock(workItem);
@@ -64,7 +58,10 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
 
     return {
       statusCode: 200,
-      body: { workItem },
+      body: {
+        params,
+        workItem,
+      },
     };
   } catch (error: any) {
     logger.error('💣 Error processing work item', { error: error });
@@ -92,7 +89,14 @@ const validateEventBody = (body: any) => {
   return body;
 };
 
-const validateWorkItemFields = (resource: any, requiredFields: string[]) => {
+const validateWorkItem = (resource: any) => {
+  const requiredFields = [
+    'System.ChangedBy',
+    'System.Title',
+    'System.Description',
+    'Microsoft.VSTS.Common.AcceptanceCriteria',
+  ];
+
   if (!resource || resource.workItemId < 0 || !resource.revision || !resource.revision.fields) {
     throw new Error('Work item resource or revision fields are missing.');
   }
@@ -105,47 +109,51 @@ const validateWorkItemFields = (resource: any, requiredFields: string[]) => {
   }
 };
 
-const parseWorkItemFields = (body: any): WorkItem => {
-  const workItemId = body.resource.workItemId;
-  const changedBy = sanitizeField(body.resource.revision.fields['System.ChangedBy']);
-  const title = sanitizeField(body.resource.revision.fields['System.Title']);
-  const description = sanitizeField(body.resource.revision.fields['System.Description']);
-  const acceptanceCriteria = sanitizeField(body.resource.revision.fields['Microsoft.VSTS.Common.AcceptanceCriteria']);
+const parseEventBody = (body: any): WorkItemRequest => {
+  const { params, resource } = body;
+  const { workItemId, revision } = resource;
+  const fields = revision.fields;
 
-  logger.info('Received work item', {
-    work_item_id: workItemId,
-    work_item_changed_by: changedBy,
-    work_item_title: title,
-    work_item_description: description,
-    work_item_acceptance_criteria: acceptanceCriteria,
-  });
+  const workItem = {
+    workItemId,
+    changedBy: sanitizeField(fields['System.ChangedBy']),
+    title: sanitizeField(fields['System.Title']),
+    description: sanitizeField(fields['System.Description']),
+    acceptanceCriteria: sanitizeField(fields['Microsoft.VSTS.Common.AcceptanceCriteria']),
+  };
 
-  return { workItemId, changedBy, title, description, acceptanceCriteria };
+  logger.info('Received work item', { workItem });
+
+  return { params: params ?? {}, workItem };
 };
 
 const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => {
-  const userMessage = `You are a reviewer of Azure DevOps Work Items, designed to highlight when a work item is not clear enough for a developer to work on.
-  You will return a result in a JSON format where one attribute key is pass being either true or false. It is false if it does not meet the quality bar.
-  A second optional JSON attribute key will be called comment where you are providing guidance and provide an example of how the work item would meet the pass requirements.
-  Focus on whether a developer would understand without being pedantic.
-  Ensure there is a clear title, user story and acceptance criteria.
-  The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.
-  Only return JSON, no text. JSON should be a single line.`;
+  const prompt = `You are a reviewer of Azure DevOps Work Items, designed to highlight when a work item is not clear enough for a developer to work on.
+    You will return a result in a JSON format where one attribute key is pass being either true or false. It is false if it does not meet the quality bar.
+    A second optional JSON attribute key will be called comment where you are providing guidance and provide an example of how the work item would meet the pass requirements.
+    Focus on whether a developer would understand without being pedantic.
+    Ensure there is a clear title, user story and acceptance criteria.
+    The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.
+    Only return JSON, no text. JSON should be a single line.`;
 
   const conversation = [
     {
       role: ConversationRole.USER,
-      content: [{ text: userMessage }],
+      content: [{ text: prompt }],
     },
   ];
 
   const input: ConverseCommandInput = {
     modelId: AWS_BEDROCK_MODEL_ID,
     messages: conversation,
-    inferenceConfig: { maxTokens: 512, temperature: 0.5, topP: 0.9 },
+    inferenceConfig: {
+      maxTokens: 2048,
+      temperature: 0.5,
+      topP: 0.9,
+    },
   };
 
-  logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { messages: JSON.stringify(conversation) });
+  logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { input: JSON.stringify(input) });
 
   const command = new ConverseCommand(input);
 

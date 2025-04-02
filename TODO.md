@@ -30,10 +30,10 @@ Task Genie - Architecture
       X Move interface types to common type file
       X Add emoji to logs to make it easier to identify errors
       - Allow prompt as an input parameter
+      - Optimize lambda compute settings
     - Add form to customize AI prompt in UI
     - Test the API call works from the UI
     - Display the generated tasks on the form
-  - Optimize lambda compute settings
   - Update the existing API endpoint to IP whitelist Azure DevOps IPs
 
 - Create test scripts to test prompts with predefined user stories
