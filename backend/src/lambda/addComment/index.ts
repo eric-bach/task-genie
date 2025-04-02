@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { addComment } from './helpers/azureDevOps';
+import { addComment, addTag } from './helpers/azureDevOps';
 import { WorkItem, Task, Comment } from '../../shared/types';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
@@ -27,6 +27,9 @@ const lambdaHandler = async (event: any, context: Context) => {
 
     // Add comment
     await addComment(workItem, comment);
+
+    // Add tag
+    await addTag(workItem, 'Task Genie');
 
     logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
 
@@ -59,10 +62,12 @@ const validateEventBody = (body: any) => {
 const parseWorkItemAndTasksAndComment = (body: any): { workItem: WorkItem; tasks: Task[]; comment: Comment } => {
   const workItem = {
     workItemId: body.workItem.workItemId,
+    iterationPath: body.workItem.iterationPath,
     changedBy: body.workItem.changeBy,
     title: body.workItem.title,
     description: body.workItem.description,
     acceptanceCriteria: body.workItem.acceptanceCriteria,
+    tags: body.workItem.tags,
   };
   const tasks = body.tasks ?? [];
   const comment = body.comment;
@@ -76,4 +81,4 @@ const parseWorkItemAndTasksAndComment = (body: any): { workItem: WorkItem; tasks
   return { workItem, tasks, comment };
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

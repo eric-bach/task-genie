@@ -138,4 +138,4 @@ const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promi
   }
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

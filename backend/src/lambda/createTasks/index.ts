@@ -68,10 +68,12 @@ const validateEventBody = (body: any) => {
 const parseWorkItemAndTasks = (body: any): { workItem: WorkItem; tasks: Task[] } => {
   const workItem = {
     workItemId: body.workItem.workItemId,
+    iterationPath: body.workItem.iterationPath,
     changedBy: body.workItem.changeBy,
     title: body.workItem.title,
     description: body.workItem.description,
     acceptanceCriteria: body.workItem.acceptanceCriteria,
+    tags: body.workItem.tags,
   };
   const tasks = body.tasks;
 
@@ -83,4 +85,4 @@ const parseWorkItemAndTasks = (body: any): { workItem: WorkItem; tasks: Task[] }
   return { workItem, tasks };
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

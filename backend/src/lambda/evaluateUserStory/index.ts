@@ -35,6 +35,16 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
     // Parse and sanitize fields
     const { workItem, params } = parseEventBody(body);
 
+    // Check if work item has been updated already
+    if (workItem.tags.includes('Task Genie')) {
+      return {
+        statusCode: 204,
+        body: {
+          workItem,
+        },
+      };
+    }
+
     // Invoke Bedrock
     const result = await evaluateBedrock(workItem);
 
@@ -91,6 +101,7 @@ const validateEventBody = (body: any) => {
 
 const validateWorkItem = (resource: any) => {
   const requiredFields = [
+    'System.IterationPath',
     'System.ChangedBy',
     'System.Title',
     'System.Description',
@@ -114,12 +125,17 @@ const parseEventBody = (body: any): WorkItemRequest => {
   const { workItemId, revision } = resource;
   const fields = revision.fields;
 
+  const tagsString = sanitizeField(fields['System.Tags'] ?? '');
+  const tags = tagsString ? tagsString.split(';').map((tag: string) => tag.trim()) : [];
+
   const workItem = {
     workItemId,
     changedBy: sanitizeField(fields['System.ChangedBy']),
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(fields['System.Description']),
     acceptanceCriteria: sanitizeField(fields['Microsoft.VSTS.Common.AcceptanceCriteria']),
+    iterationPath: sanitizeField(fields['System.IterationPath']),
+    tags,
   };
 
   logger.info('Received work item', { workItem });
@@ -186,4 +202,4 @@ const sanitizeField = (fieldValue: any): string => {
   return fieldValue.replace(/<[^>]*>/g, '').trim();
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

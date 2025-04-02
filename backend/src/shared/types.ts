@@ -32,10 +32,12 @@ export interface BedrockConfig {
 
 export interface WorkItem {
   workItemId: number;
+  iterationPath: string;
   changedBy: string;
   title: string;
   description: string;
   acceptanceCriteria: string;
+  tags: string[];
 }
 
 export interface Task {

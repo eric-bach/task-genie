@@ -1,6 +1,6 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { LayerVersion, Runtime } from 'aws-cdk-lib/aws-lambda';
+import { Architecture, LayerVersion, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Choice, Condition, LogLevel, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
@@ -14,7 +14,6 @@ import {
   ApiKeySourceType,
   Cors,
   EndpointType,
-  LambdaIntegration,
   RestApi,
   StepFunctionsIntegration,
 } from 'aws-cdk-lib/aws-apigateway';
@@ -127,8 +126,9 @@ export class TaskGenieStack extends Stack {
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/EvaluateUserStory/index.ts'),
       layers: [powertoolsLayer],
-      memorySize: 768,
-      timeout: Duration.seconds(60),
+      architecture: Architecture.ARM_64,
+      memorySize: 1024,
+      timeout: Duration.seconds(10),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -157,8 +157,9 @@ export class TaskGenieStack extends Stack {
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/defineTasks/index.ts'),
       layers: [powertoolsLayer],
-      memorySize: 768,
-      timeout: Duration.seconds(60),
+      architecture: Architecture.X86_64,
+      memorySize: 1024,
+      timeout: Duration.seconds(30),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -181,7 +182,8 @@ export class TaskGenieStack extends Stack {
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/createTasks/index.ts'),
       layers: [powertoolsLayer],
-      memorySize: 512,
+      architecture: Architecture.X86_64,
+      memorySize: 1024,
       timeout: Duration.seconds(10),
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
@@ -207,7 +209,8 @@ export class TaskGenieStack extends Stack {
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/addComment/index.ts'),
       layers: [powertoolsLayer],
-      memorySize: 512,
+      architecture: Architecture.ARM_64,
+      memorySize: 1024,
       timeout: Duration.seconds(10),
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azureDevOpsPat.parameterName,
@@ -227,8 +230,9 @@ export class TaskGenieStack extends Stack {
       handler: 'handler',
       entry: path.resolve(__dirname, '../src/lambda/sendResponse/index.ts'),
       layers: [powertoolsLayer],
-      memorySize: 512,
-      timeout: Duration.seconds(10),
+      architecture: Architecture.ARM_64,
+      memorySize: 256,
+      timeout: Duration.seconds(3),
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
@@ -271,6 +275,7 @@ export class TaskGenieStack extends Stack {
     // State Machine Definition
     const definition = evaluateUserStoryTask.next(
       new Choice(this, 'User story is defined?')
+        .when(Condition.numberEquals('$.statusCode', 204), sendResponseTask)
         .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
         .when(
           Condition.numberEquals('$.statusCode', 400),

@@ -21,8 +21,8 @@ const lambdaHandler = async (event: any, context: Context) => {
     return {
       statusCode: event.statusCode,
       body: {
-        isValidWorkItem: event.statusCode === 200,
-        isModified: workItem.workItemId > 0,
+        isValidWorkItem: event.statusCode === 200 || event.statusCode === 204,
+        isModified: workItem.workItemId > 0 && event.statusCode !== 204,
         workItem,
         tasks,
         comment,
@@ -51,10 +51,12 @@ const parseWorkItemAndTasksAndCommentAndError = (
 ): { workItem: WorkItem; tasks: Task[]; comment: Comment } => {
   const workItem = {
     workItemId: body.workItem.workItemId,
+    iterationPath: body.workItem.iterationPath,
     changedBy: body.workItem.changeBy,
     title: body.workItem.title,
     description: body.workItem.description,
     acceptanceCriteria: body.workItem.acceptanceCriteria,
+    tags: body.workItem.tags,
   };
   const tasks = body.tasks ?? [];
   const comment = body.comment;
@@ -68,4 +70,4 @@ const parseWorkItemAndTasksAndCommentAndError = (
   return { workItem, tasks, comment };
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));
