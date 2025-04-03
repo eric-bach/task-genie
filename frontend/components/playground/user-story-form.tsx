@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { useAuthenticator } from '@aws-amplify/ui-react';
 
 const formSchema = z.object({
   title: z.string().min(5, {
@@ -27,32 +28,32 @@ const formSchema = z.object({
     message: 'Acceptance criteria must be at least 10 characters.',
   }),
   // AI settings
-  aiPrompt: z.string().min(5, {
-    message: 'AI prompt must be at least 5 characters.',
-  }),
-  maxTokens: z.number().min(256).max(4096),
-  temperature: z.number().min(0).max(1),
-  topP: z.number().min(0.1).max(1),
+  prompt: z.string().optional(),
+  maxTokens: z.number().min(256).max(4096).optional(),
+  temperature: z.number().min(0).max(1).optional(),
+  topP: z.number().min(0.1).max(1).optional(),
 });
 
-export async function callWebhookAPI(userId: string, title: string, description: string, acceptanceCriteria: string) {
-  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/test`;
+export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId: string) {
+  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 
   try {
+    const { title, description, acceptanceCriteria, prompt, maxTokens, temperature, topP } = values;
+
     const body = {
-      // TODO: Add prompt here
-      // prompt: {
-      //   evaluateUserStoryPrompt: // Prompt to evaluate user story
-      //   defineTaskPrompt:         // Prompt to define tasks
-      // inferenceConfig: { maxTokens: 512, temperature: 0.5, topP: 0.9 },
-      // },
+      params: {
+        prompt,
+        maxTokens,
+        temperature,
+        topP,
+      },
       resource: {
-        // TODO: How to tell the backend to just generate tasks and not to create them in ADO
         workItemId: 0,
         revision: {
           fields: {
             'System.ChangedBy': userId,
+            'System.IterationPath': 'test',
             'System.Title': title,
             'System.Description': description,
             'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
@@ -83,18 +84,23 @@ export async function callWebhookAPI(userId: string, title: string, description:
 }
 
 export function UserStoryForm() {
+  const { user } = useAuthenticator();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: '',
-      description: '',
-      acceptanceCriteria: '',
-      aiPrompt: 'Generate tasks for the user story with detailed descriptions and estimated hours.',
+      title:
+        'As a frequent traveler, I want to receive notifications about gate changes so that I can avoid missing my flight.',
+      description:
+        "Frequent travelers often face the challenge of keeping track of gate changes, which can occur unexpectedly and cause confusion and inconvenience. Missing a flight due to last-minute gate changes can be stressful and disruptive. By providing timely notifications about gate changes directly to travelers' mobile devices, we help ensure they are informed in real-time and can make their way to the new gate without delay.",
+      acceptanceCriteria:
+        'GIVEN a frequent traveler has a booked flight, WHEN a gate change occurs, THEN the traveler receives a notification with the updated gate information.',
+      prompt: undefined,
       maxTokens: 2048,
-      temperature: 0.7,
+      temperature: 0.5,
       topP: 0.9,
     },
   });
@@ -105,14 +111,13 @@ export function UserStoryForm() {
     // Simulate API call to Azure DevOps
     try {
       console.log('Form values:', values);
-      const { title, description, acceptanceCriteria } = values;
 
       // // In a real application, you would make an API call to Azure DevOps here
       // await new Promise((resolve) => setTimeout(resolve, 1500));
 
       const userId = user.signInDetails?.loginId || '';
 
-      const result = await callWebhookAPI(userId, title, description, acceptanceCriteria);
+      const result = await callWebhookAPI(values, userId);
       console.log('Result', result);
 
       toast.success('User Story Created', {
@@ -156,7 +161,7 @@ export function UserStoryForm() {
                           <div className='space-y-6'>
                             <FormField
                               control={form.control}
-                              name='aiPrompt'
+                              name='prompt'
                               render={({ field }) => (
                                 <FormItem className='space-y-2'>
                                   <div className='flex items-center justify-between'>

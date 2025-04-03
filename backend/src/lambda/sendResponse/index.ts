@@ -10,6 +10,8 @@ const lambdaHandler = async (event: any, context: Context) => {
   let body: any = {};
 
   try {
+    console.log('Error', event.error);
+
     // Validate event body
     body = validateEventBody(event.body);
 
@@ -27,13 +29,25 @@ const lambdaHandler = async (event: any, context: Context) => {
         tasks,
         comment,
       },
+      // headers: {
+      //   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent',
+      //   'Access-Control-Allow-Origin': '*',
+      //   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+      //   'Access-Control-Allow-Credentials': true,
+      // },
     };
   } catch (error: any) {
-    logger.error('💣 An unexpected error occurred', { error: error });
+    logger.error('💣 An unexpected error occurred', { error: error, reason: event.error });
 
     return {
       statusCode: 500,
-      error: event.error ?? error.message,
+      error: event.error, //?? error.message,
+      // headers: {
+      //   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent',
+      //   'Access-Control-Allow-Origin': '*',
+      //   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+      //   'Access-Control-Allow-Credentials': true,
+      // },
     };
   }
 };

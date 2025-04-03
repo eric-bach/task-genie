@@ -5,7 +5,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Choice, Condition, LogLevel, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Effect, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { IpAddresses, Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
@@ -14,8 +14,12 @@ import {
   ApiKeySourceType,
   Cors,
   EndpointType,
+  Integration,
+  IntegrationType,
+  PassthroughBehavior,
   RestApi,
   StepFunctionsIntegration,
+  StepFunctionsRestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
@@ -320,17 +324,128 @@ export class TaskGenieStack extends Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
+        allowHeaders: ['Content-Type', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token', 'X-Amz-User-Agent'],
+        allowCredentials: true,
       },
       apiKeySourceType: ApiKeySourceType.HEADER,
     });
 
-    // Integrations
-    const stepFunctionsIntegration = StepFunctionsIntegration.startExecution(stateMachine);
+    // Step Function Integration
+    const stepFunctionsIntegration = StepFunctionsIntegration.startExecution(stateMachine, {
+      integrationResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+            'method.response.header.Access-Control-Allow-Credentials': "'true'",
+          },
+          responseTemplates: {
+            'application/json': `
+              #set($parsedPayload = $util.parseJson($input.path('$.output')))
+              #if($parsedPayload.statusCode)
+                #set($context.responseOverride.status = $parsedPayload.statusCode)
+              #end
+              $input.path('$.output')
+            `,
+          },
+        },
+        {
+          statusCode: '204',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+            'method.response.header.Access-Control-Allow-Credentials': "'true'",
+          },
+          responseTemplates: {
+            'application/json': `
+              #set($parsedPayload = $util.parseJson($input.path('$.output')))
+              #if($parsedPayload.statusCode)
+                #set($context.responseOverride.status = $parsedPayload.statusCode)
+              #end
+              $input.path('$.output')
+            `,
+          },
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+            'method.response.header.Access-Control-Allow-Headers':
+              "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+            'method.response.header.Access-Control-Allow-Credentials': "'true'",
+          },
+          responseTemplates: {
+            'application/json': `
+              #set($parsedPayload = $util.parseJson($input.path('$.output')))
+              #if($parsedPayload.statusCode)
+                #set($context.responseOverride.status = $parsedPayload.statusCode)
+              #end
+              $input.path('$.output')
+            `,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': "'*'",
+            'method.response.header.Access-Control-Allow-Credentials': "'true'",
+          },
+          responseTemplates: {
+            'application/json': `
+              #set($parsedPayload = $util.parseJson($input.path('$.output')))
+              #if($parsedPayload.statusCode)
+                #set($context.responseOverride.status = $parsedPayload.statusCode)
+              #end
+              $input.path('$.output')
+            `,
+          },
+        },
+      ],
+    });
 
-    // Resources and Methods
-    const stepFunctionsResource = api.root.addResource('wish').addResource('grant');
-    stepFunctionsResource.addMethod('POST', stepFunctionsIntegration, {
+    // Add Method
+    api.root.addMethod('POST', stepFunctionsIntegration, {
       apiKeyRequired: true,
+      methodResponses: [
+        {
+          statusCode: '200',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '204',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '500',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+      ],
     });
 
     // Add API key
