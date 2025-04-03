@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { Slider } from '@/components/ui/slider';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 const formSchema = z.object({
   title: z.string().min(5, {
@@ -24,6 +26,13 @@ const formSchema = z.object({
   acceptanceCriteria: z.string().min(10, {
     message: 'Acceptance criteria must be at least 10 characters.',
   }),
+  // AI settings
+  aiPrompt: z.string().min(5, {
+    message: 'AI prompt must be at least 5 characters.',
+  }),
+  maxTokens: z.number().min(256).max(4096),
+  temperature: z.number().min(0).max(1),
+  topP: z.number().min(0.1).max(1),
 });
 
 export async function callWebhookAPI(userId: string, title: string, description: string, acceptanceCriteria: string) {
@@ -75,7 +84,7 @@ export async function callWebhookAPI(userId: string, title: string, description:
 
 export function UserStoryForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { user } = useAuthenticator();
+  const [isAccordionOpen, setIsAccordionOpen] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,6 +92,10 @@ export function UserStoryForm() {
       title: '',
       description: '',
       acceptanceCriteria: '',
+      aiPrompt: 'Generate tasks for the user story with detailed descriptions and estimated hours.',
+      maxTokens: 2048,
+      temperature: 0.7,
+      topP: 0.9,
     },
   });
 
@@ -117,61 +130,153 @@ export function UserStoryForm() {
   }
 
   return (
-    <Card className='w-full h-full flex flex-col'>
-      <CardHeader>
+    <Card className='w-full h-full flex flex-col overflow-hidden'>
+      <CardHeader className='flex-shrink-0'>
         <CardTitle>New User Story</CardTitle>
         <CardDescription>Create a new user story in your Azure DevOps project.</CardDescription>
       </CardHeader>
-      <CardContent className='flex-grow'>
+      <CardContent className='flex-grow overflow-hidden'>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6 h-full flex flex-col'>
-            <div className='space-y-6 flex-grow'>
-              <FormField
-                control={form.control}
-                name='title'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder='As a user, I want to...' {...field} />
-                    </FormControl>
-                    <FormDescription>A concise title for your user story.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+          <form onSubmit={form.handleSubmit(onSubmit)} className='h-full flex flex-col'>
+            <ScrollArea className='flex-grow pr-4'>
+              <div className='space-y-6 pb-4'>
+                <Accordion type='single' collapsible className='w-full mb-4' onValueChange={(value) => setIsAccordionOpen(!!value)}>
+                  <AccordionItem value='ai-settings'>
+                    <AccordionTrigger>AI Prompt Customization</AccordionTrigger>
+                    <AccordionContent>
+                      <Card>
+                        <CardContent className='pt-6'>
+                          <div className='space-y-6'>
+                            <FormField
+                              control={form.control}
+                              name='aiPrompt'
+                              render={({ field }) => (
+                                <FormItem className='space-y-2'>
+                                  <div className='flex items-center justify-between'>
+                                    <FormLabel className='text-base'>Custom Prompt</FormLabel>
+                                    <div className='flex items-center text-sm text-muted-foreground'>
+                                      <Sparkles className='h-3.5 w-3.5 mr-1' />
+                                      AI Prompt
+                                    </div>
+                                  </div>
+                                  <FormControl>
+                                    <Textarea placeholder='Enter your custom prompt for task generation...' className='min-h-[100px] resize-none' {...field} />
+                                  </FormControl>
+                                  <FormDescription>Customize how the AI generates tasks from your user story.</FormDescription>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
 
-              <FormField
-                control={form.control}
-                name='description'
-                render={({ field }) => (
-                  <FormItem className='flex-grow'>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder='Provide a detailed description of the user story...' className='min-h-[120px]' {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                            <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+                              <FormField
+                                control={form.control}
+                                name='maxTokens'
+                                render={({ field }) => (
+                                  <FormItem className='space-y-2'>
+                                    <div className='flex items-center justify-between'>
+                                      <FormLabel className='text-base'>Max Tokens</FormLabel>
+                                      <span className='text-sm text-muted-foreground'>{field.value}</span>
+                                    </div>
+                                    <FormControl>
+                                      <Slider min={256} max={4096} step={128} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
+                                    </FormControl>
+                                    <FormDescription className='text-xs'>Maximum length of generated content (256-4096)</FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
 
-              <FormField
-                control={form.control}
-                name='acceptanceCriteria'
-                render={({ field }) => (
-                  <FormItem className='flex-grow'>
-                    <FormLabel>Acceptance Criteria</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder='List the acceptance criteria...' className='min-h-[180px]' {...field} />
-                    </FormControl>
-                    <FormDescription>Define what conditions must be met for this story to be considered complete.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                              <FormField
+                                control={form.control}
+                                name='temperature'
+                                render={({ field }) => (
+                                  <FormItem className='space-y-2'>
+                                    <div className='flex items-center justify-between'>
+                                      <FormLabel className='text-base'>Temperature</FormLabel>
+                                      <span className='text-sm text-muted-foreground'>{field.value.toFixed(1)}</span>
+                                    </div>
+                                    <FormControl>
+                                      <Slider min={0} max={1} step={0.1} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
+                                    </FormControl>
+                                    <FormDescription className='text-xs'>Controls randomness (0 = deterministic, 1 = creative)</FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
 
-            <div>
+                              <FormField
+                                control={form.control}
+                                name='topP'
+                                render={({ field }) => (
+                                  <FormItem className='space-y-2'>
+                                    <div className='flex items-center justify-between'>
+                                      <FormLabel className='text-base'>Top P</FormLabel>
+                                      <span className='text-sm text-muted-foreground'>{field.value.toFixed(1)}</span>
+                                    </div>
+                                    <FormControl>
+                                      <Slider min={0.1} max={1} step={0.1} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
+                                    </FormControl>
+                                    <FormDescription className='text-xs'>Controls diversity of output (0.1-1.0)</FormDescription>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+
+                <FormField
+                  control={form.control}
+                  name='title'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder='As a user, I want to...' {...field} />
+                      </FormControl>
+                      <FormDescription>A concise title for your user story.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='description'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder='Provide a detailed description of the user story...' className='min-h-[120px]' {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='acceptanceCriteria'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Acceptance Criteria</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder='List the acceptance criteria...' className='min-h-[180px]' {...field} />
+                      </FormControl>
+                      <FormDescription>Define what conditions must be met for this story to be considered complete.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </ScrollArea>
+
+            <div className='pt-6 flex-shrink-0'>
               <Button type='submit' className='w-full' disabled={isSubmitting}>
                 {isSubmitting ? (
                   <>
@@ -186,7 +291,7 @@ export function UserStoryForm() {
           </form>
         </Form>
       </CardContent>
-      <CardFooter className='flex justify-between border-t pt-6'>
+      <CardFooter className='flex justify-between border-t pt-6 flex-shrink-0'>
         <Button variant='outline' onClick={() => form.reset()}>
           Reset Form
         </Button>

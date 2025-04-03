@@ -31,9 +31,12 @@ X Allow prompt as an input parameter
 X Optimize lambda compute settings
 X Prevent multiple runs by checking for the presense of a Tag?
 
-- Add form to customize AI prompt in UI
-- Test the API call works from the UI
-- Display the generated tasks on the form
+- Build form with Amplify UI (remove shadcn)
+
+  - Hookup the API call to the UI
+  - Display the generated tasks on the form
+  - Display validation errors on the form
+
 - Identify Azure authentication requirements
   - https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops
 - Observability

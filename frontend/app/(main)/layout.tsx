@@ -3,8 +3,10 @@
 import { Authenticator, Button, Heading, Image, Theme, ThemeProvider, useAuthenticator, useTheme, View } from '@aws-amplify/ui-react';
 import { Amplify } from 'aws-amplify';
 import { ResourcesConfig } from '@aws-amplify/core';
-import '@aws-amplify/ui-react/styles.css';
+import { Toaster } from 'sonner';
 import SidebarLayout from '@/components/layout/sidebar-layout';
+
+import '@aws-amplify/ui-react/styles.css';
 
 const config: ResourcesConfig = {
   Auth: {
@@ -145,6 +147,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
             </button> */}
             <SidebarLayout user={user} signOut={signOut}>
               {children}
+              <Toaster richColors />
             </SidebarLayout>
           </main>
         )}
