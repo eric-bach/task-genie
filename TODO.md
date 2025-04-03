@@ -31,8 +31,9 @@ X Allow prompt as an input parameter
 X Optimize lambda compute settings
 X Prevent multiple runs by checking for the presense of a Tag?
 
-- Build form with Amplify UI (remove shadcn)
+- Build form
 
+  - shadcn Sidebar component messes up layout
   - Hookup the API call to the UI
   - Display the generated tasks on the form
   - Display validation errors on the form
