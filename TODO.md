@@ -33,7 +33,7 @@ X Prevent multiple runs by checking for the presense of a Tag?
 
 - Build form
 
-  - shadcn Sidebar component messes up layout
+  - shadcn Sidebar component messes up layout (check pecuniary-nextjs15)
   - Hookup the API call to the UI
   - Display the generated tasks on the form
   - Display validation errors on the form
