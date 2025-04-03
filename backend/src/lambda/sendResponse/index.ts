@@ -52,7 +52,7 @@ const parseWorkItemAndTasksAndCommentAndError = (
   const workItem = {
     workItemId: body.workItem.workItemId,
     iterationPath: body.workItem.iterationPath,
-    changedBy: body.workItem.changeBy,
+    changedBy: body.workItem.changedBy,
     title: body.workItem.title,
     description: body.workItem.description,
     acceptanceCriteria: body.workItem.acceptanceCriteria,

@@ -29,7 +29,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     const { workItem, tasks } = parseWorkItemAndTasks(body);
 
     // Create tasks
-    await createTasks(workItem.workItemId, tasks);
+    await createTasks(workItem, tasks);
 
     // Add CloudWatch metrics
     await createTaskGeneratedMetric(tasks.length);
@@ -69,7 +69,7 @@ const parseWorkItemAndTasks = (body: any): { workItem: WorkItem; tasks: Task[] }
   const workItem = {
     workItemId: body.workItem.workItemId,
     iterationPath: body.workItem.iterationPath,
-    changedBy: body.workItem.changeBy,
+    changedBy: body.workItem.changedBy,
     title: body.workItem.title,
     description: body.workItem.description,
     acceptanceCriteria: body.workItem.acceptanceCriteria,

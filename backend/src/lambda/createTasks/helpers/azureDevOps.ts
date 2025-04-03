@@ -1,6 +1,6 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { GITHUB_ORGANIZATION, GITHUB_REPOSITORY, logger } from '../index';
-import { Task } from '../../../shared/types';
+import { Task, WorkItem } from '../../../shared/types';
 
 const getParameter = async (name: string): Promise<string> => {
   const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
@@ -19,7 +19,7 @@ const getHeaders = async (): Promise<HeadersInit> => {
   };
 };
 
-export const createTasks = async (workItemId: number, tasks: Task[]) => {
+export const createTasks = async (workItem: WorkItem, tasks: Task[]) => {
   logger.info(`Creating ${tasks.length} total tasks`, { tasks: tasks });
 
   const headers = await getHeaders();
@@ -27,7 +27,7 @@ export const createTasks = async (workItemId: number, tasks: Task[]) => {
   let taskId = 0;
   let i = 0;
   for (const task of tasks) {
-    taskId = await createTask(headers, workItemId, task, ++i);
+    taskId = await createTask(headers, workItem, task, ++i);
 
     // Set task Id
     task.taskId = taskId;
@@ -36,7 +36,7 @@ export const createTasks = async (workItemId: number, tasks: Task[]) => {
   logger.info(`All ${tasks.length} tasks created`);
 };
 
-const createTask = async (header: HeadersInit, workItemId: number, task: Task, i: number): Promise<number> => {
+const createTask = async (header: HeadersInit, workItem: WorkItem, task: Task, i: number): Promise<number> => {
   const taskFields = [
     {
       op: 'add',
@@ -47,6 +47,11 @@ const createTask = async (header: HeadersInit, workItemId: number, task: Task, i
       op: 'add',
       path: '/fields/System.Description',
       value: task.description,
+    },
+    {
+      op: 'add',
+      path: '/fields/System.IterationPath',
+      value: workItem.iterationPath,
     },
     {
       op: 'add',
@@ -77,7 +82,7 @@ const createTask = async (header: HeadersInit, workItemId: number, task: Task, i
     const data = await response.json();
     logger.info(`Created task ${data.id}`);
 
-    await linkTask(header, workItemId, data.id);
+    await linkTask(header, workItem.workItemId, data.id);
 
     return data.id;
   } catch (error) {
