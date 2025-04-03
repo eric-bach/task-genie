@@ -1,6 +1,16 @@
 'use client';
 
-import { Authenticator, Button, Heading, Image, Theme, ThemeProvider, useAuthenticator, useTheme, View } from '@aws-amplify/ui-react';
+import {
+  Authenticator,
+  Button,
+  Heading,
+  Image,
+  Theme,
+  ThemeProvider,
+  useAuthenticator,
+  useTheme,
+  View,
+} from '@aws-amplify/ui-react';
 import { Amplify } from 'aws-amplify';
 import { ResourcesConfig } from '@aws-amplify/core';
 import { Toaster } from 'sonner';
@@ -141,10 +151,6 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       <Authenticator formFields={formFields} components={components}>
         {({ signOut, user }) => (
           <main>
-            {/* <h1>Hello {user?.signInDetails?.loginId}</h1>
-            <button className='primary' onClick={signOut}>
-              Sign out
-            </button> */}
             <SidebarLayout user={user} signOut={signOut}>
               {children}
               <Toaster richColors />

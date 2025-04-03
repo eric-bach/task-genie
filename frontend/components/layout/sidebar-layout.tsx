@@ -13,10 +13,8 @@ const SidebarLayout = ({ user, signOut, children }: LayoutProps) => {
   return (
     <SidebarProvider>
       <AppSidebar user={user} signOut={signOut} />
-      <main>
-        <SidebarTrigger />
-        <div className='p-8'>{children}</div>
-      </main>
+      {/* <SidebarTrigger /> */}
+      {children}
     </SidebarProvider>
   );
 };
