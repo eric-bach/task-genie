@@ -1,4 +1,4 @@
-i# Task Genie
+# Task Genie
 
 Task Genie integrates directly in Azure DevOps Boards, utilizing AI services powered by Amazon Bedrock, to ensure the completeness of user stories and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
 
