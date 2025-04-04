@@ -29,9 +29,9 @@ const formSchema = z.object({
   }),
   // AI settings
   prompt: z.string().optional(),
-  maxTokens: z.number().min(256).max(4096).optional(),
-  temperature: z.number().min(0).max(1).optional(),
-  topP: z.number().min(0.1).max(1).optional(),
+  maxTokens: z.number().min(256).max(4096),
+  temperature: z.number().min(0).max(1),
+  topP: z.number().min(0.1).max(1),
 });
 
 export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId: string) {
@@ -71,15 +71,14 @@ export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId:
       body: JSON.stringify(body),
     });
 
-    // TODO Handle response
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
     const data = await response.json();
-    console.log('Response:', data);
+    // console.log('API response:', data);
+
+    return data;
   } catch (error) {
-    console.error('Error calling webhook:', error);
+    // console.error('Error calling webhook:', error);
+
+    return { error: error instanceof Error ? error.message : 'Unknown error occurred' };
   }
 }
 
@@ -92,8 +91,7 @@ export function UserStoryForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title:
-        'As a frequent traveler, I want to receive notifications about gate changes so that I can avoid missing my flight.',
+      title: 'As a frequent traveler, I want to receive notifications about gate changes so that I can avoid missing my flight.',
       description:
         "Frequent travelers often face the challenge of keeping track of gate changes, which can occur unexpectedly and cause confusion and inconvenience. Missing a flight due to last-minute gate changes can be stressful and disruptive. By providing timely notifications about gate changes directly to travelers' mobile devices, we help ensure they are informed in real-time and can make their way to the new gate without delay.",
       acceptanceCriteria:
@@ -108,26 +106,28 @@ export function UserStoryForm() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
 
-    // Simulate API call to Azure DevOps
     try {
-      console.log('Form values:', values);
-
-      // // In a real application, you would make an API call to Azure DevOps here
-      // await new Promise((resolve) => setTimeout(resolve, 1500));
-
       const userId = user.signInDetails?.loginId || '';
-
       const result = await callWebhookAPI(values, userId);
-      console.log('Result', result);
 
-      toast.success('User Story Created', {
-        description: `Successfully created user story: ${values.title}`,
-      });
+      if (result.statusCode >= 200 && result.statusCode < 400) {
+        // console.log('API call succeeded:', result);
+
+        toast.success('User Story is accepted', {
+          description: `User story is acceptable and ${result.body.tasks.length} tasks were generated`,
+        });
+      } else {
+        // console.error('Failed to call API: ', result.error);
+
+        toast.error('User Story is not accepted', {
+          description: `Reason: ${result.body.comment.text}`,
+        });
+      }
 
       form.reset();
     } catch (error) {
-      toast.error('Error', {
-        description: 'Failed to create user story. Please try again.',
+      toast.error('An unexpected error occurred', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
       setIsSubmitting(false);
@@ -145,12 +145,7 @@ export function UserStoryForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className='h-full flex flex-col'>
             <ScrollArea className='flex-grow pr-4'>
               <div className='space-y-6 pb-4'>
-                <Accordion
-                  type='single'
-                  collapsible
-                  className='w-full mb-4'
-                  onValueChange={(value) => setIsAccordionOpen(!!value)}
-                >
+                <Accordion type='single' collapsible className='w-full mb-4' onValueChange={(value) => setIsAccordionOpen(!!value)}>
                   <AccordionItem value='ai-settings'>
                     <AccordionTrigger>
                       <div className='font-semibold'>AI Prompt Customization</div>
@@ -161,6 +156,7 @@ export function UserStoryForm() {
                           <div className='space-y-6'>
                             <FormField
                               control={form.control}
+                              disabled={isSubmitting}
                               name='prompt'
                               render={({ field }) => (
                                 <FormItem className='space-y-2'>
@@ -172,15 +168,9 @@ export function UserStoryForm() {
                                     </div>
                                   </div>
                                   <FormControl>
-                                    <Textarea
-                                      placeholder='Enter your custom prompt for task generation...'
-                                      className='min-h-[100px] resize-none'
-                                      {...field}
-                                    />
+                                    <Textarea placeholder='Enter your custom prompt for task generation...' className='min-h-[100px] resize-none' {...field} />
                                   </FormControl>
-                                  <FormDescription>
-                                    Customize how the AI generates tasks from your user story.
-                                  </FormDescription>
+                                  <FormDescription>Customize how the AI generates tasks from your user story.</FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -189,6 +179,7 @@ export function UserStoryForm() {
                             <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
                               <FormField
                                 control={form.control}
+                                disabled={isSubmitting}
                                 name='maxTokens'
                                 render={({ field }) => (
                                   <FormItem className='space-y-2'>
@@ -197,17 +188,9 @@ export function UserStoryForm() {
                                       <span className='text-sm text-muted-foreground'>{field.value}</span>
                                     </div>
                                     <FormControl>
-                                      <Slider
-                                        min={256}
-                                        max={4096}
-                                        step={128}
-                                        value={[field.value]}
-                                        onValueChange={(value) => field.onChange(value[0])}
-                                      />
+                                      <Slider min={256} max={4096} step={128} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
                                     </FormControl>
-                                    <FormDescription className='text-xs'>
-                                      Maximum length of generated content (256-4096)
-                                    </FormDescription>
+                                    <FormDescription className='text-xs'>Maximum length of generated content (256-4096)</FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -215,6 +198,7 @@ export function UserStoryForm() {
 
                               <FormField
                                 control={form.control}
+                                disabled={isSubmitting}
                                 name='temperature'
                                 render={({ field }) => (
                                   <FormItem className='space-y-2'>
@@ -223,17 +207,9 @@ export function UserStoryForm() {
                                       <span className='text-sm text-muted-foreground'>{field.value.toFixed(1)}</span>
                                     </div>
                                     <FormControl>
-                                      <Slider
-                                        min={0}
-                                        max={1}
-                                        step={0.1}
-                                        value={[field.value]}
-                                        onValueChange={(value) => field.onChange(value[0])}
-                                      />
+                                      <Slider min={0} max={1} step={0.1} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
                                     </FormControl>
-                                    <FormDescription className='text-xs'>
-                                      Controls randomness (0 = deterministic, 1 = creative)
-                                    </FormDescription>
+                                    <FormDescription className='text-xs'>Controls randomness (0 = deterministic, 1 = creative)</FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -241,6 +217,7 @@ export function UserStoryForm() {
 
                               <FormField
                                 control={form.control}
+                                disabled={isSubmitting}
                                 name='topP'
                                 render={({ field }) => (
                                   <FormItem className='space-y-2'>
@@ -249,17 +226,9 @@ export function UserStoryForm() {
                                       <span className='text-sm text-muted-foreground'>{field.value.toFixed(1)}</span>
                                     </div>
                                     <FormControl>
-                                      <Slider
-                                        min={0.1}
-                                        max={1}
-                                        step={0.1}
-                                        value={[field.value]}
-                                        onValueChange={(value) => field.onChange(value[0])}
-                                      />
+                                      <Slider min={0.1} max={1} step={0.1} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
                                     </FormControl>
-                                    <FormDescription className='text-xs'>
-                                      Controls diversity of output (0.1-1.0)
-                                    </FormDescription>
+                                    <FormDescription className='text-xs'>Controls diversity of output (0.1-1.0)</FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -276,6 +245,7 @@ export function UserStoryForm() {
 
                 <FormField
                   control={form.control}
+                  disabled={isSubmitting}
                   name='title'
                   render={({ field }) => (
                     <FormItem>
@@ -291,16 +261,13 @@ export function UserStoryForm() {
 
                 <FormField
                   control={form.control}
+                  disabled={isSubmitting}
                   name='description'
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea
-                          placeholder='Provide a detailed description of the user story...'
-                          className='min-h-[120px]'
-                          {...field}
-                        />
+                        <Textarea placeholder='Provide a detailed description of the user story...' className='min-h-[120px]' {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -309,6 +276,7 @@ export function UserStoryForm() {
 
                 <FormField
                   control={form.control}
+                  disabled={isSubmitting}
                   name='acceptanceCriteria'
                   render={({ field }) => (
                     <FormItem>
@@ -316,9 +284,7 @@ export function UserStoryForm() {
                       <FormControl>
                         <Textarea placeholder='List the acceptance criteria...' className='min-h-[180px]' {...field} />
                       </FormControl>
-                      <FormDescription>
-                        Define what conditions must be met for this story to be considered complete.
-                      </FormDescription>
+                      <FormDescription>Define what conditions must be met for this story to be considered complete.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -327,7 +293,7 @@ export function UserStoryForm() {
             </ScrollArea>
 
             <div className='pt-6 flex-shrink-0 flex justify-end space-x-4'>
-              <Button variant='outline' onClick={() => form.reset()}>
+              <Button variant='outline' disabled={isSubmitting} onClick={() => form.reset()}>
                 Reset Form
               </Button>
               <Button type='submit' disabled={isSubmitting}>

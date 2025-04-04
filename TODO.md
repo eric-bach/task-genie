@@ -32,11 +32,10 @@ X Optimize lambda compute settings
 X Prevent multiple runs by checking for the presense of a Tag?
 
 - Build form
-
   X shadcn Sidebar component messes up layout (check pecuniary-nextjs15)
   X Hookup the API call to the UI
+  X Handle responses from API
 
-  - Handle responses from API
   - Display the generated tasks on the form
   - Display validation errors on the form
 
