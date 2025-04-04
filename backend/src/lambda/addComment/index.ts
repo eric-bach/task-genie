@@ -59,10 +59,8 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 };
 
 const validateEvent = (event: Record<string, any>) => {
-  if (event.statusCode === 200 && !event.body && !event.body.workItem) {
+  if (!event.body && !event.body.workItem) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
-  } else if (!event.error && !event.message) {
-    throw Error('Invalid event payload: the request error message missing or undefined.');
   }
 };
 
@@ -71,7 +69,8 @@ const parseEvent = (
 ): { workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
   const body = event.body;
 
-  const { workItem, tasks, workItemStatus } = body;
+  let { workItem, tasks, workItemStatus } = body;
+  tasks = tasks ?? [];
 
   logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
