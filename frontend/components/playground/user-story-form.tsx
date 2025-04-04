@@ -88,9 +88,9 @@ export function UserStoryForm() {
   const { user } = useAuthenticator();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // @typescript-eslint/no-unused-vars
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
-  // @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>();
   const [tasks, setTasks] = useState([]);
   const [isAlertVisisble, setAlertVisibility] = useState(false);
@@ -183,7 +183,7 @@ export function UserStoryForm() {
         <Card className='w-full h-full flex flex-col overflow-hidden'>
           <CardHeader className='flex-shrink-0'>
             <CardTitle>New User Story</CardTitle>
-            <CardDescription>Test the model's task generation capabilities with a new user story.</CardDescription>
+            <CardDescription>Test the model&apos;s task generation capabilities with a new user story.</CardDescription>
           </CardHeader>
           <CardContent className='flex-grow overflow-hidden'>
             <Form {...form}>
