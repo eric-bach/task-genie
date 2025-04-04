@@ -39,7 +39,7 @@ export default function StatsSection() {
 
               <div className='mt-6 space-y-3'>
                 <cite className='block font-medium'>Sarah L, Scrum Master at TechFlow Solutions</cite>
-                {/* @next/next/no-img-element */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   className='h-5 w-fit dark:invert'
                   src='https://html.tailus.io/blocks/customers/nvidia.svg'
