@@ -385,9 +385,6 @@ export function UserStoryForm() {
                 </ScrollArea>
 
                 <div className='pt-6 flex-shrink-0 flex justify-end space-x-4'>
-                  <Button variant='outline' disabled={isSubmitting} onClick={() => form.reset()}>
-                    Reset Form
-                  </Button>
                   <Button type='submit' disabled={isSubmitting}>
                     {isSubmitting ? (
                       <>

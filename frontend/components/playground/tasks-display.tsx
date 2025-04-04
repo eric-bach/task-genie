@@ -39,8 +39,8 @@ export function TasksDisplay({ isSubmitting, tasks }: { isSubmitting: boolean; t
 
             <ScrollArea className='flex-grow overflow-auto pr-4'>
               <div className='space-y-4 pb-2'>
-                {tasks.map((task) => (
-                  <TaskCard key={task.id} task={task} />
+                {tasks.map((task, i) => (
+                  <TaskCard key={i} task={task} />
                 ))}
               </div>
             </ScrollArea>

@@ -12,4 +12,3 @@
 - Add Knowledge Bases
 - TD: Update the existing API endpoint to IP whitelist Azure DevOps IPs
 - TD: Review Azure DevOps API calls to handle errors
-- TD: Add documentation on how to create ADO Service Hooks
