@@ -279,10 +279,16 @@ export class TaskGenieStack extends Stack {
     // State Machine Definition
     const definition = evaluateUserStoryTask.next(
       new Choice(this, 'User story is defined?')
-        .when(Condition.numberEquals('$.statusCode', 204), sendResponseTask)
-        .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
         .when(
-          Condition.numberEquals('$.statusCode', 400),
+          Condition.or(
+            Condition.numberEquals('$.statusCode', 204),
+            Condition.numberEquals('$.statusCode', 400),
+            Condition.numberEquals('$.statusCode', 500)
+          ),
+          sendResponseTask
+        )
+        .when(
+          Condition.numberEquals('$.statusCode', 412),
           new Choice(this, 'Add comment?')
             .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), addCommentTask.next(sendResponseTask))
             .otherwise(sendResponseTask)

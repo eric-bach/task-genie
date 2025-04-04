@@ -3,7 +3,7 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { addComment, addTag } from './helpers/azureDevOps';
-import { WorkItem, Task, Comment } from '../../shared/types';
+import { WorkItem, Task, BedrockResponse } from '../../shared/types';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
 if (GITHUB_ORGANIZATION === undefined) {
@@ -17,19 +17,26 @@ if (GITHUB_REPOSITORY === undefined) {
 
 export const logger = new Logger({ serviceName: 'addComment' });
 
-const lambdaHandler = async (event: any, context: Context) => {
+const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
-    // Validate event body
-    const body = validateEventBody(event.body);
+    // Validate event
+    validateEvent(event);
 
-    // Parse work item
-    const { workItem, tasks, comment } = parseWorkItemAndTasksAndComment(body);
+    // Parse event
+    const { workItem, tasks, workItemStatus } = parseEvent(event);
+
+    // Generate comment
+    const comment = workItemStatus.pass
+      ? `Generated ${tasks.length} tasks for work item ${workItem.workItemId}`
+      : workItemStatus.comment;
 
     // Add comment
     await addComment(workItem, comment);
 
     // Add tag
-    await addTag(workItem, 'Task Genie');
+    if (workItemStatus.pass) {
+      await addTag(workItem, 'Task Genie');
+    }
 
     logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
 
@@ -38,7 +45,7 @@ const lambdaHandler = async (event: any, context: Context) => {
       body: {
         workItem,
         tasks,
-        comment,
+        workItemStatus,
       },
     };
   } catch (error: any) {
@@ -51,34 +58,28 @@ const lambdaHandler = async (event: any, context: Context) => {
   }
 };
 
-const validateEventBody = (body: any) => {
-  if (!body) {
+const validateEvent = (event: Record<string, any>) => {
+  if (event.statusCode === 200 && !event.body && !event.body.workItem) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
+  } else if (!event.error && !event.message) {
+    throw Error('Invalid event payload: the request error message missing or undefined.');
   }
-
-  return body;
 };
 
-const parseWorkItemAndTasksAndComment = (body: any): { workItem: WorkItem; tasks: Task[]; comment: Comment } => {
-  const workItem = {
-    workItemId: body.workItem.workItemId,
-    iterationPath: body.workItem.iterationPath,
-    changedBy: body.workItem.changedBy,
-    title: body.workItem.title,
-    description: body.workItem.description,
-    acceptanceCriteria: body.workItem.acceptanceCriteria,
-    tags: body.workItem.tags,
-  };
-  const tasks = body.tasks ?? [];
-  const comment = body.comment;
+const parseEvent = (
+  event: Record<string, any>
+): { workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
+  const body = event.body;
 
-  logger.info(`Received work item ${workItem.workItemId}, ${tasks.length} tasks, and a comment`, {
+  const { workItem, tasks, workItemStatus } = body;
+
+  logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
     tasks,
-    comment,
+    workItemStatus,
   });
 
-  return { workItem, tasks, comment };
+  return { workItem, tasks, workItemStatus };
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

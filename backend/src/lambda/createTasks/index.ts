@@ -5,7 +5,7 @@ import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { createTaskGeneratedMetric, createUserStoriesUpdatedMetric } from './helpers/cloudwatch';
 import { createTasks } from './helpers/azureDevOps';
-import { WorkItem, Task, Comment } from '../../shared/types';
+import { WorkItem, Task, BedrockResponse } from '../../shared/types';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
 if (GITHUB_ORGANIZATION === undefined) {
@@ -20,13 +20,13 @@ if (GITHUB_REPOSITORY === undefined) {
 export const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-west-2' });
 export const logger = new Logger({ serviceName: 'createTasks' });
 
-const lambdaHandler = async (event: any, context: Context) => {
+const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
     // Validate event body
     const body = validateEventBody(event.body);
 
     // Parse work item
-    const { workItem, tasks } = parseWorkItemAndTasks(body);
+    const { workItem, tasks, workItemStatus } = parseEventBody(body);
 
     // Create tasks
     await createTasks(workItem, tasks);
@@ -35,8 +35,6 @@ const lambdaHandler = async (event: any, context: Context) => {
     await createTaskGeneratedMetric(tasks.length);
     await createUserStoriesUpdatedMetric();
 
-    const comment: Comment = { text: `Work item successfully updated with ${tasks.length} tasks` };
-
     logger.info(`✅ Created ${tasks.length} tasks for work item ${workItem.workItemId}`);
 
     return {
@@ -44,7 +42,7 @@ const lambdaHandler = async (event: any, context: Context) => {
       body: {
         workItem,
         tasks,
-        comment,
+        workItemStatus,
       },
     };
   } catch (error: any) {
@@ -65,24 +63,16 @@ const validateEventBody = (body: any) => {
   return body;
 };
 
-const parseWorkItemAndTasks = (body: any): { workItem: WorkItem; tasks: Task[] } => {
-  const workItem = {
-    workItemId: body.workItem.workItemId,
-    iterationPath: body.workItem.iterationPath,
-    changedBy: body.workItem.changedBy,
-    title: body.workItem.title,
-    description: body.workItem.description,
-    acceptanceCriteria: body.workItem.acceptanceCriteria,
-    tags: body.workItem.tags,
-  };
-  const tasks = body.tasks;
+const parseEventBody = (body: any): { workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
+  const { workItem, tasks, workItemStatus } = body;
 
   logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
     tasks,
+    workItemStatus,
   });
 
-  return { workItem, tasks };
+  return { workItem, tasks, workItemStatus };
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

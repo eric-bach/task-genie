@@ -91,7 +91,8 @@ export function UserStoryForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      title: 'As a frequent traveler, I want to receive notifications about gate changes so that I can avoid missing my flight.',
+      title:
+        'As a frequent traveler, I want to receive notifications about gate changes so that I can avoid missing my flight.',
       description:
         "Frequent travelers often face the challenge of keeping track of gate changes, which can occur unexpectedly and cause confusion and inconvenience. Missing a flight due to last-minute gate changes can be stressful and disruptive. By providing timely notifications about gate changes directly to travelers' mobile devices, we help ensure they are informed in real-time and can make their way to the new gate without delay.",
       acceptanceCriteria:
@@ -120,7 +121,7 @@ export function UserStoryForm() {
         // console.error('Failed to call API: ', result.error);
 
         toast.error('User Story is not accepted', {
-          description: `Reason: ${result.body.comment.text}`,
+          description: `Reason: ${result.body.workItemStatus.comment}`,
         });
       }
 
@@ -145,7 +146,12 @@ export function UserStoryForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className='h-full flex flex-col'>
             <ScrollArea className='flex-grow pr-4'>
               <div className='space-y-6 pb-4'>
-                <Accordion type='single' collapsible className='w-full mb-4' onValueChange={(value) => setIsAccordionOpen(!!value)}>
+                <Accordion
+                  type='single'
+                  collapsible
+                  className='w-full mb-4'
+                  onValueChange={(value) => setIsAccordionOpen(!!value)}
+                >
                   <AccordionItem value='ai-settings'>
                     <AccordionTrigger>
                       <div className='font-semibold'>AI Prompt Customization</div>
@@ -168,9 +174,15 @@ export function UserStoryForm() {
                                     </div>
                                   </div>
                                   <FormControl>
-                                    <Textarea placeholder='Enter your custom prompt for task generation...' className='min-h-[100px] resize-none' {...field} />
+                                    <Textarea
+                                      placeholder='Enter your custom prompt for task generation...'
+                                      className='min-h-[100px] resize-none'
+                                      {...field}
+                                    />
                                   </FormControl>
-                                  <FormDescription>Customize how the AI generates tasks from your user story.</FormDescription>
+                                  <FormDescription>
+                                    Customize how the AI generates tasks from your user story.
+                                  </FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -188,9 +200,17 @@ export function UserStoryForm() {
                                       <span className='text-sm text-muted-foreground'>{field.value}</span>
                                     </div>
                                     <FormControl>
-                                      <Slider min={256} max={4096} step={128} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
+                                      <Slider
+                                        min={256}
+                                        max={4096}
+                                        step={128}
+                                        value={[field.value]}
+                                        onValueChange={(value) => field.onChange(value[0])}
+                                      />
                                     </FormControl>
-                                    <FormDescription className='text-xs'>Maximum length of generated content (256-4096)</FormDescription>
+                                    <FormDescription className='text-xs'>
+                                      Maximum length of generated content (256-4096)
+                                    </FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -207,9 +227,17 @@ export function UserStoryForm() {
                                       <span className='text-sm text-muted-foreground'>{field.value.toFixed(1)}</span>
                                     </div>
                                     <FormControl>
-                                      <Slider min={0} max={1} step={0.1} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
+                                      <Slider
+                                        min={0}
+                                        max={1}
+                                        step={0.1}
+                                        value={[field.value]}
+                                        onValueChange={(value) => field.onChange(value[0])}
+                                      />
                                     </FormControl>
-                                    <FormDescription className='text-xs'>Controls randomness (0 = deterministic, 1 = creative)</FormDescription>
+                                    <FormDescription className='text-xs'>
+                                      Controls randomness (0 = deterministic, 1 = creative)
+                                    </FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -226,9 +254,17 @@ export function UserStoryForm() {
                                       <span className='text-sm text-muted-foreground'>{field.value.toFixed(1)}</span>
                                     </div>
                                     <FormControl>
-                                      <Slider min={0.1} max={1} step={0.1} value={[field.value]} onValueChange={(value) => field.onChange(value[0])} />
+                                      <Slider
+                                        min={0.1}
+                                        max={1}
+                                        step={0.1}
+                                        value={[field.value]}
+                                        onValueChange={(value) => field.onChange(value[0])}
+                                      />
                                     </FormControl>
-                                    <FormDescription className='text-xs'>Controls diversity of output (0.1-1.0)</FormDescription>
+                                    <FormDescription className='text-xs'>
+                                      Controls diversity of output (0.1-1.0)
+                                    </FormDescription>
                                     <FormMessage />
                                   </FormItem>
                                 )}
@@ -267,7 +303,11 @@ export function UserStoryForm() {
                     <FormItem>
                       <FormLabel>Description</FormLabel>
                       <FormControl>
-                        <Textarea placeholder='Provide a detailed description of the user story...' className='min-h-[120px]' {...field} />
+                        <Textarea
+                          placeholder='Provide a detailed description of the user story...'
+                          className='min-h-[120px]'
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -284,7 +324,9 @@ export function UserStoryForm() {
                       <FormControl>
                         <Textarea placeholder='List the acceptance criteria...' className='min-h-[180px]' {...field} />
                       </FormControl>
-                      <FormDescription>Define what conditions must be met for this story to be considered complete.</FormDescription>
+                      <FormDescription>
+                        Define what conditions must be met for this story to be considered complete.
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

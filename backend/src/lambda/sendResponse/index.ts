@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task, Comment } from '../../shared/types';
+import { WorkItem, Task, BedrockResponse } from '../../shared/types';
 
 const logger = new Logger({ serviceName: 'sendResponse' });
 
@@ -16,7 +16,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     body = validateEventBody(event.body);
 
     // Parse work item
-    const { workItem, tasks, comment } = parseWorkItemAndTasksAndCommentAndError(body);
+    const { workItem, tasks, workItemStatus } = parseEventBody(body);
 
     logger.info('✅ Final response is valid');
 
@@ -27,27 +27,16 @@ const lambdaHandler = async (event: any, context: Context) => {
         isModified: workItem.workItemId > 0 && event.statusCode !== 204,
         workItem,
         tasks,
-        comment,
+        workItemStatus,
       },
-      // headers: {
-      //   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent',
-      //   'Access-Control-Allow-Origin': '*',
-      //   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-      //   'Access-Control-Allow-Credentials': true,
-      // },
     };
   } catch (error: any) {
-    logger.error('💣 An unexpected error occurred', { error: error, reason: event.error });
+    logger.error('💣 An unexpected error occurred', { error: event.error, reason: event.message });
 
     return {
       statusCode: 500,
-      error: event.error, //?? error.message,
-      // headers: {
-      //   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent',
-      //   'Access-Control-Allow-Origin': '*',
-      //   'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-      //   'Access-Control-Allow-Credentials': true,
-      // },
+      error: event.error,
+      message: event.message,
     };
   }
 };
@@ -60,28 +49,16 @@ const validateEventBody = (body: any) => {
   return body;
 };
 
-const parseWorkItemAndTasksAndCommentAndError = (
-  body: any
-): { workItem: WorkItem; tasks: Task[]; comment: Comment } => {
-  const workItem = {
-    workItemId: body.workItem.workItemId,
-    iterationPath: body.workItem.iterationPath,
-    changedBy: body.workItem.changedBy,
-    title: body.workItem.title,
-    description: body.workItem.description,
-    acceptanceCriteria: body.workItem.acceptanceCriteria,
-    tags: body.workItem.tags,
-  };
-  const tasks = body.tasks ?? [];
-  const comment = body.comment;
+const parseEventBody = (body: any): { workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
+  const { workItem, tasks, workItemStatus } = body;
 
   logger.info('Parsed work item', {
     workItem,
     tasks,
-    comment,
+    workItemStatus,
   });
 
-  return { workItem, tasks, comment };
+  return { workItem, tasks, workItemStatus };
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

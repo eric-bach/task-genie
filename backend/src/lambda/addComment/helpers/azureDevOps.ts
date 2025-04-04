@@ -1,6 +1,6 @@
 import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { logger, GITHUB_ORGANIZATION, GITHUB_REPOSITORY } from '../index';
-import { WorkItem, Comment } from '../../../shared/types';
+import { WorkItem } from '../../../shared/types';
 
 export const getParameter = async (name: string): Promise<string> => {
   const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
@@ -19,13 +19,13 @@ const getHeaders = async (contentType: string): Promise<HeadersInit> => {
   };
 };
 
-export const addComment = async (workItem: WorkItem, comment: Comment): Promise<string> => {
+export const addComment = async (workItem: WorkItem, comment: string) => {
   logger.info(`Adding comment to work item ${workItem.workItemId}`, { workItem, comment });
 
   const headers = await getHeaders('application/json');
 
   const body = JSON.stringify({
-    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${comment.text}</div>`,
+    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${comment}</div>`,
   });
 
   try {

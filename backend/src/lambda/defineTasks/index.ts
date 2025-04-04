@@ -8,7 +8,7 @@ import {
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task, WorkItemRequest, BedrockConfig } from '../../shared/types';
+import { WorkItem, Task, WorkItemRequest, BedrockConfig, BedrockResponse } from '../../shared/types';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
@@ -27,7 +27,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const body = validateEventBody(event.body);
 
     // Parse event body
-    const { workItem, params } = parseEventBody(body);
+    const { workItem, params, workItemStatus } = parseEventBody(body);
 
     // Invoke Bedrock
     const tasks = await evaluateBedrock(workItem, params);
@@ -38,6 +38,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
       body: {
         workItem,
         tasks,
+        workItemStatus,
       },
     };
   } catch (error: any) {
@@ -58,21 +59,23 @@ const validateEventBody = (body: any) => {
   return body;
 };
 
-const parseEventBody = (body: any): WorkItemRequest => {
-  const { params, workItem } = body;
+const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig; workItemStatus: BedrockResponse } => {
+  const { params, workItem, workItemStatus } = body;
 
   if (params) {
-    logger.info(`Received work item ${workItem.workItemId} and params`, {
+    logger.info(`Received work item ${workItem.workItemId}`, {
       workItem,
       params,
+      workItemStatus,
     });
   } else {
     logger.info(`Received work item ${workItem.workItemId}`, {
       workItem: workItem,
+      workItemStatus,
     });
   }
 
-  return { params: params ?? {}, workItem };
+  return { params: params ?? {}, workItem, workItemStatus };
 };
 
 const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promise<Task[]> => {

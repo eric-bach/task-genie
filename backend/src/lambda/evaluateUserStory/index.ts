@@ -10,7 +10,8 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { createIncompleteUserStoriesMetric } from './helpers/cloudwatch';
-import { WorkItem, Comment, BedrockResponse, WorkItemRequest } from '../../shared/types';
+import { WorkItem, BedrockResponse, WorkItemRequest } from '../../shared/types';
+import { InvalidWorkItemError } from '../../shared/errors';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
@@ -40,52 +41,61 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
       return {
         statusCode: 204,
         body: {
+          params,
           workItem,
         },
       };
     }
 
     // Invoke Bedrock
-    const result = await evaluateBedrock(workItem);
+    let statusCode = 200;
+    const bedrockResponse = await evaluateBedrock(workItem);
 
-    if (result.pass !== true) {
-      const comment: Comment = { text: result.comment };
-      logger.error(`❌ Work item ${workItem.workItemId} does not meet requirements`, { comment: comment });
+    if (bedrockResponse.pass !== true) {
+      logger.error(`❌ Work item ${workItem.workItemId} does not meet requirements`, {
+        reason: bedrockResponse.comment,
+      });
 
       // Create CloudWatch metric
       await createIncompleteUserStoriesMetric();
 
-      return {
-        statusCode: 400,
-        body: {
-          workItem,
-          comment,
-        },
-      };
+      // throw new InvalidWorkItemError('Invalid work item', bedrockResponse.comment, 412);
+      statusCode = 412;
     }
 
     logger.info(`✅ Work item ${workItem.workItemId} meets requirements`, { work_item_id: workItem.workItemId });
 
     return {
-      statusCode: 200,
+      statusCode,
       body: {
         params,
         workItem,
+        workItemStatus: bedrockResponse,
       },
     };
-  } catch (error: any) {
-    logger.error('💣 Error processing work item', { error: error });
+  } catch (error) {
+    if (error instanceof InvalidWorkItemError) {
+      logger.error(`💣 ${error.error}`, { error: error.message });
+
+      return {
+        statusCode: error.code,
+        error: error.error,
+        message: error.message,
+      };
+    }
+
+    logger.error('💣 An unknown error occurred', { error: error });
 
     return {
       statusCode: 500,
-      error: error.message,
+      error: error,
     };
   }
 };
 
 const validateEventBody = (body: any) => {
   if (!body) {
-    throw Error('Invalid event payload: the request body is missing or undefined.');
+    throw new InvalidWorkItemError('Bad request', 'Request body is missing or undefined.', 400);
   }
 
   if (typeof body === 'string') {
@@ -109,13 +119,13 @@ const validateWorkItem = (resource: any) => {
   ];
 
   if (!resource || resource.workItemId < 0 || !resource.revision || !resource.revision.fields) {
-    throw new Error('Work item resource or revision fields are missing.');
+    throw new InvalidWorkItemError('Bad request', 'Work item resource or revision fields are missing.', 400);
   }
 
   for (const field of requiredFields) {
     if (!resource.revision.fields[field]) {
       logger.error('Work item is missing a required field', { field: field });
-      throw new Error(`Work item is missing required field: ${field}`);
+      throw new InvalidWorkItemError('Bad request', `Work item is missing required field: ${field}.`, 400);
     }
   }
 };
