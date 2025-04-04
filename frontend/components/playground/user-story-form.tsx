@@ -88,7 +88,9 @@ export function UserStoryForm() {
   const { user } = useAuthenticator();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // @typescript-eslint/no-unused-vars
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
+  // @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>();
   const [tasks, setTasks] = useState([]);
   const [isAlertVisisble, setAlertVisibility] = useState(false);

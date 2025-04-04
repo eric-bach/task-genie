@@ -1,6 +1,6 @@
 import { AuthUser } from 'aws-amplify/auth';
 import { AuthEventData } from '@aws-amplify/ui';
-import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
 type LayoutProps = {
