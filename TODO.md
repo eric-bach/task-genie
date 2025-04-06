@@ -20,8 +20,11 @@
 
 - Add Knowledge Bases
 
-  - Store code in S3 bucket
-  - Use S3 as data source for Knowledge Base
+  - Sync repository to S3 (Bedrock will process files during ingestion)
+  - Connect S3 as the data source for Knowledge Base in Bedrock (Bedrock automaticlaly chunks, generated embeddings, and stores them in vector database)
+  - Use semantic chunking for code files to preserve logical structure, enable Natural Langugage to SQL to parse schema files, use GraphRAG to map code dependencies
+  - Use Bedrock's Retrieve API to perform semantic seach on code embeddings to find relevant source files and graph-based traversal to identify depedenies
+  - Augment the user story prompt with retrieved code snippets to generate tasks, ensure to enable source attribution to validate which files influenced the response
 
 - TD: Update the existing API endpoint to IP whitelist Azure DevOps IPs
 - TD: Review Azure DevOps API calls to handle errors
