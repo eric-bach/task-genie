@@ -5,7 +5,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Choice, Condition, LogLevel, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { Effect, PolicyDocument, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { IpAddresses, Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
@@ -14,12 +14,8 @@ import {
   ApiKeySourceType,
   Cors,
   EndpointType,
-  Integration,
-  IntegrationType,
-  PassthroughBehavior,
   RestApi,
   StepFunctionsIntegration,
-  StepFunctionsRestApi,
 } from 'aws-cdk-lib/aws-apigateway';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
@@ -509,48 +505,79 @@ export class TaskGenieStack extends Stack {
       dashboardName: 'task-genie-dashboard',
     });
 
-    // Metrics
-    const tasksGeneratedMetric = new Metric({
-      namespace: 'Azure DevOps',
-      metricName: 'TasksGenerated',
-      dimensionsMap: { Tasks: 'Tasks' },
-    });
-
-    const userStoriesUpdatedMetric = new Metric({
-      namespace: 'Azure DevOps',
-      metricName: 'UserStoriesUpdated',
-      dimensionsMap: { 'User Story': 'User Stories' },
-    });
-
-    const incompleteUserStoriesMetric = new Metric({
-      namespace: 'Azure DevOps',
-      metricName: 'IncompleteUserStories',
-      dimensionsMap: { 'User Story': 'User Stories' },
-    });
-
     // Widgets
+    const userStoriesEvaluatedWidged = new GaugeWidget({
+      title: 'User Stories Evaluated',
+      metrics: [
+        new Metric({
+          namespace: 'AWS/States',
+          metricName: 'ExecutionsStarted',
+          dimensionsMap: {
+            StateMachineArn: 'arn:aws:states:us-west-2:761018860881:stateMachine:StateMachine2E01A3A5-WmH4tw5DESbn',
+          },
+          statistic: 'Sum',
+          period: Duration.days(1),
+          region: this.region,
+        }),
+      ],
+      width: 6,
+      leftYAxis: { min: 0, max: 100 },
+    });
+
     const tasksGeneratedWidget = new GaugeWidget({
       title: 'Tasks Generated',
-      metrics: [tasksGeneratedMetric],
+      metrics: [
+        new Metric({
+          namespace: 'Azure DevOps',
+          metricName: 'TasksGenerated',
+          dimensionsMap: { Tasks: 'Tasks' },
+          statistic: 'Sum',
+          period: Duration.days(1),
+          region: this.region,
+        }),
+      ],
       width: 6,
       leftYAxis: { min: 0, max: 100 },
     });
 
     const userStoriesUpdatedWidget = new GaugeWidget({
       title: 'User Stories Updated',
-      metrics: [userStoriesUpdatedMetric],
+      metrics: [
+        new Metric({
+          namespace: 'Azure DevOps',
+          metricName: 'UserStoriesUpdated',
+          dimensionsMap: { 'User Story': 'User Stories' },
+          statistic: 'Sum',
+          period: Duration.days(1),
+          region: this.region,
+        }),
+      ],
       width: 6,
       leftYAxis: { min: 0, max: 100 },
     });
 
     const incompleteUserStoriesWidget = new GaugeWidget({
       title: 'Incomplete User Stories',
-      metrics: [incompleteUserStoriesMetric],
+      metrics: [
+        new Metric({
+          namespace: 'Azure DevOps',
+          metricName: 'IncompleteUserStories',
+          dimensionsMap: { 'User Story': 'User Stories' },
+          statistic: 'Sum',
+          period: Duration.days(1),
+          region: this.region,
+        }),
+      ],
       width: 6,
       leftYAxis: { min: 0, max: 100 },
     });
 
-    dashboard.addWidgets(tasksGeneratedWidget, userStoriesUpdatedWidget, incompleteUserStoriesWidget);
+    dashboard.addWidgets(
+      userStoriesEvaluatedWidged,
+      tasksGeneratedWidget,
+      userStoriesUpdatedWidget,
+      incompleteUserStoriesWidget
+    );
 
     /*
      * ### Outputs
