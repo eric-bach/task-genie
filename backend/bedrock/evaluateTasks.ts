@@ -31,7 +31,7 @@ const AWS_PROFILE = 'observability2';
 async function evaluateTasks(title: string, description: string, acceptanceCriteria: string) {
   const PROMPT = `You are a reviewer of Azure DevOps Work Items, designed to highlight when a work item is not clear enough for a developer to work on.
     You will return a result in a JSON format where one attribute key is pass being either true or false. It is false if it does not meet the quality bar.
-    A second optional JSON attribute key will be called comment where you are providing guidance and provide an example of how the work item would meet the pass requirements.
+    A second optional JSON attribute key will be called comment, that is returned in a single line and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
     Focus on whether a developer would understand without being pedantic.
     Ensure there is a clear title, user story and acceptance criteria.
     The task title to review is: ${title} along with the description: ${description} and the acceptance criteria: ${acceptanceCriteria}.

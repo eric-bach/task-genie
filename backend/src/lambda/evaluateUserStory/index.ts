@@ -156,7 +156,7 @@ const parseEventBody = (body: any): WorkItemRequest => {
 const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => {
   const prompt = `You are a reviewer of Azure DevOps Work Items, designed to highlight when a work item is not clear enough for a developer to work on.
     You will return a result in a JSON format where one attribute key is pass being either true or false. It is false if it does not meet the quality bar.
-    A second optional JSON attribute key will be called comment where you are providing guidance and provide an example of how the work item would meet the pass requirements.
+    A second optional JSON attribute key will be called comment, that is returned in a single line and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
     Focus on whether a developer would understand without being pedantic.
     Ensure there is a clear title, user story and acceptance criteria.
     The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.
@@ -189,6 +189,8 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => 
     logger.info('Bedrock model invoked', { response: response.output });
 
     const content = response.output?.message?.content;
+
+    logger.debug('Bedrock response content', { content: content });
 
     if (!content || !content[0].text) {
       logger.error('No content found in response', { response: response });
