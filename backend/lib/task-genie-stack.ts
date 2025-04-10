@@ -7,7 +7,7 @@ import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { IpAddresses, Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
-import { Dashboard, GaugeWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
+import { Dashboard, GaugeWidget, GraphWidget, GraphWidgetView, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import {
   ApiKey,
@@ -572,11 +572,34 @@ export class TaskGenieStack extends Stack {
       leftYAxis: { min: 0, max: 100 },
     });
 
+    const sendResponseFunctionWidget = new GraphWidget({
+      title: 'Lambda Response Time & Memory Usage',
+      left: [
+        sendResponseFunction.metricDuration({
+          statistic: 'Average',
+          period: Duration.minutes(5),
+        }),
+      ],
+      right: [
+        new Metric({
+          namespace: 'AWS/LambdaInsights',
+          metricName: 'memory_utilization',
+          dimensionsMap: {
+            function_name: sendResponseFunction.functionName,
+          },
+          statistic: 'Average',
+          period: Duration.minutes(5),
+        }),
+      ],
+      view: GraphWidgetView.TIME_SERIES,
+    });
+
     dashboard.addWidgets(
       userStoriesEvaluatedWidged,
       tasksGeneratedWidget,
       userStoriesUpdatedWidget,
-      incompleteUserStoriesWidget
+      incompleteUserStoriesWidget,
+      sendResponseFunctionWidget
     );
 
     /*

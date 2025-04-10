@@ -1,5 +1,7 @@
 ### ToDo
 
+- Incorporate AMA Agile process in prompt
+
 - Switch from PAT to Azure DevOps Application - https://learn.microsoft.com/en-us/azure/devops/integrate/get-started/authentication/authentication-guidance?view=azure-devops
 
   - Create a Service Principal in Azure Portal (1st video)
@@ -18,7 +20,8 @@
   - Add log metric filter of errors
   - Add cost of savings from refinement $65k/year
 
-- Add Knowledge Bases
+- Add Knowledge Bases - https://github.com/amaabca/teddy_infra_common/blob/master/cdk/lib/stacks/KnowledgeBaseStack.ts
+  https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_bedrock.CfnKnowledgeBase.html
 
   - Sync repository to S3 (Bedrock will process files during ingestion)
   - Connect S3 as the data source for Knowledge Base in Bedrock (Bedrock automaticlaly chunks, generated embeddings, and stores them in vector database)

@@ -61,9 +61,9 @@ const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) =>
 
       // throw new InvalidWorkItemError('Invalid work item', bedrockResponse.comment, 412);
       statusCode = 412;
+    } else {
+      logger.info(`✅ Work item ${workItem.workItemId} meets requirements`, { work_item_id: workItem.workItemId });
     }
-
-    logger.info(`✅ Work item ${workItem.workItemId} meets requirements`, { work_item_id: workItem.workItemId });
 
     return {
       statusCode,
@@ -154,13 +154,12 @@ const parseEventBody = (body: any): WorkItemRequest => {
 };
 
 const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => {
-  const prompt = `You are a reviewer of Azure DevOps Work Items, designed to highlight when a work item is not clear enough for a developer to work on.
-    You will return a result in a JSON format where one attribute key is pass being either true or false. It is false if it does not meet the quality bar.
-    A second optional JSON attribute key will be called comment, that is returned in a single line and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
+  const prompt = `You are a reviewer of Azure DevOps work items, designed to highlight when a work item is not clear enough for a developer to work on.
+    You will only return a result in JSON format where one attribute key is "pass" being either true or false, where false indicates it does not meet the quality bar.
+    A second optional JSON attribute key will be called "comment", that is returned in a single line, and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
+    A work item is a short, simple description of a customer requirement told from the perspective of the user or customer. It focuses on what the user needs and why.
     Focus on whether a developer would understand without being pedantic.
-    Ensure there is a clear title, user story and acceptance criteria.
-    The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.
-    Only return JSON, no text. JSON should be a single line.`;
+    The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.`;
 
   const conversation = [
     {

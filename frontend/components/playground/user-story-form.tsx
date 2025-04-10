@@ -144,7 +144,7 @@ export function UserStoryForm() {
         });
       }
 
-      form.reset();
+      // form.reset();
     } catch (error) {
       toast.error('An unexpected error occurred', {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
