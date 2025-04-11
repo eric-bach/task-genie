@@ -7,7 +7,15 @@ import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { IpAddresses, Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
-import { Dashboard, GaugeWidget, GraphWidget, GraphWidgetView, Metric } from 'aws-cdk-lib/aws-cloudwatch';
+import {
+  Dashboard,
+  GaugeWidget,
+  GraphWidget,
+  GraphWidgetView,
+  LogQueryWidget,
+  Metric,
+  SingleValueWidget,
+} from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import {
   ApiKey,
@@ -128,7 +136,7 @@ export class TaskGenieStack extends Stack {
       layers: [powertoolsLayer],
       architecture: Architecture.ARM_64,
       memorySize: 1024,
-      timeout: Duration.seconds(10),
+      timeout: Duration.seconds(30),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -159,7 +167,7 @@ export class TaskGenieStack extends Stack {
       layers: [powertoolsLayer],
       architecture: Architecture.X86_64,
       memorySize: 1024,
-      timeout: Duration.seconds(30),
+      timeout: Duration.seconds(60),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -301,6 +309,7 @@ export class TaskGenieStack extends Stack {
 
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
+      stateMachineName: `${APP_NAME}-state-machine`,
       definition,
       stateMachineType: StateMachineType.EXPRESS,
       timeout: Duration.minutes(5),
@@ -511,12 +520,12 @@ export class TaskGenieStack extends Stack {
       metrics: [
         new Metric({
           namespace: 'AWS/States',
-          metricName: 'ExecutionsStarted',
+          metricName: 'ExecutionsSucceeded',
           dimensionsMap: {
-            StateMachineArn: 'arn:aws:states:us-west-2:761018860881:stateMachine:StateMachine2E01A3A5-WmH4tw5DESbn',
+            StateMachineArn: stateMachine.stateMachineArn,
           },
           statistic: 'Sum',
-          period: Duration.days(1),
+          period: Duration.minutes(5),
           region: this.region,
         }),
       ],
@@ -532,7 +541,7 @@ export class TaskGenieStack extends Stack {
           metricName: 'TasksGenerated',
           dimensionsMap: { Tasks: 'Tasks' },
           statistic: 'Sum',
-          period: Duration.days(1),
+          period: Duration.minutes(5),
           region: this.region,
         }),
       ],
@@ -548,7 +557,7 @@ export class TaskGenieStack extends Stack {
           metricName: 'UserStoriesUpdated',
           dimensionsMap: { 'User Story': 'User Stories' },
           statistic: 'Sum',
-          period: Duration.days(1),
+          period: Duration.minutes(5),
           region: this.region,
         }),
       ],
@@ -564,7 +573,7 @@ export class TaskGenieStack extends Stack {
           metricName: 'IncompleteUserStories',
           dimensionsMap: { 'User Story': 'User Stories' },
           statistic: 'Sum',
-          period: Duration.days(1),
+          period: Duration.minutes(5),
           region: this.region,
         }),
       ],
@@ -572,26 +581,107 @@ export class TaskGenieStack extends Stack {
       leftYAxis: { min: 0, max: 100 },
     });
 
-    const sendResponseFunctionWidget = new GraphWidget({
-      title: 'Lambda Response Time & Memory Usage',
+    const executionsHistogram = new GraphWidget({
+      title: 'Task Genie Executions Histogram',
+      stacked: false,
       left: [
-        sendResponseFunction.metricDuration({
+        new Metric({
+          namespace: 'AWS/States',
+          metricName: 'ExpressExecutionBilledDuration',
+          dimensionsMap: {
+            StateMachineArn: stateMachine.stateMachineArn,
+          },
           statistic: 'Average',
           period: Duration.minutes(5),
         }),
       ],
       right: [
         new Metric({
-          namespace: 'AWS/LambdaInsights',
-          metricName: 'memory_utilization',
+          namespace: 'AWS/States',
+          metricName: 'ExecutionsStarted',
           dimensionsMap: {
-            function_name: sendResponseFunction.functionName,
+            StateMachineArn: stateMachine.stateMachineArn,
           },
-          statistic: 'Average',
+          statistic: 'Sum',
           period: Duration.minutes(5),
         }),
       ],
       view: GraphWidgetView.TIME_SERIES,
+      width: 12,
+      height: 6,
+    });
+
+    const lambdaDurationWidget = new SingleValueWidget({
+      title: 'Lambda Duration (p99)',
+      metrics: [
+        new Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Duration',
+          dimensionsMap: { FunctionName: evaluateUserStoryFunction.functionName },
+        }),
+        new Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Duration',
+          dimensionsMap: { FunctionName: defineTasksFunction.functionName },
+        }),
+        new Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Duration',
+          dimensionsMap: { FunctionName: createTasksFunction.functionName },
+        }),
+        new Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Duration',
+          dimensionsMap: { FunctionName: addCommentFunction.functionName },
+        }),
+        new Metric({
+          namespace: 'AWS/Lambda',
+          metricName: 'Duration',
+          dimensionsMap: { FunctionName: sendResponseFunction.functionName },
+        }),
+      ],
+      sparkline: false,
+      period: Duration.minutes(5),
+      width: 12,
+      height: 3,
+    });
+
+    const stepFunctionDurationWidget = new SingleValueWidget({
+      title: 'Step Function (p99)',
+      metrics: [
+        new Metric({
+          namespace: 'AWS/States',
+          metricName: 'ExecutionTime',
+          dimensionsMap: {
+            StateMachineArn: stateMachine.stateMachineArn,
+          },
+        }),
+        new Metric({
+          namespace: 'AWS/States',
+          metricName: 'ExpressExecutionMemory',
+          dimensionsMap: {
+            StateMachineArn: stateMachine.stateMachineArn,
+          },
+        }),
+      ],
+      sparkline: false,
+      period: Duration.minutes(5),
+      width: 12,
+      height: 3,
+    });
+
+    const errorLogs = new LogQueryWidget({
+      title: 'Error Logs',
+      logGroupNames: [
+        `/aws/lambda/${evaluateUserStoryFunction.functionName}`,
+        `/aws/lambda/${defineTasksFunction.functionName}`,
+        `/aws/lambda/${createTasksFunction.functionName}`,
+        `/aws/lambda/${addCommentFunction.functionName}`,
+        `/aws/lambda/${sendResponseFunction.functionName}`,
+      ],
+      queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}' | SOURCE '/aws/lambda/${defineTasksFunction.functionName}' | SOURCE '/aws/lambda/${createTasksFunction.functionName}' | SOURCE '/aws/lambda/${addCommentFunction.functionName}' | SOURCE '/aws/lambda/${sendResponseFunction.functionName}' | fields @timestamp, @message, @logStream, @log | filter @message like /ERROR/ | sort @timestamp desc | limit 10000`,
+      width: 24,
+      height: 6,
     });
 
     dashboard.addWidgets(
@@ -599,7 +689,10 @@ export class TaskGenieStack extends Stack {
       tasksGeneratedWidget,
       userStoriesUpdatedWidget,
       incompleteUserStoriesWidget,
-      sendResponseFunctionWidget
+      executionsHistogram,
+      lambdaDurationWidget,
+      stepFunctionDurationWidget,
+      errorLogs
     );
 
     /*
