@@ -1,8 +1,5 @@
 ### ToDo
 
-X Test and prep real user stories
-X Fix udefined workItemId with custom prompt
-
 - Pricing table
 - Presentation
 
