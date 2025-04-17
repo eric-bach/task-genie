@@ -24,6 +24,7 @@ Task Genie integrates directly in Azure DevOps Boards, utilizing AI services pow
    - Built-in dashboards to visualize performance and effectiveness of task generation
    - Offers recommendations for improving workflows based on historical data
    - Detects potential bottlenecks or ambiguities in user stories
+   - ![dashboard](docs/dashboard.png)
 
 ## Architecture
 
@@ -44,6 +45,21 @@ A state machine, leveraging AWS Step Functions, orchestrates the workflow for th
 |  <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/shadcn_ui.png">   |      ShadCn UI      |
 | <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/tailwind_css.png"> |    Tailwind CSS     |
 |  <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/typescript.png">  |     TypeScript      |
+
+## Pricing
+
+Estimated monthly costs (USD) for running in an AWS account:
+
+| Service               | Rate (us-west-2)                 | Quantity  | Estimated cost |
+| --------------------- | -------------------------------- | --------- | -------------- |
+| VPC public IPv4       | $0.005 per hour                  | 1         | $3.60          |
+| VPC endpoint          | $0.01 per hour                   | 2         | $14.40         |
+| CloudWatch            | $3 per dashboard                 | 1         | $3.00          |
+| Amplify               | $0.01 per minute                 | 10        | $0.10          |
+| Lambda                | $0.0000166667 per GB-second      | 100,000   | $1.67          |
+| Step Functions        | $0.00001667 per GB-second        | 100,000   | $1.67          |
+| Bedrock (Claude)      | $0.003 (input) / $0.015 (output) | 1,000,000 | $18.00         |
+| **TOTAL (estimated)** |                                  |           | **$42.44**     |
 
 ## Getting Started
 
@@ -140,5 +156,5 @@ The integration with Azure DevOps leverages Service Hooks and requires 4 Service
 
 ## References
 
-https://www.youtube.com/watch?v=POn5WYFw4xU
-https://github.com/aws-samples/genai-for-devops/tree/main/automating-kanban-workflows
+- https://www.youtube.com/watch?v=POn5WYFw4xU
+- https://github.com/aws-samples/genai-for-devops/tree/main/automating-kanban-workflows
