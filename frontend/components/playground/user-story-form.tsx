@@ -219,7 +219,7 @@ export function UserStoryForm() {
                                       </div>
                                       <FormControl>
                                         <Textarea
-                                          placeholder='Enter your custom prompt for task generation...'
+                                          placeholder='Enter your custom prompt for task generation. If not provided, the default task-genie prompt will be used.'
                                           className='min-h-[100px] resize-none'
                                           {...field}
                                         />

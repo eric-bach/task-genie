@@ -118,12 +118,17 @@ const validateWorkItem = (resource: any) => {
     'Microsoft.VSTS.Common.AcceptanceCriteria',
   ];
 
-  if (!resource || resource.workItemId < 0 || !resource.revision || !resource.revision.fields) {
-    throw new InvalidWorkItemError('Bad request', 'Work item resource or revision fields are missing.', 400);
+  if (!resource) {
+    throw new InvalidWorkItemError('Bad request', 'Work item resource is undefined or missing.', 400);
+  }
+
+  const fields = resource.revision?.fields || resource.fields;
+  if (!fields) {
+    throw new InvalidWorkItemError('Bad request', 'Work item fields are undefined or missing.', 400);
   }
 
   for (const field of requiredFields) {
-    if (!resource.revision.fields[field]) {
+    if (!fields[field]) {
       logger.error('Work item is missing a required field', { field: field });
       throw new InvalidWorkItemError('Bad request', `Work item is missing required field: ${field}.`, 400);
     }
@@ -132,15 +137,15 @@ const validateWorkItem = (resource: any) => {
 
 const parseEventBody = (body: any): WorkItemRequest => {
   const { params, resource } = body;
-  const { workItemId, revision } = resource;
-  const fields = revision.fields;
+  const workItemId = resource.workItemId || resource.id;
+  const fields = resource.revision?.fields || resource.fields;
 
   const tagsString = sanitizeField(fields['System.Tags'] ?? '');
   const tags = tagsString ? tagsString.split(';').map((tag: string) => tag.trim()) : [];
 
   const workItem = {
-    workItemId,
-    changedBy: sanitizeField(fields['System.ChangedBy']),
+    workItemId: workItemId ?? 0,
+    changedBy: sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim(),
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(fields['System.Description']),
     acceptanceCriteria: sanitizeField(fields['Microsoft.VSTS.Common.AcceptanceCriteria']),

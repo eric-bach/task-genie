@@ -1,5 +1,8 @@
 ### ToDo
 
+- Pricing table
+- Presentation
+
 - Add Knowledge Bases - https://github.com/amaabca/teddy_infra_common/blob/master/cdk/lib/stacks/KnowledgeBaseStack.ts
   https://docs.aws.amazon.com/cdk/api/v2/docs/aws-cdk-lib.aws_bedrock.CfnKnowledgeBase.html
 
