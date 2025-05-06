@@ -201,7 +201,7 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => 
       throw new Error('No content found in response');
     }
 
-    const bedrockResponse = JSON.parse(content[0].text);
+    const bedrockResponse = safeJsonParse(content[0].text);
 
     logger.info('Bedrock invocation response', { response: bedrockResponse });
 
@@ -217,5 +217,24 @@ const sanitizeField = (fieldValue: any): string => {
   }
   return fieldValue.replace(/<[^>]*>/g, '').trim();
 };
+
+// Sometimes the AI model returns invalid JSON with extra characters before and after the JSON string, so we need to extract the first valid JSON object from the string
+function safeJsonParse<T = any>(input: string): T | undefined {
+  // Find the first '{' and the last '}'
+  const start = input.indexOf('{');
+  const end = input.lastIndexOf('}');
+
+  if (start === -1 || end === -1 || end <= start) {
+    return undefined; // No valid JSON found
+  }
+
+  const jsonSubstring = input.slice(start, end + 1);
+
+  try {
+    return JSON.parse(jsonSubstring);
+  } catch {
+    return undefined; // Invalid JSON
+  }
+}
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

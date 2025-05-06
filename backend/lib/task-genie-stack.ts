@@ -587,26 +587,31 @@ export class TaskGenieStack extends Stack {
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
+          statistic: 'p99',
           dimensionsMap: { FunctionName: evaluateUserStoryFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
+          statistic: 'p99',
           dimensionsMap: { FunctionName: defineTasksFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
+          statistic: 'p99',
           dimensionsMap: { FunctionName: createTasksFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
+          statistic: 'p99',
           dimensionsMap: { FunctionName: addCommentFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
+          statistic: 'p99',
           dimensionsMap: { FunctionName: sendResponseFunction.functionName },
         }),
       ],
@@ -622,6 +627,7 @@ export class TaskGenieStack extends Stack {
         new Metric({
           namespace: 'AWS/States',
           metricName: 'ExecutionTime',
+          statistic: 'p99',
           dimensionsMap: {
             StateMachineArn: stateMachine.stateMachineArn,
           },
@@ -629,6 +635,7 @@ export class TaskGenieStack extends Stack {
         new Metric({
           namespace: 'AWS/States',
           metricName: 'ExpressExecutionMemory',
+          statistic: 'p99',
           dimensionsMap: {
             StateMachineArn: stateMachine.stateMachineArn,
           },
@@ -660,7 +667,7 @@ export class TaskGenieStack extends Stack {
     });
 
     const stepFunctionExecutionsHistogram = new GraphWidget({
-      title: 'Step Function Executions',
+      title: 'Step Function Execution Counts',
       stacked: false,
       left: [
         new Metric({
