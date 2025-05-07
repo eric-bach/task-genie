@@ -142,6 +142,7 @@ export class TaskGenieStack extends Stack {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
+      logRetention: RetentionDays.ONE_MONTH,
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
@@ -173,6 +174,7 @@ export class TaskGenieStack extends Stack {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
+      logRetention: RetentionDays.ONE_MONTH,
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
@@ -199,6 +201,7 @@ export class TaskGenieStack extends Stack {
         GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
+      logRetention: RetentionDays.ONE_MONTH,
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
@@ -226,6 +229,7 @@ export class TaskGenieStack extends Stack {
         GITHUB_REPOSITORY: process.env.GITHUB_REPOSITORY || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
+      logRetention: RetentionDays.ONE_MONTH,
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
@@ -245,6 +249,7 @@ export class TaskGenieStack extends Stack {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
+      logRetention: RetentionDays.ONE_MONTH,
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
@@ -316,7 +321,7 @@ export class TaskGenieStack extends Stack {
       tracingEnabled: true,
       logs: {
         destination: new LogGroup(this, 'StateMachineLogGroup', {
-          retention: RetentionDays.ONE_WEEK,
+          retention: RetentionDays.ONE_MONTH,
           removalPolicy: RemovalPolicy.DESTROY,
         }),
         level: LogLevel.ALL,
@@ -617,6 +622,7 @@ export class TaskGenieStack extends Stack {
       ],
       sparkline: false,
       period: Duration.minutes(5),
+      setPeriodToTimeRange: true,
       width: 12,
       height: 3,
     });
