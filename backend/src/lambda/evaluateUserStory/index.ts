@@ -5,6 +5,12 @@ import {
   ConverseCommandInput,
   ConversationRole,
 } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockAgentRuntimeClient,
+  RetrieveCommand,
+  RetrieveCommandInput,
+  RetrieveCommandOutput,
+} from '@aws-sdk/client-bedrock-agent-runtime';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
@@ -14,14 +20,26 @@ import { WorkItem, BedrockResponse, WorkItemRequest } from '../../shared/types';
 import { InvalidWorkItemError } from '../../shared/errors';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
+const AWS_BEDROCK_KNOWLEDGE_BASE_ID = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
+
 if (AWS_BEDROCK_MODEL_ID === undefined) {
   throw new Error('AWS_BEDROCK_MODEL_ID environment variable is required');
+}
+
+if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
+  throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
 
 const bedrockClient = new BedrockRuntimeClient({
   endpoint: `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`,
   region: process.env.AWS_REGION || 'us-west-2',
 });
+
+const bedrockAgentClient = new BedrockAgentRuntimeClient({
+  endpoint: `https://bedrock-agent-runtime.${process.env.AWS_REGION}.amazonaws.com`,
+  region: process.env.AWS_REGION || 'us-west-2',
+});
+
 export const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-west-2' });
 export const logger = new Logger({ serviceName: 'evaluateUserStory' });
 
@@ -158,12 +176,56 @@ const parseEventBody = (body: any): WorkItemRequest => {
   return { params: params ?? {}, workItem };
 };
 
+const retrieveKnowledgeBaseContext = async (query: string): Promise<string> => {
+  const input: RetrieveCommandInput = {
+    knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
+    retrievalQuery: {
+      text: query,
+    },
+    retrievalConfiguration: {
+      vectorSearchConfiguration: {
+        numberOfResults: 3,
+      },
+    },
+  };
+
+  try {
+    const command = new RetrieveCommand(input);
+    const response: RetrieveCommandOutput = await bedrockAgentClient.send(command);
+
+    if (!response.retrievalResults || response.retrievalResults.length === 0) {
+      logger.warn('No relevant context found in knowledge base');
+      return '';
+    }
+
+    // Combine the retrieved results into a single context string
+    const context = response.retrievalResults
+      .map((result: { content?: { text?: string } }) => result.content?.text)
+      .filter(Boolean)
+      .join('\n\n');
+
+    logger.info('Retrieved context from knowledge base', { context });
+    return context;
+  } catch (error: any) {
+    logger.error('Failed to retrieve context from knowledge base', { error: error.message });
+    return '';
+  }
+};
+
 const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => {
+  // Retrieve relevant context from knowledge base
+  const query = `User story title: ${workItem.title}\nDescription: ${workItem.description}\nAcceptance Criteria: ${workItem.acceptanceCriteria}`;
+  const context = await retrieveKnowledgeBaseContext(query);
+
   const prompt = `You are a reviewer of Azure DevOps work items, designed to highlight when a work item is not clear enough for a developer to work on.
     You will only return a result in JSON format where one attribute key is "pass" being either true or false, where false indicates it does not meet the quality bar.
     A second optional JSON attribute key will be called "comment", that is returned in a single line, and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
     A work item is a short, simple description of a customer requirement told from the perspective of the user or customer. It focuses on what the user needs and why.
     Focus on whether a developer would understand without being pedantic.
+
+    Here are some examples of good user stories from our knowledge base for reference:
+    ${context}
+
     The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.`;
 
   const conversation = [

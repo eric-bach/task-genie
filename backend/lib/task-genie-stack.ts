@@ -28,6 +28,12 @@ import {
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { DatabaseCluster, DatabaseClusterEngine, AuroraPostgresEngineVersion } from 'aws-cdk-lib/aws-rds';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { CfnKnowledgeBase } from 'aws-cdk-lib/aws-bedrock';
+import { SecurityGroup } from 'aws-cdk-lib/aws-ec2';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
 
 dotenv.config();
 
@@ -109,6 +115,134 @@ export class TaskGenieStack extends Stack {
     });
 
     /*
+     * ### Aurora Database
+     */
+
+    // Create a security group for Aurora
+    const auroraSecurityGroup = new SecurityGroup(this, 'AuroraSecurityGroup', {
+      vpc,
+      description: 'Security group for Aurora database',
+      allowAllOutbound: true,
+    });
+
+    // Create Aurora database cluster
+    const databaseCluster = new DatabaseCluster(this, 'TaskGenieDatabase', {
+      engine: DatabaseClusterEngine.auroraPostgres({
+        version: AuroraPostgresEngineVersion.VER_15_3,
+      }),
+      instanceProps: {
+        vpc,
+        vpcSubnets: {
+          subnetType: SubnetType.PRIVATE_ISOLATED,
+        },
+        securityGroups: [auroraSecurityGroup],
+        instanceType: ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM),
+      },
+      instances: 2,
+      storageEncrypted: true,
+      backup: {
+        retention: Duration.days(7),
+      },
+      removalPolicy: RemovalPolicy.DESTROY,
+      enableDataApi: true,
+    });
+
+    // Create a secret for the database credentials
+    const databaseSecret = new Secret(this, 'DatabaseSecret', {
+      description: 'Database credentials for Task Genie',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          username: 'taskgenie',
+        }),
+        generateStringKey: 'password',
+        excludePunctuation: true,
+        passwordLength: 16,
+      },
+    });
+
+    /*
+     * ### Bedrock Knowledge Base
+     */
+
+    // Create IAM role for Knowledge Base
+    const knowledgeBaseRole = new iam.Role(this, 'KnowledgeBaseRole', {
+      assumedBy: new iam.ServicePrincipal('bedrock.amazonaws.com'),
+      description: 'Role for Bedrock Knowledge Base to access Aurora database',
+    });
+
+    // Grant permissions to access the database secret
+    databaseSecret.grantRead(knowledgeBaseRole);
+
+    // Grant permissions to access the Aurora database
+    knowledgeBaseRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'rds:DescribeDBClusters',
+          'rds:DescribeDBClusterEndpoints',
+          'rds:DescribeDBInstances',
+          'rds:DescribeDBSubnetGroups',
+          'rds:DescribeEngineDefaultClusterParameters',
+          'rds-data:ExecuteStatement',
+          'rds-data:BatchExecuteStatement',
+          'rds:DescribeDBClusterParameterGroups',
+          'rds:DescribeDBClusterParameters',
+          'rds:DescribeDBClusterSnapshotAttributes',
+          'rds:DescribeDBClusterSnapshots',
+          'rds:DescribeDBParameterGroups',
+          'rds:DescribeDBParameters',
+          'rds:DescribeDBSecurityGroups',
+          'rds:DescribeDBSnapshots',
+          'rds:DescribeDBSubnetGroups',
+          'rds:DescribeEventSubscriptions',
+          'rds:DescribeEvents',
+          'rds:DescribeOptionGroups',
+          'rds:DescribeOrderableDBInstanceOptions',
+          'rds:DescribePendingMaintenanceActions',
+          'rds:DescribeReservedDBInstances',
+          'rds:DescribeReservedDBInstancesOfferings',
+          'rds:DescribeSourceRegions',
+          'rds:DescribeValidDBInstanceModifications',
+        ],
+        resources: ['*'],
+      })
+    );
+    knowledgeBaseRole.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['bedrock:InvokeModel'],
+        resources: ['arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0'],
+      })
+    );
+
+    const knowledgeBase = new CfnKnowledgeBase(this, 'TaskGenieKnowledgeBase', {
+      name: `${APP_NAME}-knowledge-base`,
+      description: 'Knowledge base for Task Genie',
+      roleArn: knowledgeBaseRole.roleArn,
+      knowledgeBaseConfiguration: {
+        type: 'VECTOR',
+        vectorKnowledgeBaseConfiguration: {
+          embeddingModelArn: `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        },
+      },
+      storageConfiguration: {
+        type: 'RDS',
+        rdsConfiguration: {
+          resourceArn: databaseCluster.clusterArn,
+          databaseName: 'task_genie',
+          tableName: 'kb_vectors',
+          credentialsSecretArn: databaseSecret.secretArn,
+          fieldMapping: {
+            primaryKeyField: 'id',
+            vectorField: 'embedding',
+            textField: 'content',
+            metadataField: 'metadata',
+          },
+        },
+      },
+    });
+
+    /*
      * ### Tokens
      */
 
@@ -140,6 +274,7 @@ export class TaskGenieStack extends Stack {
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: knowledgeBase.attrKnowledgeBaseId,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       logRetention: RetentionDays.ONE_MONTH,
@@ -159,6 +294,12 @@ export class TaskGenieStack extends Stack {
         resources: [`arn:aws:bedrock:${this.region}::foundation-model/${process.env.AWS_BEDROCK_MODEL_ID}`],
       })
     );
+    evaluateUserStoryFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['bedrock:Retrieve', 'bedrock:RetrieveAndGenerate'],
+        resources: [knowledgeBase.attrKnowledgeBaseArn],
+      })
+    );
 
     const defineTasksFunction = new NodejsFunction(this, 'DefineTasks', {
       runtime: Runtime.NODEJS_22_X,
@@ -172,6 +313,7 @@ export class TaskGenieStack extends Stack {
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: knowledgeBase.attrKnowledgeBaseId,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       logRetention: RetentionDays.ONE_MONTH,
@@ -183,6 +325,12 @@ export class TaskGenieStack extends Stack {
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
         resources: [`arn:aws:bedrock:${this.region}::foundation-model/${process.env.AWS_BEDROCK_MODEL_ID}`],
+      })
+    );
+    defineTasksFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: ['bedrock:Retrieve', 'bedrock:RetrieveAndGenerate'],
+        resources: [knowledgeBase.attrKnowledgeBaseArn],
       })
     );
 
@@ -509,6 +657,25 @@ export class TaskGenieStack extends Stack {
     });
     bedrockEndpoint.connections.allowFrom(evaluateUserStoryFunction, Port.tcp(443));
     bedrockEndpoint.connections.allowFrom(defineTasksFunction, Port.tcp(443));
+
+    // Interface VPC endpoint for Bedrock Knowledge Base
+    const bedrockKnowledgeBaseEndpoint = vpc.addInterfaceEndpoint('BedrockKnowledgeBaseEndpoint', {
+      service: {
+        name: `com.amazonaws.${this.region}.bedrock`,
+        port: 443,
+      },
+      subnets: {
+        subnetType: SubnetType.PRIVATE_ISOLATED,
+      },
+    });
+    bedrockKnowledgeBaseEndpoint.connections.allowFrom(auroraSecurityGroup, Port.tcp(443));
+
+    // Allow Aurora to access the Bedrock Knowledge Base endpoint
+    auroraSecurityGroup.addIngressRule(
+      bedrockKnowledgeBaseEndpoint.connections.securityGroups[0],
+      Port.tcp(443),
+      'Allow Aurora to access Bedrock Knowledge Base'
+    );
 
     /*
      * ### Amazon CloudWatch

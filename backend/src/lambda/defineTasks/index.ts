@@ -5,20 +5,38 @@ import {
   ConverseCommand,
   ConverseCommandInput,
 } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockAgentRuntimeClient,
+  RetrieveCommand,
+  RetrieveCommandInput,
+  RetrieveCommandOutput,
+} from '@aws-sdk/client-bedrock-agent-runtime';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 import { WorkItem, Task, WorkItemRequest, BedrockConfig, BedrockResponse } from '../../shared/types';
 
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
+const AWS_BEDROCK_KNOWLEDGE_BASE_ID = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
+
 if (AWS_BEDROCK_MODEL_ID === undefined) {
   throw new Error('AWS_BEDROCK_MODEL_ID environment variable is required');
+}
+
+if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
+  throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
 
 const bedrockClient = new BedrockRuntimeClient({
   endpoint: `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`,
   region: process.env.AWS_REGION || 'us-west-2',
 });
+
+const bedrockAgentClient = new BedrockAgentRuntimeClient({
+  endpoint: `https://bedrock-agent-runtime.${process.env.AWS_REGION}.amazonaws.com`,
+  region: process.env.AWS_REGION || 'us-west-2',
+});
+
 const logger = new Logger({ serviceName: 'defineTasks' });
 
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
@@ -78,17 +96,46 @@ const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig;
   return { params: params ?? {}, workItem, workItemStatus };
 };
 
+const retrieveKnowledgeBaseContext = async (query: string): Promise<string> => {
+  const input: RetrieveCommandInput = {
+    knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
+    retrievalQuery: {
+      text: query,
+    },
+    retrievalConfiguration: {
+      vectorSearchConfiguration: {
+        numberOfResults: 3,
+      },
+    },
+  };
+
+  try {
+    const command = new RetrieveCommand(input);
+    const response: RetrieveCommandOutput = await bedrockAgentClient.send(command);
+
+    if (!response.retrievalResults || response.retrievalResults.length === 0) {
+      logger.warn('No relevant context found in knowledge base');
+      return '';
+    }
+
+    // Combine the retrieved results into a single context string
+    const context = response.retrievalResults
+      .map((result: { content?: { text?: string } }) => result.content?.text)
+      .filter(Boolean)
+      .join('\n\n');
+
+    logger.info('Retrieved context from knowledge base', { context });
+    return context;
+  } catch (error: any) {
+    logger.error('Failed to retrieve context from knowledge base', { error: error.message });
+    return '';
+  }
+};
+
 const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promise<Task[]> => {
-  // const prompt = `You are a technical product owner for Azure DevOps Work Items, who breaks down work items that into tasks where there may be multiple individuals involved or the time expected to complete is longer than 2 hours.
-  // You will return a result in a JSON format with one attribute key being tasks. This is a list. If no tasks are needed this will be empty.
-  // Each would be an object in the list with a key of title and a key of description. Split by logical divisions and provide as much guidance as possible. Make sure the ticket description is high quality.
-  // The parent task title to review is: ${workItem.title} along with the description: ${workItem.description} and along with the acceptance criteria: ${workItem.acceptanceCriteria}.
-  // Only generate tasks where it is completely neccessary. These are tasks completed by software development engineers, frontend developers and/or DevOps Engineers. Do not include tasks to do testing (including unit and integration) or deployment as this is part of the SDLC.
-  // Investigation and analysis should not have separate tasks.
-  // Not tasks for analyzing, no tasks for regression testing.
-  // Each task must be able to be deployed separately (increasing deployment frequency). Do not make any assumptions, only use the existing knowledge you have.
-  // Add a prefix to each task title to denote it's order in the sequence of tasks to be completed. For example, if there are 3 tasks, the first task would have a title of "1. Task Title".
-  // Only return JSON, no text. JSON should be a single line`;
+  // Retrieve relevant context from knowledge base
+  const query = `User story title: ${workItem.title}\nDescription: ${workItem.description}\nAcceptance Criteria: ${workItem.acceptanceCriteria}`;
+  const context = await retrieveKnowledgeBaseContext(query);
 
   const prompt =
     params.prompt ||
@@ -100,7 +147,12 @@ const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promi
   Not tasks for analyzing, no tasks for regression testing.
   Each task must be able to be deployed separately (increasing deployment frequency). Do not make any assumptions, only use the existing knowledge you have.
   Add a prefix to each task title to denote it's order in the sequence of tasks to be completed. For example, if there are 3 tasks, the first task would have a title of "1. Task Title".
+
+  Here are some examples of good user stories and their tasks from our knowledge base for reference:
+  ${context}
+
   Only return JSON, no text. JSON should be a single line`;
+
   const fullPrompt = `${prompt}. Only return JSON, no text, with one attribute key named "tasks". JSON should be a single line. The parent task title to review is: ${workItem.title} along with the description: ${workItem.description} and along with the acceptance criteria: ${workItem.acceptanceCriteria}.`;
 
   const conversation = [
