@@ -18,6 +18,7 @@
 
    - Automatically decomposes validated user stories into smaller, actionable tasks
    - Ensures tasks align with agile methodologies for efficient development
+   - ![ui](docs/ui.png)
 
 3. Azure DevOps Boards integration
 
