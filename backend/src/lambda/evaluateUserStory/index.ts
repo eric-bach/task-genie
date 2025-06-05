@@ -161,7 +161,8 @@ const parseEventBody = (body: any): WorkItemRequest => {
 const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => {
   const prompt = `You are a reviewer of Azure DevOps work items, designed to highlight when a work item is not clear enough for a developer to work on.
     You will only return a result in JSON format where one attribute key is "pass" being either true or false, where false indicates it does not meet the quality bar.
-    A second optional JSON attribute key will be called "comment", that is returned in a single line, and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
+    A second optional JSON attribute key will be called "comment", that is returned in a single string (but with line breaks and indentations using HTML tags if there are multiple points),
+    and where you are providing guidance and provide an example of how the work item would meet the pass requirements.
     A work item is a short, simple description of a customer requirement told from the perspective of the user or customer. It focuses on what the user needs and why.
     Focus on whether a developer would understand without being pedantic.
     The task title to review is: ${workItem.title} along with the description: ${workItem.description} and the acceptance criteria: ${workItem.acceptanceCriteria}.`;
