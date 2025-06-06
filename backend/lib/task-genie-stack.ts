@@ -624,7 +624,7 @@ export class TaskGenieStack extends Stack {
       period: Duration.minutes(5),
       setPeriodToTimeRange: true,
       width: 12,
-      height: 3,
+      height: 5,
     });
 
     const setFunctionDurationWidget = new SingleValueWidget({
@@ -650,7 +650,7 @@ export class TaskGenieStack extends Stack {
       sparkline: false,
       period: Duration.minutes(5),
       width: 12,
-      height: 3,
+      height: 5,
     });
 
     const stepFunctionExecutionTimeHistogram = new GraphWidget({

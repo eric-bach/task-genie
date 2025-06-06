@@ -101,7 +101,7 @@ const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promi
   Each task must be able to be deployed separately (increasing deployment frequency). Do not make any assumptions, only use the existing knowledge you have.
   Add a prefix to each task title to denote it's order in the sequence of tasks to be completed. For example, if there are 3 tasks, the first task would have a title of "1. Task Title".
   Only return JSON, no text. JSON should be a single line`;
-  const fullPrompt = `${prompt}. Only return JSON, no text, with one attribute key named "tasks". JSON should be a single line. The parent task title to review is: ${workItem.title} along with the description: ${workItem.description} and along with the acceptance criteria: ${workItem.acceptanceCriteria}.`;
+  const fullPrompt = `${prompt}. Only return JSON, no text, with one attribute key named "tasks". Each would be an object in the list with a key of title and a key of description. JSON should be a single line. The parent task title to review is: ${workItem.title} along with the description: ${workItem.description} and along with the acceptance criteria: ${workItem.acceptanceCriteria}.`;
 
   const conversation = [
     {
