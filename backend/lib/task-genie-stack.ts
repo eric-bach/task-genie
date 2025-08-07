@@ -803,7 +803,6 @@ export class TaskGenieStack extends Stack {
       title: 'API Gateway Access Logs',
       logGroupNames: [apiGwAccessLogGroup.logGroupName],
       queryString: `fields @timestamp, ip, httpMethod, resourcePath, status, responseLength, requestTime
-        | filter status >= 400
         | sort @timestamp desc 
         | limit 100`,
       width: 12,
@@ -819,10 +818,10 @@ export class TaskGenieStack extends Stack {
       lambdaFunctionsDurationWidget,
       stepFunctionExecutionTimeHistogram,
       stepFunctionExecutionsHistogram,
-      apiGatewayRequestsWidget,
-      apiGatewayLatencyWidget,
       errorLogs,
       unhandledErrorLogs,
+      apiGatewayRequestsWidget,
+      apiGatewayLatencyWidget,
       apiGatewayAccessLogs
     );
 
