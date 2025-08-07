@@ -18,11 +18,15 @@ import {
 } from 'aws-cdk-lib/aws-cloudwatch';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import {
+  AccessLogFormat,
   ApiKey,
   ApiKeySourceType,
   AwsIntegration,
   Cors,
   EndpointType,
+  IAccessLogDestination,
+  LogGroupLogDestination,
+  MethodLoggingLevel,
   PassthroughBehavior,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
@@ -137,7 +141,7 @@ export class TaskGenieStack extends Stack {
       layers: [powertoolsLayer],
       architecture: Architecture.ARM_64,
       memorySize: 1024,
-      timeout: Duration.seconds(30),
+      timeout: Duration.seconds(120),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -166,7 +170,7 @@ export class TaskGenieStack extends Stack {
       layers: [powertoolsLayer],
       architecture: Architecture.X86_64,
       memorySize: 1024,
-      timeout: Duration.seconds(60),
+      timeout: Duration.seconds(120),
       vpc,
       environment: {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -328,6 +332,13 @@ export class TaskGenieStack extends Stack {
      * ### Amazon API Gateway
      */
 
+    // API Gateway Access Log Group
+    const apiGwAccessLogGroup = new LogGroup(this, 'ApiGwAccessLogGroup', {
+      logGroupName: `/aws/apigateway/${APP_NAME}-api-access-logs`,
+      retention: RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     const api = new RestApi(this, 'TaskGenieAPI', {
       restApiName: 'TaskGenieAPI',
       description: 'API Gateway to handle for Task Genie',
@@ -339,6 +350,21 @@ export class TaskGenieStack extends Stack {
         allowCredentials: true,
       },
       apiKeySourceType: ApiKeySourceType.HEADER,
+      deployOptions: {
+        accessLogDestination: new LogGroupLogDestination(apiGwAccessLogGroup),
+        loggingLevel: MethodLoggingLevel.INFO,
+        accessLogFormat: AccessLogFormat.jsonWithStandardFields({
+          caller: true,
+          httpMethod: true,
+          ip: true,
+          protocol: true,
+          requestTime: true,
+          resourcePath: true,
+          responseLength: true,
+          status: true,
+          user: true,
+        }),
+      },
     });
 
     const apiGwStepFnRole = new Role(this, 'ApiGwStepFnRole', {
@@ -358,6 +384,13 @@ export class TaskGenieStack extends Stack {
       integrationHttpMethod: 'POST',
       options: {
         credentialsRole: apiGwStepFnRole,
+        requestTemplates: {
+          'application/json': `
+        {
+          "input": "$util.escapeJavaScript($input.body).replaceAll("\\'", "'")",
+          "stateMachineArn": "${stateMachine.stateMachineArn}"
+        }`,
+        },
         integrationResponses: [
           {
             statusCode: '202',
@@ -378,19 +411,31 @@ export class TaskGenieStack extends Stack {
           },
           {
             statusCode: '400',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': "'*'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Headers':
+                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
+            },
             responseTemplates: {
               'application/json': JSON.stringify({ message: 'Bad request' }),
             },
           },
+          {
+            statusCode: '500',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': "'*'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Headers':
+                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
+            },
+            responseTemplates: {
+              'application/json': JSON.stringify({ message: 'Internal server error' }),
+            },
+          },
         ],
-        requestTemplates: {
-          'application/json': `
-{
-  "input": "$util.escapeJavaScript($input.body)",
-  "stateMachineArn": "${stateMachine.stateMachineArn}"
-}
-          `,
-        },
         passthroughBehavior: PassthroughBehavior.NEVER,
       },
     });
@@ -409,6 +454,15 @@ export class TaskGenieStack extends Stack {
         },
         {
           statusCode: '400',
+          responseParameters: {
+            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
+            'method.response.header.Access-Control-Allow-Credentials': true,
+          },
+        },
+        {
+          statusCode: '500',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
             'method.response.header.Access-Control-Allow-Methods': true,
@@ -682,6 +736,64 @@ export class TaskGenieStack extends Stack {
       height: 6,
     });
 
+    const apiGatewayRequestsWidget = new GraphWidget({
+      title: 'API Gateway Requests',
+      stacked: false,
+      left: [
+        new Metric({
+          namespace: 'AWS/ApiGateway',
+          metricName: 'Count',
+          dimensionsMap: {
+            ApiName: 'TaskGenieAPI',
+          },
+          statistic: 'Sum',
+          period: Duration.minutes(5),
+        }),
+      ],
+      view: GraphWidgetView.TIME_SERIES,
+      width: 6,
+      height: 6,
+    });
+
+    const apiGatewayLatencyWidget = new GraphWidget({
+      title: 'API Gateway Latency',
+      stacked: false,
+      left: [
+        new Metric({
+          namespace: 'AWS/ApiGateway',
+          metricName: 'Latency',
+          dimensionsMap: {
+            ApiName: 'TaskGenieAPI',
+          },
+          statistic: 'Average',
+          period: Duration.minutes(5),
+        }),
+        new Metric({
+          namespace: 'AWS/ApiGateway',
+          metricName: 'IntegrationLatency',
+          dimensionsMap: {
+            ApiName: 'TaskGenieAPI',
+          },
+          statistic: 'Average',
+          period: Duration.minutes(5),
+        }),
+      ],
+      view: GraphWidgetView.TIME_SERIES,
+      width: 6,
+      height: 6,
+    });
+
+    const apiGatewayAccessLogs = new LogQueryWidget({
+      title: 'API Gateway Access Logs',
+      logGroupNames: [apiGwAccessLogGroup.logGroupName],
+      queryString: `fields @timestamp, ip, httpMethod, resourcePath, status, responseLength, requestTime
+        | filter status >= 400
+        | sort @timestamp desc 
+        | limit 100`,
+      width: 12,
+      height: 6,
+    });
+
     dashboard.addWidgets(
       userStoriesEvaluatedWidged,
       tasksGeneratedWidget,
@@ -691,8 +803,11 @@ export class TaskGenieStack extends Stack {
       lambdaFunctionsDurationWidget,
       stepFunctionExecutionTimeHistogram,
       stepFunctionExecutionsHistogram,
+      apiGatewayRequestsWidget,
+      apiGatewayLatencyWidget,
       errorLogs,
-      unhandledErrorLogs
+      unhandledErrorLogs,
+      apiGatewayAccessLogs
     );
 
     /*
