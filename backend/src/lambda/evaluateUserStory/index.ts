@@ -1,10 +1,5 @@
-import { APIGatewayProxyEventV2, Context } from 'aws-lambda';
-import {
-  BedrockRuntimeClient,
-  ConverseCommand,
-  ConverseCommandInput,
-  ConversationRole,
-} from '@aws-sdk/client-bedrock-runtime';
+import { Context } from 'aws-lambda';
+import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput } from '@aws-sdk/client-bedrock-runtime';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
@@ -177,42 +172,45 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => 
       - Description: ${workItem.description}
       - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
 
-  const conversation = [
-    {
-      role: ConversationRole.USER,
-      content: [{ text: prompt }],
-    },
-  ];
+  const body = JSON.stringify({
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: 4096,
+    temperature: 0.5,
+    top_p: 0.9,
+    messages: [
+      {
+        role: 'user',
+        content: prompt,
+      },
+    ],
+  });
 
-  const input: ConverseCommandInput = {
+  const input: InvokeModelCommandInput = {
     modelId: AWS_BEDROCK_MODEL_ID,
-    messages: conversation,
-    inferenceConfig: {
-      maxTokens: 2048,
-      temperature: 0.5,
-      topP: 0.9,
-    },
+    body: body,
+    contentType: 'application/json',
+    accept: 'application/json',
   };
 
   logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { input: JSON.stringify(input) });
 
-  const command = new ConverseCommand(input);
+  const command = new InvokeModelCommand(input);
 
   try {
     const response = await bedrockClient.send(command);
 
-    logger.info('Bedrock model invoked', { response: response.output });
+    logger.info('Bedrock model invoked', { response: response });
 
-    const content = response.output?.message?.content;
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
 
-    logger.debug('Bedrock response content', { content: content });
+    logger.debug('Bedrock response content', { content: responseBody });
 
-    if (!content || !content[0].text) {
-      logger.error('No content found in response', { response: response });
+    if (!responseBody.content || !responseBody.content[0] || !responseBody.content[0].text) {
+      logger.error('No content found in response', { response: responseBody });
       throw new Error('No content found in response');
     }
 
-    const bedrockResponse = safeJsonParse(content[0].text);
+    const bedrockResponse = safeJsonParse(responseBody.content[0].text);
 
     logger.info('Bedrock invocation response', { response: bedrockResponse });
 

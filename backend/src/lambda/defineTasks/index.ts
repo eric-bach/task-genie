@@ -1,10 +1,5 @@
 import { Context } from 'aws-lambda';
-import {
-  BedrockRuntimeClient,
-  ConversationRole,
-  ConverseCommand,
-  ConverseCommandInput,
-} from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput } from '@aws-sdk/client-bedrock-runtime';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
@@ -110,36 +105,44 @@ const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promi
       - Acceptance Criteria: ${workItem.acceptanceCriteria}
   `;
 
-  const conversation = [
-    {
-      role: ConversationRole.USER,
-      content: [{ text: fullPrompt }],
-    },
-  ];
+  const body = JSON.stringify({
+    anthropic_version: 'bedrock-2023-05-31',
+    max_tokens: params.maxTokens ?? 4096,
+    temperature: params.temperature ?? 0.5,
+    top_p: params.topP ?? 0.9,
+    messages: [
+      {
+        role: 'user',
+        content: fullPrompt,
+      },
+    ],
+  });
 
-  const input: ConverseCommandInput = {
+  const input: InvokeModelCommandInput = {
     modelId: AWS_BEDROCK_MODEL_ID,
-    messages: conversation,
-    inferenceConfig: {
-      maxTokens: params.maxTokens ?? 2048,
-      temperature: params.temperature ?? 0.5,
-      topP: params.topP ?? 0.9,
-    },
+    body: body,
+    contentType: 'application/json',
+    accept: 'application/json',
   };
 
   logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { input: JSON.stringify(input) });
 
-  const command = new ConverseCommand(input);
+  const command = new InvokeModelCommand(input);
 
   try {
     const response = await bedrockClient.send(command);
 
-    logger.info('Bedrock model invoked', { response: response.output });
+    logger.info('Bedrock model invoked', { response: response });
+
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+
+    logger.debug('Bedrock response content', { content: responseBody });
 
     // Get tasks
-    const text: string = response.output?.message?.content
-      ? response.output?.message?.content[0].text || '{tasks:[{}]}'
-      : '{tasks:[{}]}';
+    const text: string =
+      responseBody.content && responseBody.content[0] && responseBody.content[0].text
+        ? responseBody.content[0].text
+        : '{tasks:[{}]}';
 
     const tasks: Task[] = safeJsonParse(text)?.tasks;
 
