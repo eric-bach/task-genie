@@ -61,6 +61,8 @@ const createTask = async (header: HeadersInit, workItem: WorkItem, task: Task, i
   ];
 
   const body = JSON.stringify(taskFields);
+  // TEMP: Remove single quotes to avoid issues with API Gateway serialization
+  const sanitizedBody = body.replace(/'/g, '');
 
   try {
     const url = `https://${GITHUB_ORGANIZATION}.visualstudio.com/${GITHUB_REPOSITORY}/_apis/wit/workitems/$task?api-version=7.1`;
@@ -70,7 +72,7 @@ const createTask = async (header: HeadersInit, workItem: WorkItem, task: Task, i
     const response = await fetch(url, {
       method: 'POST',
       headers: header,
-      body: body,
+      body: sanitizedBody,
     });
 
     // logger.debug('Create task response', { response: JSON.stringify(response) });

@@ -33,6 +33,7 @@ import {
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { Bucket } from 'aws-cdk-lib/aws-s3';
 
 dotenv.config();
 
@@ -114,6 +115,17 @@ export class TaskGenieStack extends Stack {
     });
 
     /*
+     * ### AWS S3 Bucket for Knowledge Base
+     */
+
+    const dataSourceBucket = new Bucket(this, 'TaskGenieKnowledgeBaseDataSource', {
+      bucketName: `${APP_NAME}-knowledge-base-data-source`,
+      versioned: true,
+      removalPolicy: RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    /*
      * ### Tokens
      */
 
@@ -144,7 +156,9 @@ export class TaskGenieStack extends Stack {
       timeout: Duration.seconds(120),
       vpc,
       environment: {
+        AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       logRetention: RetentionDays.ONE_MONTH,
@@ -173,7 +187,9 @@ export class TaskGenieStack extends Stack {
       timeout: Duration.seconds(120),
       vpc,
       environment: {
+        AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       logRetention: RetentionDays.ONE_MONTH,
@@ -507,17 +523,17 @@ export class TaskGenieStack extends Stack {
     cloudwatchEndpoint.connections.allowFrom(evaluateUserStoryFunction, Port.tcp(443));
 
     // Interface VPC endpoint for Bedrock
-    const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
+    const bedrockAgentEndpoint = vpc.addInterfaceEndpoint('BedrockAgentEndpoint', {
       service: {
-        name: `com.amazonaws.${this.region}.bedrock-runtime`,
+        name: `com.amazonaws.${this.region}.bedrock-agent-runtime`,
         port: 443,
       },
       subnets: {
         subnetType: SubnetType.PRIVATE_ISOLATED,
       },
     });
-    bedrockEndpoint.connections.allowFrom(evaluateUserStoryFunction, Port.tcp(443));
-    bedrockEndpoint.connections.allowFrom(defineTasksFunction, Port.tcp(443));
+    bedrockAgentEndpoint.connections.allowFrom(evaluateUserStoryFunction, Port.tcp(443));
+    bedrockAgentEndpoint.connections.allowFrom(defineTasksFunction, Port.tcp(443));
 
     /*
      * ### Amazon CloudWatch

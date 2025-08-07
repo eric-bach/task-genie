@@ -1,5 +1,9 @@
 import { Context } from 'aws-lambda';
-import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockAgentRuntimeClient,
+  RetrieveAndGenerateCommand,
+  RetrieveAndGenerateCommandInput,
+} from '@aws-sdk/client-bedrock-agent-runtime';
 import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
@@ -8,13 +12,22 @@ import { createIncompleteUserStoriesMetric } from './helpers/cloudwatch';
 import { WorkItem, BedrockResponse, WorkItemRequest } from '../../shared/types';
 import { InvalidWorkItemError } from '../../shared/errors';
 
+const AWS_REGION = process.env.AWS_REGION;
+const AWS_ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
+if (AWS_ACCOUNT_ID === undefined) {
+  throw new Error('AWS_ACCOUNT_ID environment variable is required');
+}
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
   throw new Error('AWS_BEDROCK_MODEL_ID environment variable is required');
 }
+const AWS_BEDROCK_KNOWLEDGE_BASE_ID = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
+if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
+  throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
+}
 
-const bedrockClient = new BedrockRuntimeClient({
-  endpoint: `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`,
+const bedrockClient = new BedrockAgentRuntimeClient({
+  endpoint: `https://bedrock-agent-runtime.${process.env.AWS_REGION}.amazonaws.com`,
   region: process.env.AWS_REGION || 'us-west-2',
 });
 export const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-west-2' });
@@ -22,11 +35,25 @@ export const logger = new Logger({ serviceName: 'evaluateUserStory' });
 
 const lambdaHandler = async (event: any, context: Context) => {
   try {
+    // The event now contains the raw Azure DevOps webhook payload
+    logger.debug('Received event from Step Functions', { event });
+
     // Validate required fields in the work item
     validateWorkItem(event.resource);
 
     // Parse and sanitize fields
-    const { workItem, params } = parseEventBody(event);
+    const { workItem, params } = parseEvent(event);
+
+    // Log the work item details for idempotency debugging
+    logger.info('Processing work item', {
+      workItemId: workItem.workItemId,
+      resourceId: event.resource?.id,
+      resourceWorkItemId: event.resource?.workItemId,
+      revision: event.resource?.rev,
+      changedDate:
+        event.resource?.revision?.fields?.['System.ChangedDate'] || event.resource?.fields?.['System.ChangedDate'],
+      eventType: event.eventType,
+    });
 
     // Check if work item has been updated already
     if (workItem.tags.includes('Task Genie')) {
@@ -85,22 +112,6 @@ const lambdaHandler = async (event: any, context: Context) => {
   }
 };
 
-const validateEventBody = (body: any) => {
-  if (!body) {
-    throw new InvalidWorkItemError('Bad request', 'Request body is missing or undefined.', 400);
-  }
-
-  if (typeof body === 'string') {
-    try {
-      body = JSON.parse(body);
-    } catch (error) {
-      throw new Error('Invalid JSON format in request body.');
-    }
-  }
-
-  return body;
-};
-
 const validateWorkItem = (resource: any) => {
   const requiredFields = [
     'System.IterationPath',
@@ -114,6 +125,9 @@ const validateWorkItem = (resource: any) => {
     throw new InvalidWorkItemError('Bad request', 'Work item resource is undefined or missing.', 400);
   }
 
+  // Handle different payload structures for created vs updated work items
+  // For updates: fields are in resource.revision.fields
+  // For creates: fields are directly in resource.fields
   const fields = resource.revision?.fields || resource.fields;
   if (!fields) {
     throw new InvalidWorkItemError('Bad request', 'Work item fields are undefined or missing.', 400);
@@ -127,7 +141,7 @@ const validateWorkItem = (resource: any) => {
   }
 };
 
-const parseEventBody = (event: any): WorkItemRequest => {
+const parseEvent = (event: any): WorkItemRequest => {
   const { params, resource } = event;
   const workItemId = resource.workItemId || resource.id;
   const fields = resource.revision?.fields || resource.fields;
@@ -151,73 +165,126 @@ const parseEventBody = (event: any): WorkItemRequest => {
 };
 
 const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => {
+  const query = `
+      Given the following work item, find any relevant information such as business or domain context, and technical
+      details that can help you evaluate the user story:
+      - Title: ${workItem.title}
+      - Description: ${workItem.description}
+      - Acceptance Criteria: ${workItem.acceptanceCriteria}
+  `;
+
   const prompt = `
-    You are an expert Agile software development assistant that reviews Azure DevOps work items.
+    You are an expert Agile software development assistant that reviews Azure DevOps work items. 
     You evaluate work items to ensure they are complete, clear, and ready for a developer to work on.
     Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
+
+    This is for educational and quality improvement purposes in a software development process.
 
     Evaluate the user story based on the following criteria:
       - Check if it clearly states the user, need, and business value.
       - Ensure acceptance criteria are present and specific.
       - Confirm the story is INVEST-aligned (Independent, Negotiable, Valuable, Estimable, Small, Testable).
 
-    Only return your assessment as a JSON object with the following structure:
+    Return your assessment as a valid JSON object with the following structure:
       - "pass": boolean (true if the work item meets the quality bar, false otherwise)
-      - if "pass" is false, include a "comment" field (string), explain what's missing or unclear, and provide a concrete example of a high-quality story that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
-
-    Do not output any text outside of the JSON object.
-
-    The work item to review is:
+      - if "pass" is false, include a "comment" field (string), explain what's missing or unclear, and provide
+      a concrete example of a high-quality story that would pass. If you have multiple feedback points, use
+      line breaks and indentations with HTML tags.
+ 
+    Only output the JSON object, no additional text.
+        
+    The work item to review is: 
       - Title: ${workItem.title}
       - Description: ${workItem.description}
-      - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+      - Acceptance Criteria: ${workItem.acceptanceCriteria}
+      
+    Here may be some additional business or domain context that may help you:
+      $search_results$`;
 
-  const body = JSON.stringify({
-    anthropic_version: 'bedrock-2023-05-31',
-    max_tokens: 4096,
-    temperature: 0.5,
-    top_p: 0.9,
-    messages: [
-      {
-        role: 'user',
-        content: prompt,
+  const input: RetrieveAndGenerateCommandInput = {
+    input: {
+      text: query,
+    },
+    retrieveAndGenerateConfiguration: {
+      type: 'KNOWLEDGE_BASE',
+      knowledgeBaseConfiguration: {
+        knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
+        modelArn: `arn:aws:bedrock:${AWS_REGION}:${AWS_ACCOUNT_ID}:inference-profile/${AWS_BEDROCK_MODEL_ID}`,
+        generationConfiguration: {
+          promptTemplate: {
+            textPromptTemplate: prompt,
+          },
+          inferenceConfig: {
+            textInferenceConfig: {
+              maxTokens: 2048,
+              temperature: 0.5,
+              topP: 0.9,
+            },
+          },
+        },
+        retrievalConfiguration: {
+          vectorSearchConfiguration: {
+            numberOfResults: 5,
+          },
+        },
       },
-    ],
-  });
-
-  const input: InvokeModelCommandInput = {
-    modelId: AWS_BEDROCK_MODEL_ID,
-    body: body,
-    contentType: 'application/json',
-    accept: 'application/json',
+    },
   };
 
   logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { input: JSON.stringify(input) });
 
-  const command = new InvokeModelCommand(input);
-
   try {
+    const command = new RetrieveAndGenerateCommand(input);
     const response = await bedrockClient.send(command);
 
-    logger.info('Bedrock model invoked', { response: response });
+    logger.debug('Bedrock model invoked', { response: response.output });
+    const content = response.output?.text;
 
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-
-    logger.debug('Bedrock response content', { content: responseBody });
-
-    if (!responseBody.content || !responseBody.content[0] || !responseBody.content[0].text) {
-      logger.error('No content found in response', { response: responseBody });
-      throw new Error('No content found in response');
+    if (!content) {
+      logger.error('No content found in response', { response: response });
+      throw new Error('No text content found in Bedrock response');
     }
 
-    const bedrockResponse = safeJsonParse(responseBody.content[0].text);
+    const bedrockResponse = safeJsonParse(content);
+
+    if (!bedrockResponse) {
+      logger.error('Failed to parse JSON response', { content });
+      throw new Error('Invalid JSON response from Bedrock model');
+    }
 
     logger.info('Bedrock invocation response', { response: bedrockResponse });
 
-    return bedrockResponse;
+    const sanitizedBedrockResponse = sanitizeBedrockResponse(bedrockResponse);
+
+    // TEMP: Remove single quotes to avoid issues with API Gateway serialization
+    logger.info('Sanitized response', { response: sanitizedBedrockResponse });
+    return sanitizedBedrockResponse as BedrockResponse;
   } catch (error: any) {
+    logger.error('Bedrock model evaluation failed', {
+      error: error.message,
+      errorName: error.name,
+      errorCode: error.$metadata?.httpStatusCode || error.statusCode,
+      requestId: error.$metadata?.requestId,
+      errorType: error.__type || error.code,
+      modelId: AWS_BEDROCK_MODEL_ID,
+      knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
+      region: AWS_REGION,
+      modelArn: `arn:aws:bedrock:${AWS_REGION}:${AWS_ACCOUNT_ID}:foundation-model/${AWS_BEDROCK_MODEL_ID}`,
+    });
     throw new Error(`Bedrock model evaluation failed\n${error.message}`);
   }
+};
+
+// Sanitize bedrockResponse to remove any single quotes from all string fields
+const sanitizeBedrockResponse = (obj: any): any => {
+  if (typeof obj === 'string') {
+    return obj.replace(/'/g, '');
+  } else if (Array.isArray(obj)) {
+    return obj.map(sanitizeBedrockResponse);
+  } else if (obj && typeof obj === 'object') {
+    return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, sanitizeBedrockResponse(value)]));
+  }
+  return obj;
 };
 
 const sanitizeField = (fieldValue: any): string => {

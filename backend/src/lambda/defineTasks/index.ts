@@ -1,17 +1,30 @@
 import { Context } from 'aws-lambda';
-import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput } from '@aws-sdk/client-bedrock-runtime';
+import {
+  BedrockAgentRuntimeClient,
+  RetrieveAndGenerateCommand,
+  RetrieveAndGenerateCommandInput,
+} from '@aws-sdk/client-bedrock-agent-runtime';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task, WorkItemRequest, BedrockConfig, BedrockResponse } from '../../shared/types';
+import { WorkItem, Task, BedrockConfig, BedrockResponse } from '../../shared/types';
 
+const AWS_REGION = process.env.AWS_REGION;
+const AWS_ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
+if (AWS_ACCOUNT_ID === undefined) {
+  throw new Error('AWS_ACCOUNT_ID environment variable is required');
+}
 const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
 if (AWS_BEDROCK_MODEL_ID === undefined) {
   throw new Error('AWS_BEDROCK_MODEL_ID environment variable is required');
 }
+const AWS_BEDROCK_KNOWLEDGE_BASE_ID = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
+if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
+  throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
+}
 
-const bedrockClient = new BedrockRuntimeClient({
-  endpoint: `https://bedrock-runtime.${process.env.AWS_REGION}.amazonaws.com`,
+const bedrockClient = new BedrockAgentRuntimeClient({
+  endpoint: `https://bedrock-agent-runtime.${process.env.AWS_REGION}.amazonaws.com`,
   region: process.env.AWS_REGION || 'us-west-2',
 });
 const logger = new Logger({ serviceName: 'defineTasks' });
@@ -19,6 +32,7 @@ const logger = new Logger({ serviceName: 'defineTasks' });
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
     // Validate event body
+    logger.debug('Received event from Step Functions', { event });
     const body = validateEventBody(event.body);
 
     // Parse event body
@@ -74,82 +88,118 @@ const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig;
 };
 
 const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promise<Task[]> => {
-  const prompt =
-    params.prompt ||
-    `You are an expert Agile software development assistant for Azure DevOps that specializes in decomposing work items into actionable tasks.
-
-    Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable separately.
-
-    Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs). Do NOT create any tasks for analyzing, investigating, analyzing, testing, or deployment.
-
-    When providing technical details, align them with the current architecture and technologies used:
-      - Serverless, microservices, and event-driven architectures
-      - Infrastructure: AWS services (Lambda, DynamoDB, EventBridge, etc.)
-      - Language: Python
-      - Frontend framework: React
-      - Mobile framework: Flutter
-
-    If you are unsure about the technology, do not make assumptions.`;
-
-  const fullPrompt = `${prompt}
-    Only return your assessment as a JSON object with the following structure: 
-      - "tasks": array of task objects, each with: 
-        - "title": string (task title, prefixed with its order in the sequence, e.g., "1. Task Title")
-        - "description": string (detailed task description). Please use HTML tags for formatting, such as <br> for line breaks, to make it easier to read.
-
-    Do not output any text outside of the JSON object.
-
-    The work item to decompose is:
+  const query = `
+      Given the following work item, find any relevant information such as business or domain context, and 
+      technical details that can help you evaluate the user story:
       - Title: ${workItem.title}
       - Description: ${workItem.description}
       - Acceptance Criteria: ${workItem.acceptanceCriteria}
   `;
+  const prompt =
+    params.prompt ||
+    `You are an expert Agile software development assistant for Azure DevOps that specializes in decomposing 
+    work items into actionable tasks.
 
-  const body = JSON.stringify({
-    anthropic_version: 'bedrock-2023-05-31',
-    max_tokens: params.maxTokens ?? 4096,
-    temperature: params.temperature ?? 0.5,
-    top_p: params.topP ?? 0.9,
-    messages: [
-      {
-        role: 'user',
-        content: fullPrompt,
+    Your task is to break down the provided work item into a sequence of tasks that are clear and actionable
+    for developers to work on. Each task should be independent and deployable separately.
+
+    Ensure each task has a title and a comprehensive description that guides the developer (why, what, how,
+    technical details, references to relevant systems/APIs). Do NOT create any tasks for analyzing,
+    investigating, analyzing, testing, or deployment.
+  `;
+  const fullPrompt = `${prompt}. 
+      Only return your assessment as a JSON object with the following structure:
+      - "tasks": array of task objects, each with:
+        - "title": string (task title, prefixed with its order in the sequence, e.g., "1. Task Title")
+        - "description": string (detailed task description). Please use HTML tags for formatting, such as <br> for
+        line breaks, to make it easier to read.
+      
+      DO NOT output any text outside of the JSON object.
+
+      The work item to decompose is:
+        - Title: ${workItem.title} 
+        - Description: ${workItem.description} 
+        - Acceptance Criteria: ${workItem.acceptanceCriteria}
+
+      Here may be some additional business, domain context, and technical details that may help you:
+        $search_results$`;
+
+  const input: RetrieveAndGenerateCommandInput = {
+    input: {
+      text: query,
+    },
+    retrieveAndGenerateConfiguration: {
+      type: 'KNOWLEDGE_BASE',
+      knowledgeBaseConfiguration: {
+        knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
+        modelArn: `arn:aws:bedrock:${AWS_REGION}:${AWS_ACCOUNT_ID}:inference-profile/${AWS_BEDROCK_MODEL_ID}`,
+        generationConfiguration: {
+          promptTemplate: {
+            textPromptTemplate: fullPrompt,
+          },
+          inferenceConfig: {
+            textInferenceConfig: {
+              maxTokens: 2048,
+              temperature: 0.5,
+              topP: 0.9,
+            },
+          },
+        },
+        retrievalConfiguration: {
+          vectorSearchConfiguration: {
+            numberOfResults: 5,
+          },
+        },
       },
-    ],
-  });
-
-  const input: InvokeModelCommandInput = {
-    modelId: AWS_BEDROCK_MODEL_ID,
-    body: body,
-    contentType: 'application/json',
-    accept: 'application/json',
+    },
   };
 
   logger.debug(`Invoking Bedrock model ${AWS_BEDROCK_MODEL_ID}`, { input: JSON.stringify(input) });
 
-  const command = new InvokeModelCommand(input);
-
   try {
+    const command = new RetrieveAndGenerateCommand(input);
     const response = await bedrockClient.send(command);
 
-    logger.info('Bedrock model invoked', { response: response });
+    console.debug('Bedrock model invoked', { response: response.output });
+    const content = response.output?.text;
 
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    if (!content) {
+      logger.info('No content found in response', { response: response });
+      throw new Error('No text content found in Bedrock response');
+    }
 
-    logger.debug('Bedrock response content', { content: responseBody });
+    const bedrockResponse = safeJsonParse(content);
+
+    if (!bedrockResponse) {
+      logger.error('Failed to parse JSON response', { content });
+      throw new Error('Invalid JSON response from Bedrock model');
+    }
+
+    logger.info('Bedrock invocation response', { response: bedrockResponse });
 
     // Get tasks
-    const text: string =
-      responseBody.content && responseBody.content[0] && responseBody.content[0].text
-        ? responseBody.content[0].text
-        : '{tasks:[{}]}';
+    const tasks: Task[] = bedrockResponse?.tasks ?? [];
+    logger.info('Tasks generated by Bedrock model:', { tasks });
 
-    const tasks: Task[] = safeJsonParse(text)?.tasks;
-
-    return tasks;
+    // TEMP: Remove single quotes to avoid issues with API Gateway serialization
+    const sanitizedTasks = sanitizeBedrockResponse(tasks);
+    logger.info('Sanitized Tasks', { sanitizedTasks });
+    return sanitizedTasks as Task[];
   } catch (error: any) {
     throw new Error(`Bedrock model evaluation failed\n${error.message}`);
   }
+};
+
+// Sanitize bedrockResponse to remove any single quotes from all string fields
+const sanitizeBedrockResponse = (obj: any): any => {
+  if (typeof obj === 'string') {
+    return obj.replace(/'/g, '');
+  } else if (Array.isArray(obj)) {
+    return obj.map(sanitizeBedrockResponse);
+  } else if (obj && typeof obj === 'object') {
+    return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, sanitizeBedrockResponse(value)]));
+  }
+  return obj;
 };
 
 // Sometimes the AI model returns invalid JSON with extra characters before and after the JSON string, so we need to extract the first valid JSON object from the string
