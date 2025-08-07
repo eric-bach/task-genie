@@ -5,7 +5,7 @@ import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { Choice, Condition, LogLevel, StateMachine, StateMachineType } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
 import { IpAddresses, Port, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import {
   Dashboard,
@@ -20,10 +20,11 @@ import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-c
 import {
   ApiKey,
   ApiKeySourceType,
+  AwsIntegration,
   Cors,
   EndpointType,
+  PassthroughBehavior,
   RestApi,
-  StepFunctionsIntegration,
 } from 'aws-cdk-lib/aws-apigateway';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
@@ -340,100 +341,65 @@ export class TaskGenieStack extends Stack {
       apiKeySourceType: ApiKeySourceType.HEADER,
     });
 
+    const apiGwStepFnRole = new Role(this, 'ApiGwStepFnRole', {
+      assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
+    });
+    apiGwStepFnRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['states:StartExecution'],
+        resources: [stateMachine.stateMachineArn],
+      })
+    );
+
     // Step Function Integration
-    const stepFunctionsIntegration = StepFunctionsIntegration.startExecution(stateMachine, {
-      integrationResponses: [
-        {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-            'method.response.header.Access-Control-Allow-Credentials': "'true'",
+    const startExecutionIntegration = new AwsIntegration({
+      service: 'states',
+      action: 'StartExecution',
+      integrationHttpMethod: 'POST',
+      options: {
+        credentialsRole: apiGwStepFnRole,
+        integrationResponses: [
+          {
+            statusCode: '202',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': "'*'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Headers':
+                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
+            },
+            responseTemplates: {
+              'application/json': JSON.stringify({
+                message: 'Request accepted for processing',
+                executionArn: "$input.path('$.executionArn')",
+                startDate: "$input.path('$.startDate')",
+              }),
+            },
           },
-          responseTemplates: {
-            'application/json': `
-              #set($parsedPayload = $util.parseJson($input.path('$.output')))
-              #if($parsedPayload.statusCode)
-                #set($context.responseOverride.status = $parsedPayload.statusCode)
-              #end
-              $input.path('$.output')
-            `,
+          {
+            statusCode: '400',
+            responseTemplates: {
+              'application/json': JSON.stringify({ message: 'Bad request' }),
+            },
           },
+        ],
+        requestTemplates: {
+          'application/json': `
+{
+  "input": "$util.escapeJavaScript($input.body)",
+  "stateMachineArn": "${stateMachine.stateMachineArn}"
+}
+          `,
         },
-        {
-          statusCode: '204',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-            'method.response.header.Access-Control-Allow-Credentials': "'true'",
-          },
-          responseTemplates: {
-            'application/json': `
-              #set($parsedPayload = $util.parseJson($input.path('$.output')))
-              #if($parsedPayload.statusCode)
-                #set($context.responseOverride.status = $parsedPayload.statusCode)
-              #end
-              $input.path('$.output')
-            `,
-          },
-        },
-        {
-          statusCode: '400',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
-            'method.response.header.Access-Control-Allow-Headers':
-              "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-            'method.response.header.Access-Control-Allow-Credentials': "'true'",
-          },
-          responseTemplates: {
-            'application/json': `
-              #set($parsedPayload = $util.parseJson($input.path('$.output')))
-              #if($parsedPayload.statusCode)
-                #set($context.responseOverride.status = $parsedPayload.statusCode)
-              #end
-              $input.path('$.output')
-            `,
-          },
-        },
-        {
-          statusCode: '500',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': "'*'",
-            'method.response.header.Access-Control-Allow-Credentials': "'true'",
-          },
-          responseTemplates: {
-            'application/json': `
-              #set($parsedPayload = $util.parseJson($input.path('$.output')))
-              #if($parsedPayload.statusCode)
-                #set($context.responseOverride.status = $parsedPayload.statusCode)
-              #end
-              $input.path('$.output')
-            `,
-          },
-        },
-      ],
+        passthroughBehavior: PassthroughBehavior.NEVER,
+      },
     });
 
-    // Add Method
-    api.root.addMethod('POST', stepFunctionsIntegration, {
+    api.root.addMethod('POST', startExecutionIntegration, {
       apiKeyRequired: true,
       methodResponses: [
         {
-          statusCode: '200',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Methods': true,
-            'method.response.header.Access-Control-Allow-Headers': true,
-            'method.response.header.Access-Control-Allow-Credentials': true,
-          },
-        },
-        {
-          statusCode: '204',
+          statusCode: '202',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
             'method.response.header.Access-Control-Allow-Methods': true,
@@ -445,13 +411,8 @@ export class TaskGenieStack extends Stack {
           statusCode: '400',
           responseParameters: {
             'method.response.header.Access-Control-Allow-Origin': true,
-            'method.response.header.Access-Control-Allow-Credentials': true,
-          },
-        },
-        {
-          statusCode: '500',
-          responseParameters: {
-            'method.response.header.Access-Control-Allow-Origin': true,
+            'method.response.header.Access-Control-Allow-Methods': true,
+            'method.response.header.Access-Control-Allow-Headers': true,
             'method.response.header.Access-Control-Allow-Credentials': true,
           },
         },

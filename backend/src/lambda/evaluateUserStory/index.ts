@@ -25,16 +25,13 @@ const bedrockClient = new BedrockRuntimeClient({
 export const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-west-2' });
 export const logger = new Logger({ serviceName: 'evaluateUserStory' });
 
-const lambdaHandler = async (event: APIGatewayProxyEventV2, context: Context) => {
+const lambdaHandler = async (event: any, context: Context) => {
   try {
-    // Validate event body
-    const body = validateEventBody(event.body);
-
     // Validate required fields in the work item
-    validateWorkItem(body.resource);
+    validateWorkItem(event.resource);
 
     // Parse and sanitize fields
-    const { workItem, params } = parseEventBody(body);
+    const { workItem, params } = parseEventBody(event);
 
     // Check if work item has been updated already
     if (workItem.tags.includes('Task Genie')) {
@@ -135,8 +132,8 @@ const validateWorkItem = (resource: any) => {
   }
 };
 
-const parseEventBody = (body: any): WorkItemRequest => {
-  const { params, resource } = body;
+const parseEventBody = (event: any): WorkItemRequest => {
+  const { params, resource } = event;
   const workItemId = resource.workItemId || resource.id;
   const fields = resource.revision?.fields || resource.fields;
 
