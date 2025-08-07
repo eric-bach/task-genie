@@ -54,9 +54,7 @@ A state machine, leveraging AWS Step Functions, orchestrates the workflow for th
 
 ### Limitations
 
-⚠️ Claude 4 Sonnet is the most advanced and accurate AI coding model today. However it adds more latency and sometimes causes Azure DevOps to timeout ⚠️
-
-⚠️ Amazon Knowledge Bases also adds significant latency and will ALWYAS cause Azure DevOps to timeout. To prevent this, Task Genie include idempotency from AWS Powertools and DynamoDB to stop any duplicate Step Function invocations. This however may make Azure DevOps webhooks fail. ⚠️
+⚠️ API Gateway has trouble serializing JSON that includes single quotes ('). As such all outputs are sanitized to remove single quotes (') for now. ⚠️
 
 ⚠️ When a work item is updated, Azure DevOps Service Hooks can only be configured to trigger when one or any fields are updated. Meaning we have 3 Service Hooks, each for Title, Description, and AC; so if you update all 3 fields at the same time, it will trigger Task Genie 3x, resulting in 3x the tasks being generated. We cannot set this Service Hook to "any fields" as this will create a circular loop whenever the user story is updated by Task Genie. ⚠️
 
