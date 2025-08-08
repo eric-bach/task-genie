@@ -30,7 +30,7 @@ import {
   PassthroughBehavior,
   RestApi,
 } from 'aws-cdk-lib/aws-apigateway';
-import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { LogGroup, LogRetention, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { Bucket } from 'aws-cdk-lib/aws-s3';
@@ -166,6 +166,10 @@ export class TaskGenieStack extends Stack {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
     });
+    new LogRetention(this, 'EvaluateUserStoryLogRetention', {
+      logGroupName: `/aws/lambda/${evaluateUserStoryFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
+    });
     evaluateUserStoryFunction.role?.addManagedPolicy({
       managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
     });
@@ -197,6 +201,10 @@ export class TaskGenieStack extends Stack {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
     });
+    new LogRetention(this, 'DefineTasksLogRetention', {
+      logGroupName: `/aws/lambda/${defineTasksFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
+    });
     defineTasksFunction.role?.addManagedPolicy({
       managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
     });
@@ -220,6 +228,10 @@ export class TaskGenieStack extends Stack {
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
+    });
+    new LogRetention(this, 'CreateTasksLogRetention', {
+      logGroupName: `/aws/lambda/${createTasksFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
     });
     azureDevOpsPat.grantRead(createTasksFunction);
     createTasksFunction.addToRolePolicy(
@@ -249,6 +261,10 @@ export class TaskGenieStack extends Stack {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
     });
+    new LogRetention(this, 'AddCommentLogRetention', {
+      logGroupName: `/aws/lambda/${addCommentFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
+    });
     azureDevOpsPat.grantRead(addCommentFunction);
 
     const sendResponseFunction = new NodejsFunction(this, 'SendResponse', {
@@ -268,6 +284,10 @@ export class TaskGenieStack extends Stack {
       bundling: {
         externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
       },
+    });
+    new LogRetention(this, 'SendResponseLogRetention', {
+      logGroupName: `/aws/lambda/${sendResponseFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
     });
 
     /*
@@ -369,6 +389,7 @@ export class TaskGenieStack extends Stack {
       deployOptions: {
         accessLogDestination: new LogGroupLogDestination(apiGwAccessLogGroup),
         loggingLevel: MethodLoggingLevel.INFO,
+        dataTraceEnabled: true,
         accessLogFormat: AccessLogFormat.jsonWithStandardFields({
           caller: true,
           httpMethod: true,
@@ -381,6 +402,10 @@ export class TaskGenieStack extends Stack {
           user: true,
         }),
       },
+    });
+    new LogRetention(this, 'ApiGwExecutionLogRetention', {
+      logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
+      retention: RetentionDays.ONE_MONTH,
     });
 
     const apiGwStepFnRole = new Role(this, 'ApiGwStepFnRole', {
@@ -402,10 +427,10 @@ export class TaskGenieStack extends Stack {
         credentialsRole: apiGwStepFnRole,
         requestTemplates: {
           'application/json': `
-        {
-          "input": "$util.escapeJavaScript($input.body).replaceAll("\\'", "'")",
-          "stateMachineArn": "${stateMachine.stateMachineArn}"
-        }`,
+{
+  "input": "$util.escapeJavaScript($input.body).replaceAll("\\'", "'").replaceAll(\"\\\\'\", \"'\")",
+  "stateMachineArn": "${stateMachine.stateMachineArn}"
+}`,
         },
         integrationResponses: [
           {
