@@ -54,9 +54,10 @@ A state machine, leveraging AWS Step Functions, orchestrates the workflow for th
 
 ### Limitations
 
-⚠️ API Gateway has trouble serializing JSON that includes single quotes ('). As such all outputs are sanitized to remove single quotes (') for now. ⚠️
+⚠️ When a work item is updated, Azure DevOps Service Hooks can only be configured to trigger when one or any fields are updated. Meaning we have 3 Service Hooks, each for Title, Description, and AC; so if you update all 3 fields at the same time, it will trigger Task Genie 3x, resulting in 3x the tasks being generated. We cannot set this Service Hook to "any fields" as this will create a circular loop whenever the user story is updated by Task Genie.
 
-⚠️ When a work item is updated, Azure DevOps Service Hooks can only be configured to trigger when one or any fields are updated. Meaning we have 3 Service Hooks, each for Title, Description, and AC; so if you update all 3 fields at the same time, it will trigger Task Genie 3x, resulting in 3x the tasks being generated. We cannot set this Service Hook to "any fields" as this will create a circular loop whenever the user story is updated by Task Genie. ⚠️
+A possible solution is to create a new field (boolean) in our User Story template that needs to be set when updating a user story to trigger Task Genie. That way, we only have one Azure DevOps Service Hook for user story updates. Task Genie will always reset this field after it updates the user story. This will just be one more manual step we need to remember to do when updating a user story.
+⚠️
 
 #### Revert to well-known version
 

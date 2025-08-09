@@ -254,11 +254,7 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => 
 
     logger.info('Bedrock invocation response', { response: bedrockResponse });
 
-    const sanitizedBedrockResponse = sanitizeBedrockResponse(bedrockResponse);
-
-    // TEMP: Remove single quotes to avoid issues with API Gateway serialization
-    logger.info('Sanitized response', { response: sanitizedBedrockResponse });
-    return sanitizedBedrockResponse as BedrockResponse;
+    return bedrockResponse;
   } catch (error: any) {
     logger.error('Bedrock model evaluation failed', {
       error: error.message,
@@ -273,18 +269,6 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => 
     });
     throw new Error(`Bedrock model evaluation failed\n${error.message}`);
   }
-};
-
-// Sanitize bedrockResponse to remove any single quotes from all string fields
-const sanitizeBedrockResponse = (obj: any): any => {
-  if (typeof obj === 'string') {
-    return obj.replace(/'/g, '');
-  } else if (Array.isArray(obj)) {
-    return obj.map(sanitizeBedrockResponse);
-  } else if (obj && typeof obj === 'object') {
-    return Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, sanitizeBedrockResponse(value)]));
-  }
-  return obj;
 };
 
 const sanitizeField = (fieldValue: any): string => {

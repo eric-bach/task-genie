@@ -24,10 +24,8 @@ export const addComment = async (workItem: WorkItem, comment: string) => {
 
   const headers = await getHeaders('application/json');
 
-  // TEMP: Remove single quotes to avoid issues with API Gateway serialization
-  const sanitizedComment = comment.replace(/'/g, '');
   const body = JSON.stringify({
-    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${sanitizedComment}</div>`,
+    text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${comment}</div>`,
   });
 
   try {
