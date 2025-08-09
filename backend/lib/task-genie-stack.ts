@@ -25,6 +25,7 @@ import {
   Cors,
   EndpointType,
   IAccessLogDestination,
+  LambdaIntegration,
   LogGroupLogDestination,
   MethodLoggingLevel,
   PassthroughBehavior,
@@ -33,7 +34,8 @@ import {
 import { LogGroup, LogRetention, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { Bucket } from 'aws-cdk-lib/aws-s3';
+import { Bucket, HttpMethods, EventType } from 'aws-cdk-lib/aws-s3';
+import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 
 dotenv.config();
 
@@ -123,6 +125,13 @@ export class TaskGenieStack extends Stack {
       versioned: true,
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+    });
+
+    dataSourceBucket.addCorsRule({
+      allowedMethods: [HttpMethods.PUT],
+      allowedOrigins: ['*'],
+      allowedHeaders: ['*'],
+      maxAge: 3000,
     });
 
     /*
@@ -289,6 +298,113 @@ export class TaskGenieStack extends Stack {
       logGroupName: `/aws/lambda/${sendResponseFunction.functionName}`,
       retention: RetentionDays.ONE_MONTH,
     });
+
+    const syncKnowledgeBaseFunction = new NodejsFunction(this, 'SyncKnowledgeBase', {
+      runtime: Runtime.NODEJS_22_X,
+      functionName: `${APP_NAME}-sync-knowledge-base`,
+      handler: 'handler',
+      entry: path.resolve(__dirname, '../src/lambda/syncKnowledgeBase/index.ts'),
+      layers: [powertoolsLayer],
+      architecture: Architecture.ARM_64,
+      memorySize: 512,
+      timeout: Duration.minutes(5),
+      environment: {
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      logRetention: RetentionDays.ONE_MONTH,
+      bundling: {
+        externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
+      },
+    });
+    new LogRetention(this, 'SyncKnowledgeBaseLogRetention', {
+      logGroupName: `/aws/lambda/${syncKnowledgeBaseFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
+    });
+
+    // Grant the sync function permissions to access Bedrock and S3
+    syncKnowledgeBaseFunction.addToRolePolicy(
+      new PolicyStatement({
+        actions: [
+          'bedrock:StartIngestionJob',
+          'bedrock:GetIngestionJob',
+          'bedrock:ListIngestionJobs',
+          'bedrock:GetKnowledgeBase',
+          'bedrock:ListKnowledgeBases',
+        ],
+        resources: ['*'],
+      })
+    );
+    dataSourceBucket.grantRead(syncKnowledgeBaseFunction);
+
+    // Add S3 event notification to trigger syncKnowledgeBase when files are uploaded
+    dataSourceBucket.addEventNotification(
+      EventType.OBJECT_CREATED_PUT,
+      new LambdaDestination(syncKnowledgeBaseFunction),
+      {
+        // Only trigger for non-metadata files (exclude .metadata.json files)
+        suffix: '.pdf',
+      }
+    );
+
+    // Add notifications for other supported file types
+    dataSourceBucket.addEventNotification(
+      EventType.OBJECT_CREATED_PUT,
+      new LambdaDestination(syncKnowledgeBaseFunction),
+      {
+        suffix: '.docx',
+      }
+    );
+
+    dataSourceBucket.addEventNotification(
+      EventType.OBJECT_CREATED_PUT,
+      new LambdaDestination(syncKnowledgeBaseFunction),
+      {
+        suffix: '.md',
+      }
+    );
+
+    dataSourceBucket.addEventNotification(
+      EventType.OBJECT_CREATED_PUT,
+      new LambdaDestination(syncKnowledgeBaseFunction),
+      {
+        suffix: '.txt',
+      }
+    );
+
+    dataSourceBucket.addEventNotification(
+      EventType.OBJECT_CREATED_PUT,
+      new LambdaDestination(syncKnowledgeBaseFunction),
+      {
+        suffix: '.doc',
+      }
+    );
+
+    const presignedUrlFunction = new NodejsFunction(this, 'PresignedUrl', {
+      runtime: Runtime.NODEJS_22_X,
+      functionName: `${APP_NAME}-presigned-url`,
+      handler: 'handler',
+      entry: path.resolve(__dirname, '../src/lambda/presignedUrl/index.ts'),
+      layers: [powertoolsLayer],
+      architecture: Architecture.ARM_64,
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        S3_BUCKET_NAME: dataSourceBucket.bucketName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      logRetention: RetentionDays.ONE_MONTH,
+      bundling: {
+        externalModules: ['@aws-lambda-powertools/*', '@aws-sdk/*'],
+      },
+    });
+    new LogRetention(this, 'PresignedUrlLogRetention', {
+      logGroupName: `/aws/lambda/${presignedUrlFunction.functionName}`,
+      retention: RetentionDays.ONE_MONTH,
+    });
+    // Grant the Lambda function permission to generate presigned URLs for the S3 bucket
+    dataSourceBucket.grantPut(presignedUrlFunction);
 
     /*
      * ### AWS Step Functions
@@ -512,6 +628,16 @@ export class TaskGenieStack extends Stack {
           },
         },
       ],
+    });
+
+    // Add presigned URL endpoint
+    const presignedUrlResource = api.root.addResource('presigned-url');
+    const presignedUrlIntegration = new LambdaIntegration(presignedUrlFunction, {
+      proxy: true,
+    });
+
+    presignedUrlResource.addMethod('GET', presignedUrlIntegration, {
+      apiKeyRequired: false, // No API key required for presigned URLs
     });
 
     // Add API key

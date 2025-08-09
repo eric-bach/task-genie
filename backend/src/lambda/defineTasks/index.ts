@@ -148,6 +148,28 @@ const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promi
         retrievalConfiguration: {
           vectorSearchConfiguration: {
             numberOfResults: 5,
+            filter: {
+              andAll: [
+                {
+                  equals: {
+                    key: 'area',
+                    value: workItem.area,
+                  },
+                },
+                {
+                  equals: {
+                    key: 'business_unit',
+                    value: workItem.businessUnit,
+                  },
+                },
+                {
+                  equals: {
+                    key: 'system',
+                    value: workItem.system,
+                  },
+                },
+              ],
+            },
           },
         },
       },
