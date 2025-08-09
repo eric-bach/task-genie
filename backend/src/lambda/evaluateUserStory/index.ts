@@ -118,7 +118,12 @@ const validateWorkItem = (resource: any) => {
     'System.ChangedBy',
     'System.Title',
     'System.Description',
+    'System.AreaPath',
     'Microsoft.VSTS.Common.AcceptanceCriteria',
+    // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+    'Custom.BusinessUnit2',
+    // TODO Change this to Custom.System when moving to AMA-Ent
+    'Custom.System2',
   ];
 
   if (!resource) {
@@ -156,6 +161,11 @@ const parseEvent = (event: any): WorkItemRequest => {
     description: sanitizeField(fields['System.Description']),
     acceptanceCriteria: sanitizeField(fields['Microsoft.VSTS.Common.AcceptanceCriteria']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
+    area: sanitizeField(fields['System.AreaPath']),
+    // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+    businessUnit: sanitizeField(fields['Custom.BusinessUnit2']),
+    // TODO Change this to Custom.System when moving to AMA-Ent
+    system: sanitizeField(fields['Custom.System2']),
     tags,
   };
 
@@ -225,6 +235,12 @@ const evaluateBedrock = async (workItem: WorkItem): Promise<BedrockResponse> => 
         retrievalConfiguration: {
           vectorSearchConfiguration: {
             numberOfResults: 5,
+            filter: {
+              equals: {
+                key: 'area',
+                value: 'agile-process',
+              },
+            },
           },
         },
       },

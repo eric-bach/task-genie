@@ -1,4 +1,4 @@
-import { ChevronUp, Home, PlayCircle, Settings, User2 } from 'lucide-react';
+import { Brain, ChevronUp, Home, PlayCircle, Settings, User2 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -31,6 +31,11 @@ const items = [
     title: 'Playground',
     url: '/playground',
     icon: PlayCircle,
+  },
+  {
+    title: 'Knowledge Base',
+    url: '/knowledge',
+    icon: Brain,
   },
   {
     title: 'Settings',

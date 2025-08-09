@@ -12,6 +12,9 @@ export interface BedrockConfig {
 
 export interface WorkItem {
   workItemId: number;
+  area: string;
+  businessUnit: string;
+  system: string;
   iterationPath: string;
   changedBy: string;
   title: string;
