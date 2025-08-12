@@ -27,6 +27,19 @@ const ACCEPTED_FILE_TYPES = [
   'text/markdown',
 ];
 
+interface MetadataPayload {
+  mode: 'userStory' | 'taskGeneration';
+  fileName: string;
+  fileSize: number;
+  fileType: string;
+  s3Key: string;
+  s3Bucket: string;
+  uploadedAt: string;
+  area: string;
+  businessUnit?: string;
+  system?: string;
+}
+
 const formSchema = z
   .object({
     mode: z.enum(['userStory', 'taskGeneration']),
@@ -120,7 +133,7 @@ export default function Knowledge() {
       }
 
       // Step 3: Create metadata payload for backend processing
-      const metadataPayload: any = {
+      const metadataPayload: MetadataPayload = {
         mode: data.mode,
         fileName: file.name,
         fileSize: file.size,
@@ -289,7 +302,7 @@ export default function Knowledge() {
                 <FormField
                   control={form.control}
                   name='file'
-                  render={({ field: { onChange, value, ...field } }) => (
+                  render={({ field: { onChange, ...field } }) => (
                     <FormItem>
                       <FormLabel>Document File</FormLabel>
                       <FormControl>
