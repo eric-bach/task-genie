@@ -235,7 +235,6 @@ export function UserStoryForm() {
         }
 
         // Step 3: Poll for results
-        let attempt = 0;
         const maxAttempts = 30;
         const intervalMs = 2000;
 

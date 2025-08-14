@@ -111,9 +111,10 @@ export default function Knowledge() {
   }, [uploadStatus]);
 
   // Clear validation errors when switching modes
+  const watchMode = form.watch('mode');
   useEffect(() => {
     form.clearErrors();
-  }, [form.watch('mode')]);
+  }, [form, watchMode]);
 
   const onSubmit = async (data: FormData) => {
     setIsUploading(true);
@@ -338,7 +339,7 @@ export default function Knowledge() {
                 <FormField
                   control={form.control}
                   name='file'
-                  render={({ field: { onChange, value, ...field } }) => (
+                  render={({ field: { onChange, ...field } }) => (
                     <FormItem>
                       <FormLabel>Document File</FormLabel>
                       <FormControl>
