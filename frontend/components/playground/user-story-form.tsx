@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { Loader2, Sparkles, Terminal } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
@@ -37,7 +36,8 @@ const formSchema = z.object({
 });
 
 export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId: string) {
-  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}`;
+  const baseUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}`;
+  const backendUrl = `${baseUrl}/executions`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 
   try {
@@ -55,16 +55,21 @@ export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId:
         revision: {
           fields: {
             'System.ChangedBy': userId,
-            'System.IterationPath': 'test',
             'System.Title': title,
             'System.Description': description,
             'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
+            'System.TeamProject': 'test',
+            'System.AreaPath': 'test',
+            // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+            'Custom.BusinessUnit2': 'test',
+            // TODO Change this to Custom.System when moving to AMA-Ent
+            'Custom.System2': 'test',
           },
         },
       },
     };
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(backendUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -74,9 +79,16 @@ export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId:
     });
 
     const data = await response.json();
-    //console.log('API response:', data);
+    console.log('API response:', data);
 
-    return data;
+    // Get the step function execution name from the execution ARN
+    const executionName = data.executionArn.split(':').slice(-2)[0] || '';
+
+    return {
+      statusCode: response.status,
+      data,
+      executionName,
+    };
   } catch (error) {
     // console.error('Error calling webhook:', error);
 
@@ -84,21 +96,98 @@ export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId:
   }
 }
 
+export async function pollForResults(executionName: string, maxAttempts: number = 24, intervalMs: number = 5000) {
+  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/executions/${executionName}`;
+  const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+      });
+
+      const data = await response.json();
+
+      console.log('Polling for results:', data);
+
+      // Check if execution is complete
+      if (data.status === 'completed') {
+        if (data.result.executionResult === 'SUCCEEDED') {
+          return {
+            statusCode: 200,
+            body: data.output || data.result,
+          };
+        } else if (data.result.executionResult === 'FAILED') {
+          return {
+            statusCode: 400,
+            body: {
+              workItemStatus: {
+                comment: data.result.workItemComment || 'Execution failed',
+              },
+            },
+          };
+        } else {
+          return {
+            statusCode: 500,
+            body: {
+              workItemStatus: {
+                comment: 'Unknown error occurred',
+              },
+            },
+          };
+        }
+      }
+
+      // If still running, wait before next poll
+      if (attempt < maxAttempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+      }
+    } catch (error) {
+      console.error('Error polling for results:', error);
+
+      // If this is the last attempt, return error
+      if (attempt === maxAttempts - 1) {
+        return {
+          statusCode: 500,
+          body: {
+            workItemStatus: {
+              comment: 'Failed to get execution results',
+            },
+          },
+        };
+      }
+
+      // Wait before retrying
+      await new Promise((resolve) => setTimeout(resolve, intervalMs));
+    }
+  }
+
+  // Timeout after max attempts
+  return {
+    statusCode: 408,
+    body: {
+      workItemStatus: {
+        comment: 'Execution timed out - please try again',
+      },
+    },
+  };
+}
+
 export function UserStoryForm() {
   const { user } = useAuthenticator();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollingMessage, setPollingMessage] = useState('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>();
   const [tasks, setTasks] = useState([]);
-  const [isAlertVisisble, setAlertVisibility] = useState(false);
-
-  const backgroundColor =
-    result && result.statusCode === 200
-      ? 'bg-green-100 text-green-800 border-green-300' // Green for success
-      : 'bg-red-100 text-red-800 border-red-300'; // Red for error
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -108,9 +197,9 @@ export function UserStoryForm() {
       description:
         "Frequent travelers often face the challenge of keeping track of gate changes, which can occur unexpectedly and cause confusion and inconvenience. Missing a flight due to last-minute gate changes can be stressful and disruptive. By providing timely notifications about gate changes directly to travelers' mobile devices, we help ensure they are informed in real-time and can make their way to the new gate without delay.",
       acceptanceCriteria:
-        'GIVEN a frequent traveler has a booked flight, WHEN a gate change occurs, THEN the traveler receives a notification with the updated gate information.',
+        'GIVEN a frequent traveler has a booked flight and has opted in for notifications WHEN a gate change occurs within 2 hours of departure THEN the traveler receives a notification within 1 minute containing flight number, old gate, new gate, and departure time. GIVEN a traveler receives a gate change notification WHEN they tap the notification THEN the app opens to the flight details screen.',
       prompt: undefined,
-      maxTokens: 2048,
+      maxTokens: 4096,
       temperature: 0.5,
       topP: 0.9,
     },
@@ -118,30 +207,91 @@ export function UserStoryForm() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
+    setIsPolling(false);
+    setPollingMessage('');
     setResult(undefined);
     setTasks([]);
-    setAlertVisibility(false);
 
     try {
       const userId = user.signInDetails?.loginId || '';
-      const result = await callWebhookAPI(values, userId);
 
-      setResult(result);
+      // Step 1: Submit the request
+      const initialResponse = await callWebhookAPI(values, userId);
 
-      if (result.statusCode >= 200 && result.statusCode < 400) {
-        //console.log('API call succeeded:', result);
+      if (initialResponse.error) {
+        throw new Error(initialResponse.error);
+      }
 
-        setTasks(result.body.tasks);
+      // Step 2: Check if we got a 202 (accepted) response with execution ID
+      if (initialResponse.statusCode === 202) {
+        setIsSubmitting(false);
+        setIsPolling(true);
+        setPollingMessage('Request submitted successfully. Waiting for results...');
 
-        toast.success('User Story is accepted', {
-          description: `User story accepted and ${result.body.tasks.length} tasks were generated`,
-        });
+        const executionName = initialResponse.executionName;
+
+        if (!executionName) {
+          throw new Error('No execution name received from API');
+        }
+
+        // Step 3: Poll for results
+        let attempt = 0;
+        const maxAttempts = 30;
+        const intervalMs = 2000;
+
+        const pollResults = async () => {
+          try {
+            const pollResponse = await pollForResults(executionName, maxAttempts, intervalMs);
+            setResult(pollResponse);
+
+            if (pollResponse.statusCode === 200) {
+              setTasks(pollResponse.body.tasks || []);
+
+              toast.success('User Story is accepted', {
+                description: `User story accepted and ${pollResponse.body.tasks?.length || 0} tasks were generated`,
+              });
+            } else {
+              toast.error('User Story is not accepted', {
+                description: 'Please see the reason for more details and correct the user story to try again',
+              });
+            }
+          } catch (error) {
+            setResult({
+              statusCode: 500,
+              body: {
+                workItemStatus: {
+                  comment: error instanceof Error ? error.message : 'Unknown error occurred during polling',
+                },
+              },
+            });
+
+            toast.error('An error occurred while processing', {
+              description: error instanceof Error ? error.message : 'Unknown error occurred',
+            });
+          } finally {
+            setIsPolling(false);
+            setPollingMessage('');
+          }
+        };
+
+        // Start polling
+        await pollResults();
       } else {
-        // console.error('Failed to call API: ', result.error);
+        // Handle immediate response (if API changed behavior)
+        setResult(initialResponse);
 
-        toast.error('User Story is not accepted', {
-          description: 'Please see the reason for more details and correct the user story to try again',
-        });
+        if (initialResponse.statusCode && initialResponse.statusCode >= 200 && initialResponse.statusCode < 400) {
+          const tasks = initialResponse.data?.tasks || [];
+          setTasks(tasks);
+
+          toast.success('User Story is accepted', {
+            description: `User story accepted and ${tasks.length} tasks were generated`,
+          });
+        } else {
+          toast.error('User Story is not accepted', {
+            description: 'Please see the reason for more details and correct the user story to try again',
+          });
+        }
       }
 
       // form.reset();
@@ -150,35 +300,12 @@ export function UserStoryForm() {
         description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
-      setAlertVisibility(true);
       setIsSubmitting(false);
     }
   }
 
   return (
     <>
-      {isAlertVisisble && (
-        <Alert className={`mb-4 ${backgroundColor}`}>
-          <Terminal className='h-4 w-4' />
-          <Button
-            variant='ghost'
-            onClick={() => setAlertVisibility(false)}
-            className='absolute top-3 right-3 text-gray-500 hover:text-gray-800 focus:outline-none'
-          >
-            X
-          </Button>
-          <div>
-            <AlertTitle>
-              {result && result?.statusCode === 200 ? 'User story accepted' : 'User story not accepted'}
-            </AlertTitle>
-            <AlertDescription>
-              {result && result?.statusCode === 200
-                ? `A total of ${tasks.length} tasks have been generated`
-                : result.body.workItemStatus.comment}
-            </AlertDescription>
-          </div>
-        </Alert>
-      )}
       <div className='flex w-full space-x-4'>
         <Card className='w-full h-full flex flex-col overflow-hidden'>
           <CardHeader className='flex-shrink-0'>
@@ -206,7 +333,7 @@ export function UserStoryForm() {
                               <div className='space-y-6'>
                                 <FormField
                                   control={form.control}
-                                  disabled={isSubmitting}
+                                  disabled={isSubmitting || isPolling}
                                   name='prompt'
                                   render={({ field }) => (
                                     <FormItem className='space-y-2'>
@@ -235,7 +362,7 @@ export function UserStoryForm() {
                                 <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
                                   <FormField
                                     control={form.control}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || isPolling}
                                     name='maxTokens'
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
@@ -262,7 +389,7 @@ export function UserStoryForm() {
 
                                   <FormField
                                     control={form.control}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || isPolling}
                                     name='temperature'
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
@@ -291,7 +418,7 @@ export function UserStoryForm() {
 
                                   <FormField
                                     control={form.control}
-                                    disabled={isSubmitting}
+                                    disabled={isSubmitting || isPolling}
                                     name='topP'
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
@@ -329,7 +456,7 @@ export function UserStoryForm() {
 
                     <FormField
                       control={form.control}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isPolling}
                       name='title'
                       render={({ field }) => (
                         <FormItem>
@@ -345,7 +472,7 @@ export function UserStoryForm() {
 
                     <FormField
                       control={form.control}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isPolling}
                       name='description'
                       render={({ field }) => (
                         <FormItem>
@@ -364,7 +491,7 @@ export function UserStoryForm() {
 
                     <FormField
                       control={form.control}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || isPolling}
                       name='acceptanceCriteria'
                       render={({ field }) => (
                         <FormItem>
@@ -387,11 +514,22 @@ export function UserStoryForm() {
                 </ScrollArea>
 
                 <div className='pt-6 flex-shrink-0 flex justify-end space-x-4'>
-                  <Button type='submit' disabled={isSubmitting}>
+                  {isPolling && pollingMessage && (
+                    <div className='flex items-center text-sm text-muted-foreground mr-4'>
+                      <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                      {pollingMessage}
+                    </div>
+                  )}
+                  <Button type='submit' disabled={isSubmitting || isPolling}>
                     {isSubmitting ? (
                       <>
                         <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                        Generating...
+                        Submitting...
+                      </>
+                    ) : isPolling ? (
+                      <>
+                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                        Processing...
                       </>
                     ) : (
                       'Generate Tasks'
@@ -404,7 +542,7 @@ export function UserStoryForm() {
           <CardFooter className='flex justify-between pt-6 flex-shrink-0'></CardFooter>
         </Card>
 
-        <TasksDisplay isSubmitting={isSubmitting} tasks={tasks} />
+        <TasksDisplay isSubmitting={isSubmitting || isPolling} tasks={tasks} result={result} />
       </div>
     </>
   );

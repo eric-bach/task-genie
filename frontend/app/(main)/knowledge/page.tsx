@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Define dropdown options
-const AREAS = ['eric-test'];
+const AREA_PATHS = ['eric-test'];
 const BUSINESS_UNITS = ['Membership', 'Registries', 'Rewards'];
 const SYSTEMS = ['ARAR', 'Gift Card System', 'iMIS', 'L2', 'VRAR'];
 
@@ -35,7 +35,7 @@ interface MetadataPayload {
   s3Key: string;
   s3Bucket: string;
   uploadedAt: string;
-  area: string;
+  areaPath: string;
   businessUnit?: string;
   system?: string;
 }
@@ -43,9 +43,9 @@ interface MetadataPayload {
 const formSchema = z
   .object({
     mode: z.enum(['userStory', 'taskGeneration']),
-    area: z.string().optional(),
-    businessUnit: z.string().optional(),
-    system: z.string().optional(),
+    areaPath: z.string(),
+    businessUnit: z.string(),
+    system: z.string(),
     file: z
       .any()
       .refine((files) => files?.length > 0, 'File is required')
@@ -55,19 +55,32 @@ const formSchema = z
         'Only PDF, Word, Text, and Markdown files are allowed'
       ),
   })
-  .refine(
-    (data) => {
-      // If mode is taskGeneration, require the dropdown fields
-      if (data.mode === 'taskGeneration') {
-        return data.area && data.businessUnit && data.system;
+  .superRefine((data, ctx) => {
+    // Only validate dropdown fields for taskGeneration mode
+    if (data.mode === 'taskGeneration') {
+      if (!data.areaPath || data.areaPath.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Area Path is required for Task Generation mode',
+          path: ['areaPath'],
+        });
       }
-      return true;
-    },
-    {
-      message: 'Area, Business Unit, and System are required for Task Generation mode',
-      path: ['area'], // This will show the error on the area field
+      if (!data.businessUnit || data.businessUnit.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Business Unit is required for Task Generation mode',
+          path: ['businessUnit'],
+        });
+      }
+      if (!data.system || data.system.trim() === '') {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'System is required for Task Generation mode',
+          path: ['system'],
+        });
+      }
     }
-  );
+  });
 
 type FormData = z.infer<typeof formSchema>;
 
@@ -79,11 +92,28 @@ export default function Knowledge() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       mode: 'userStory',
-      area: '',
+      areaPath: '',
       businessUnit: '',
       system: '',
+      file: undefined,
     },
   });
+
+  // Auto-clear success message after 3 seconds
+  useEffect(() => {
+    if (uploadStatus === 'success') {
+      const timer = setTimeout(() => {
+        setUploadStatus('idle');
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [uploadStatus]);
+
+  // Clear validation errors when switching modes
+  useEffect(() => {
+    form.clearErrors();
+  }, [form.watch('mode')]);
 
   const onSubmit = async (data: FormData) => {
     setIsUploading(true);
@@ -94,12 +124,12 @@ export default function Knowledge() {
       console.log('Uploading file:', file, data);
 
       // Step 1: Get presigned URL
-      // For User Story mode, use area only; for Task Generation mode, use selected values
-      const area = data.mode === 'userStory' ? 'agile-process' : data.area || '';
+      // For User Story mode, use area path only; for Task Generation mode, use selected values
+      const areaPath = data.mode === 'userStory' ? 'agile-process' : data.areaPath || '';
 
       // Build query parameters - only include businessUnit and system for Task Generation mode
       const queryParams = new URLSearchParams({
-        area,
+        area_path: areaPath,
         file_name: file.name,
       });
 
@@ -108,7 +138,7 @@ export default function Knowledge() {
         if (data.system) queryParams.append('system', data.system);
       }
 
-      const presignedResponse = await fetch(`/api/presigned-url?${queryParams.toString()}`, {
+      const presignedResponse = await fetch(`/api/upload?${queryParams.toString()}`, {
         method: 'GET',
       });
 
@@ -141,7 +171,7 @@ export default function Knowledge() {
         s3Key: key,
         s3Bucket: bucket,
         uploadedAt: new Date().toISOString(),
-        area,
+        areaPath: areaPath,
       };
 
       // Only include businessUnit and system for Task Generation mode
@@ -153,7 +183,13 @@ export default function Knowledge() {
       console.log('File uploaded successfully:', metadataPayload);
 
       setUploadStatus('success');
-      form.reset();
+      form.reset({
+        mode: data.mode, // Preserve the current mode instead of defaulting to 'userStory'
+        areaPath: '',
+        businessUnit: '',
+        system: '',
+        file: undefined,
+      });
     } catch (error) {
       console.error('Upload failed:', error);
       setUploadStatus('error');
@@ -208,7 +244,7 @@ export default function Knowledge() {
                       <FormDescription>
                         {currentMode === 'userStory'
                           ? 'User story evaluation documents will be applied organization-wide for all user stories.'
-                          : 'Task generation documents are specific to each team and will only be used for individual Azure DevOps boards matching the Area, Business Unit, and System.'}
+                          : 'Task generation documents are specific to each team and will only be used for individual Azure DevOps boards matching the Area Path, Business Unit, and System.'}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -219,10 +255,10 @@ export default function Knowledge() {
                   <>
                     <FormField
                       control={form.control}
-                      name='area'
+                      name='areaPath'
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Area</FormLabel>
+                          <FormLabel>Area Path</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
@@ -230,14 +266,14 @@ export default function Knowledge() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {AREAS.map((area) => (
-                                <SelectItem key={area} value={area}>
-                                  {area}
+                              {AREA_PATHS.map((areaPath) => (
+                                <SelectItem key={areaPath} value={areaPath}>
+                                  {areaPath}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the Area path from the AMA ADO user story template</FormDescription>
+                          <FormDescription>Select the Area Path from the AMA ADO user story template</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -302,7 +338,7 @@ export default function Knowledge() {
                 <FormField
                   control={form.control}
                   name='file'
-                  render={({ field: { onChange, ...field } }) => (
+                  render={({ field: { onChange, value, ...field } }) => (
                     <FormItem>
                       <FormLabel>Document File</FormLabel>
                       <FormControl>
@@ -341,7 +377,7 @@ export default function Knowledge() {
                                 type='button'
                                 variant='ghost'
                                 size='sm'
-                                onClick={() => onChange(null)}
+                                onClick={() => onChange(undefined)}
                                 className='flex-shrink-0'
                               >
                                 <X className='h-4 w-4' />

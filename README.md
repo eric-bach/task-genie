@@ -150,7 +150,6 @@ Estimated monthly costs (USD) for running in an AWS ###:
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
    GITHUB_ORGANIZATION=
-   GITHUB_REPOSITORY=
    ```
 
 2. Install dependencies

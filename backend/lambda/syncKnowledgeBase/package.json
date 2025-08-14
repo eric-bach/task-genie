@@ -1,0 +1,24 @@
+{
+  "name": "syncKnowledgeBase",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.147",
+    "@types/node": "^24.2.1",
+    "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.14.0",
+    "@aws-sdk/client-bedrock-agent": "^3.712.0",
+    "@aws-sdk/client-s3": "^3.712.0",
+    "@middy/core": "^6.0.0",
+    "aws-lambda": "^1.0.7"
+  }
+}
