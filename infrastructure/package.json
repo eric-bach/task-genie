@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc",
     "build-all": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '🚧 Building {}' ; -execdir sh -c 'npm run build' ;",
-    "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile observability2",
+    "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile observability2 --context envName=dev",
+    "deploy-prod": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile observability2 --context envName=prod",
     "install-all": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ;",
     "watch": "tsc -w",
     "test": "jest",

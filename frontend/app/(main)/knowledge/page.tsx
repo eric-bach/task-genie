@@ -11,11 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-// Define dropdown options
-const AREA_PATHS = ['eric-test'];
-const BUSINESS_UNITS = ['Membership', 'Registries', 'Rewards'];
-const SYSTEMS = ['ARAR', 'Gift Card System', 'iMIS', 'L2', 'VRAR'];
+import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
 
 // Define accepted file types and max size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB

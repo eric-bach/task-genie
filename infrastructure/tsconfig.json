@@ -16,6 +16,7 @@
     "inlineSourceMap": true,
     "inlineSources": true,
     "experimentalDecorators": true,
+    "outDir": "./dist",
     "strictPropertyInitialization": false,
     "typeRoots": ["./node_modules/@types"],
     "skipLibCheck": true

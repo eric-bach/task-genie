@@ -15,8 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
+import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
 
 const formSchema = z.object({
   title: z.string().min(5, {
@@ -28,6 +30,16 @@ const formSchema = z.object({
   acceptanceCriteria: z.string().min(10, {
     message: 'Acceptance criteria must be at least 10 characters.',
   }),
+  // Azure DevOps fields
+  areaPath: z.string().min(1, {
+    message: 'Area Path is required.',
+  }),
+  businessUnit: z.string().min(1, {
+    message: 'Business Unit is required.',
+  }),
+  system: z.string().min(1, {
+    message: 'System is required.',
+  }),
   // AI settings
   prompt: z.string().optional(),
   maxTokens: z.number().min(256).max(4096),
@@ -35,13 +47,24 @@ const formSchema = z.object({
   topP: z.number().min(0.1).max(1),
 });
 
-export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId: string) {
+export async function generateTasks(values: z.infer<typeof formSchema>, userId: string) {
   const baseUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}`;
   const backendUrl = `${baseUrl}/executions`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 
   try {
-    const { title, description, acceptanceCriteria, prompt, maxTokens, temperature, topP } = values;
+    const {
+      title,
+      description,
+      acceptanceCriteria,
+      areaPath,
+      businessUnit,
+      system,
+      prompt,
+      maxTokens,
+      temperature,
+      topP,
+    } = values;
 
     const body = {
       params: {
@@ -59,11 +82,11 @@ export async function callWebhookAPI(values: z.infer<typeof formSchema>, userId:
             'System.Description': description,
             'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
             'System.TeamProject': 'test',
-            'System.AreaPath': 'test',
+            'System.AreaPath': areaPath,
             // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
-            'Custom.BusinessUnit2': 'test',
+            'Custom.BusinessUnit2': businessUnit,
             // TODO Change this to Custom.System when moving to AMA-Ent
-            'Custom.System2': 'test',
+            'Custom.System2': system,
           },
         },
       },
@@ -198,6 +221,9 @@ export function UserStoryForm() {
         "Frequent travelers often face the challenge of keeping track of gate changes, which can occur unexpectedly and cause confusion and inconvenience. Missing a flight due to last-minute gate changes can be stressful and disruptive. By providing timely notifications about gate changes directly to travelers' mobile devices, we help ensure they are informed in real-time and can make their way to the new gate without delay.",
       acceptanceCriteria:
         'GIVEN a frequent traveler has a booked flight and has opted in for notifications WHEN a gate change occurs within 2 hours of departure THEN the traveler receives a notification within 1 minute containing flight number, old gate, new gate, and departure time. GIVEN a traveler receives a gate change notification WHEN they tap the notification THEN the app opens to the flight details screen.',
+      areaPath: '',
+      businessUnit: '',
+      system: '',
       prompt: undefined,
       maxTokens: 4096,
       temperature: 0.5,
@@ -216,7 +242,7 @@ export function UserStoryForm() {
       const userId = user.signInDetails?.loginId || '';
 
       // Step 1: Submit the request
-      const initialResponse = await callWebhookAPI(values, userId);
+      const initialResponse = await generateTasks(values, userId);
 
       if (initialResponse.error) {
         throw new Error(initialResponse.error);
@@ -452,6 +478,87 @@ export function UserStoryForm() {
                     </Accordion>
 
                     <h3 className='font-semibold'>User Story Details</h3>
+
+                    <FormField
+                      control={form.control}
+                      disabled={isSubmitting || isPolling}
+                      name='areaPath'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Area Path</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Select an area path' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {AREA_PATHS.map((areaPath) => (
+                                <SelectItem key={areaPath} value={areaPath}>
+                                  {areaPath}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>Select the Area Path for the user story</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      disabled={isSubmitting || isPolling}
+                      name='businessUnit'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Business Unit</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Select a business unit' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {BUSINESS_UNITS.map((unit) => (
+                                <SelectItem key={unit} value={unit}>
+                                  {unit}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>Select the Business Unit for the user story</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      disabled={isSubmitting || isPolling}
+                      name='system'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>System</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder='Select a system' />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {SYSTEMS.map((system) => (
+                                <SelectItem key={system} value={system}>
+                                  {system}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>Select the system for the user story</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
                     <FormField
                       control={form.control}
