@@ -54,69 +54,17 @@ A state machine, leveraging AWS Step Functions, orchestrates the workflow for th
 
 ### Limitations
 
-⚠️ When a work item is updated, Azure DevOps Service Hooks can only be configured to trigger when one or any fields are updated. Meaning we have 3 Service Hooks, each for Title, Description, and AC; so if you update all 3 fields at the same time, it will trigger Task Genie 3x, resulting in 3x the tasks being generated. We cannot set this Service Hook to "any fields" as this will create a circular loop whenever the user story is updated by Task Genie.
+1. Azure DevOps Service Hooks limitations
 
-A possible solution is to create a new field (boolean) in our User Story template that needs to be set when updating a user story to trigger Task Genie. That way, we only have one Azure DevOps Service Hook for user story updates. Task Genie will always reset this field after it updates the user story. This will just be one more manual step we need to remember to do when updating a user story.
-⚠️
+   ⚠️ Azure DevOps Service Hooks can only be configured to trigger on one or all fields when a work item is updated. So when the Title, Description, and Acceptance Criteria of a work item is updated, Task Genie will be triggered 3 times, resulting in 3x the number of tasks being generated. ⚠️
 
-#### Revert to well-known version
+2. Azure DevOps Personal Access Tokens
 
-This commit has a good verion but the prompts should be updated
-49c0d7a696d2e422ed6e39d31e1e6427e2e01ca5
+   ⚠️ The current implementation uses an Azure DevOps Personal Access Token which is tied to a user. Task Genie can be updated to use an Azure Service Principal once this is created (TASK0224374). ⚠️
 
-**evaluteUserStory**
-You are an expert Agile software development assistant that reviews Azure DevOps work items.
-You evaluate work items to ensure they are complete, clear, and ready for a developer to work on.
-Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
+3. Amazon Bedrock Knowledge Bases
 
-    Evaluate the user story based on the following criteria:
-      - Check if it clearly states the user, need, and business value.
-      - Ensure acceptance criteria are present and specific.
-      - Confirm the story is INVEST-aligned (Independent, Negotiable, Valuable, Estimable, Small, Testable).
-
-    Only return your assessment as a JSON object with the following structure:
-      - "pass": boolean (true if the work item meets the quality bar, false otherwise)
-      - if "pass" is false, include a "comment" field (string), explain what's missing or unclear, and provide
-      a concrete example of a high-quality story that would pass. If you have multiple feedback points, use
-      line breaks and indentations with HTML tags.
-
-    Do not output any text outside of the JSON object.
-
-    The work item to review is:
-      - Title: ${workItem.title}
-      - Description: ${workItem.description}
-      - Acceptance Criteria: ${workItem.acceptanceCriteria}
-
-**defineTasks**
-You are an expert Agile software development assistant for Azure DevOps that specializes in decomposing
-work items into actionable tasks.
-
-Your task is to break down the provided work item into a sequence of tasks that are clear and actionable
-for developers to work on. Each task should be independent and deployable separately.
-
-Ensure each task has a title and a comprehensive description that guides the developer (why, what, how,
-technical details, references to relevant systems/APIs). Do NOT create any tasks for analyzing,
-investigating, analyzing, testing, or deployment.
-
-When providing technical details, align them with the current architecture and technologies used:
-
-- Serverless, microservices, and event-driven architectures
-- Infrastructure: AWS services (Lambda, DynamoDB, EventBridge, etc.)
-- Language: Python
-- Frontend framework: React
-- Mobile framework: Flutter
-  If you are unsure about the technology, do not make assumptions.
-
-Only return your assessment as a JSON object with the following structure: - "tasks": array of task objects, each with: - "title": string (task title, prefixed with its order in the sequence, e.g., "1. Task Title") - "description": string (detailed task description). Please use HTML tags for formatting, such as <br> for
-line breaks, to make it easier to read.
-
-Do not output any text outside of the JSON object.
-
-The work item to decompose is:
-
-- Title: ${workItem.title}
-- Description: ${workItem.description}
-- Acceptance Criteria: ${workItem.acceptanceCriteria}
+   ⚠️ Task Genie uses S3 Vectors for the Knowledge Base Data Store, which is currently not supported in CloudFormation. As such, the Bedrock Knowledge Base needs to be manually created in the console and the IDs need to be set in the `.env` file. ⚠️
 
 ## Pricing
 
@@ -141,16 +89,16 @@ Estimated monthly costs (USD) for running in an AWS ###:
 
 ### Deployment
 
-#### Backend
+#### CDK
 
-1. Update the `/backend/.env` file with the parameters:
+1. Update the `/infrastructure/.env` file with the parameters:
 
    ```
-   AZURE_DEVOPS_PAT=
+   AZURE_DEVOPS_PERSONAL_ACCESS_TOKEN=
+   GITHUB_ORGANIZATION=
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
-   GITHUB_ORGANIZATION=
-   GITHUB_REPOSITORY=
+   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
    ```
 
 2. Install dependencies
@@ -159,10 +107,11 @@ Estimated monthly costs (USD) for running in an AWS ###:
    npm run install
    ```
 
-3. Deploy the backend (default to observability2 AWS profile)
+3. Deploy the backend
 
    ```
    npm run deploy
+   npm run deploy-prod
    ```
 
 ⚠️ NOTE: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. As such, the Bedrock Knowledge Base needs to be manually created.
@@ -177,7 +126,7 @@ Estimated monthly costs (USD) for running in an AWS ###:
 
 #### Frontend
 
-The frontend is deployed using AWS Amplify.
+The frontend is deployed using Vercel.
 
 To run the frontend locally:
 
@@ -225,19 +174,9 @@ The integration with Azure DevOps leverages Service Hooks and requires 4 Service
    - **Trigger on this type of event:** work item created (1), work item updated (3)
    - **Area path:** the name of the Azure DevOps project to configure
    - **Work item type:** User Story
-   - **URL:** the API Gateway URL from the backend deployment
-   - **HTTP headers:** Set this to x-api-key:<the API Gateway API Key from the backend deployment>
 
-## Refining the AI Prompt
-
-1. Edit the prompts and inputs in `bedrock/evaluateTasks.ts` and `bedrock/defineTasks.ts`
-
-2. Run the following commands to run the scripts to test the prompts and inputs in order to refine the prompt
-
-   ```
-   npm run bedrock:evaluateTasks
-   npm run bedrock:defineTasks
-   ```
+- **URL:** the API Gateway URL from the backend deployment with `/executions` as the path (i.e. https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions)
+  - **HTTP headers:** Set this to x-api-key:<the API Gateway API Key from the backend deployment>
 
 ## References
 

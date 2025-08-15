@@ -12,7 +12,20 @@ type Task = {
   assignedTo?: string;
 };
 
-export function TasksDisplay({ isSubmitting, tasks }: { isSubmitting: boolean; tasks: Task[] }) {
+type TasksDisplayProps = {
+  isSubmitting: boolean;
+  tasks: Task[];
+  result?: {
+    statusCode: number;
+    body?: {
+      workItemStatus?: {
+        comment: string;
+      };
+    };
+  };
+};
+
+export function TasksDisplay({ isSubmitting, tasks, result }: TasksDisplayProps) {
   return (
     <Card className='w-full h-full flex flex-col overflow-hidden'>
       <CardHeader className='flex-shrink-0'>
@@ -24,6 +37,13 @@ export function TasksDisplay({ isSubmitting, tasks }: { isSubmitting: boolean; t
           <div className='flex flex-col items-center justify-center h-full space-y-4'>
             <div className='h-8 w-8 border-4 border-primary border-t-transparent rounded-full animate-spin'></div>
             <p className='text-sm text-muted-foreground'>Generating Tasks...</p>
+          </div>
+        ) : result && result.statusCode !== 200 ? (
+          <div className='flex flex-col items-center justify-center h-full space-y-4'>
+            <div className='bg-red-100 text-red-800 border border-red-300 rounded-lg p-4 w-full'>
+              <h3 className='font-semibold mb-2'>User story not accepted</h3>
+              <div dangerouslySetInnerHTML={{ __html: result.body?.workItemStatus?.comment || 'An error occurred' }} />
+            </div>
           </div>
         ) : tasks.length === 0 ? (
           <div className='flex flex-col items-center justify-center h-full space-y-4'>
@@ -60,7 +80,7 @@ function TaskCard({ task }: { task: Task }) {
             <Checkbox id={`task-${task.id}`} className='mt-1' />
             <div>
               <div className='font-medium text-base'>{task.title}</div>
-              <div className='text-sm text-muted-foreground mt-2'>{task.description}</div>
+              <div dangerouslySetInnerHTML={{ __html: task.description }} />
             </div>
           </div>
           {task.assignedTo ? (
