@@ -82,6 +82,11 @@ export class AppStack extends Stack {
       }
     );
 
+    const ssmVpcEndpoint = InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(this, 'SSMVpcEndpoint', {
+      vpcEndpointId: props.params.ssmVpcEndpointId,
+      port: 443,
+    });
+
     const azurePersonalAccessToken = props.params.azurePersonalAccessToken;
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
@@ -102,6 +107,7 @@ export class AppStack extends Stack {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
@@ -115,8 +121,9 @@ export class AppStack extends Stack {
           resources: ['*'],
         }),
       ],
-      interfaceEndpoints: [cloudwatchVpcEndpoint, bedrockVpcEndpoint, bedrockAgentVpcEndpoint],
+      interfaceEndpoints: [cloudwatchVpcEndpoint, bedrockVpcEndpoint, bedrockAgentVpcEndpoint, ssmVpcEndpoint],
     });
+    azurePersonalAccessToken.grantRead(evaluateUserStoryFunction);
 
     const defineTasksFunction = new TaskGenieLambda(this, 'DefineTasks', {
       functionName: `${props.appName}-define-tasks-${props.envName}`,
@@ -128,6 +135,7 @@ export class AppStack extends Stack {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
@@ -135,14 +143,16 @@ export class AppStack extends Stack {
           managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
         },
       ],
-      interfaceEndpoints: [bedrockVpcEndpoint, bedrockAgentVpcEndpoint],
+      interfaceEndpoints: [bedrockVpcEndpoint, bedrockAgentVpcEndpoint, ssmVpcEndpoint],
     });
+    azurePersonalAccessToken.grantRead(defineTasksFunction);
 
     const createTasksFunction = new TaskGenieLambda(this, 'CreateTasks', {
       functionName: `${props.appName}-create-tasks-${props.envName}`,
       entry: path.resolve(__dirname, '../../backend/lambda/createTasks/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(30),
+      vpc,
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
@@ -154,6 +164,7 @@ export class AppStack extends Stack {
           resources: ['*'],
         }),
       ],
+      interfaceEndpoints: [cloudwatchVpcEndpoint, ssmVpcEndpoint],
     });
     azurePersonalAccessToken.grantRead(createTasksFunction);
 
@@ -162,11 +173,13 @@ export class AppStack extends Stack {
       entry: path.resolve(__dirname, '../../backend/lambda/addComment/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(10),
+      vpc,
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
+      interfaceEndpoints: [ssmVpcEndpoint],
     });
     azurePersonalAccessToken.grantRead(addCommentFunction);
 
@@ -333,6 +346,13 @@ export class AppStack extends Stack {
         )
     );
 
+    // Create the Log Group for State Machine separately
+    const stateMachineLogGroup = new LogGroup(this, 'StateMachineLogGroup', {
+      logGroupName: `/aws/stepfunctions/${props.appName}-state-machine-${props.envName}`,
+      retention: RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     // Step Function
     const stateMachine = new StateMachine(this, 'StateMachine', {
       stateMachineName: `${props.appName}-state-machine-${props.envName}`,
@@ -341,10 +361,7 @@ export class AppStack extends Stack {
       timeout: Duration.minutes(5),
       tracingEnabled: true,
       logs: {
-        destination: new LogGroup(this, 'StateMachineLogGroup', {
-          retention: RetentionDays.ONE_MONTH,
-          removalPolicy: RemovalPolicy.DESTROY,
-        }),
+        destination: stateMachineLogGroup,
         level: LogLevel.ALL,
         includeExecutionData: true,
       },
@@ -416,6 +433,7 @@ export class AppStack extends Stack {
           'application/json': `
 {
   "input": "$util.escapeJavaScript($input.body).replaceAll("\\'", "'").replaceAll(\"\\\\'\", \"'\")",
+  "name": "$input.path('$.resource.workItemId')-rev$input.path('$.resource.rev')",
   "stateMachineArn": "${stateMachine.stateMachineArn}"
 }`,
         },

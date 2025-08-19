@@ -15,6 +15,7 @@ export class DataStack extends Stack {
   public cloudwatchVpcEndpointId: string;
   public bedrockVpcEndpointId: string;
   public bedrockAgentVpcEndpointId: string;
+  public ssmVpcEndpointId: string;
   public resultsTableArn: string;
   public dataSourceBucketArn: string;
   public azurePersonalAccessToken: StringParameter;
@@ -121,15 +122,20 @@ export class DataStack extends Stack {
      * AWS VPC
      */
 
-    const vpc = new Vpc(this, 'VPC', {
-      ipAddresses: IpAddresses.cidr('10.0.0.0/16'),
-      natGateways: 0,
+    const vpc = new Vpc(this, 'TaskGenieVPC', {
+      ipAddresses: IpAddresses.cidr('10.1.0.0/16'),
+      natGateways: 1,
       maxAzs: 1,
       subnetConfiguration: [
         {
-          cidrMask: 24,
+          cidrMask: 25,
+          name: `Public Subnet - ${props.appName}`,
+          subnetType: SubnetType.PUBLIC,
+        },
+        {
+          cidrMask: 25,
           name: `Private Subnet - ${props.appName}`,
-          subnetType: SubnetType.PRIVATE_ISOLATED,
+          subnetType: SubnetType.PRIVATE_WITH_EGRESS,
         },
       ],
       restrictDefaultSecurityGroup: true,
@@ -142,7 +148,7 @@ export class DataStack extends Stack {
         port: 443,
       },
       subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
+        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
       },
     });
 
@@ -153,7 +159,7 @@ export class DataStack extends Stack {
         port: 443,
       },
       subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
+        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
       },
     });
 
@@ -163,7 +169,18 @@ export class DataStack extends Stack {
         port: 443,
       },
       subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
+        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+      },
+    });
+
+    // Interface VPC endpoint for SSM Parameter Store
+    const ssmEndpoint = vpc.addInterfaceEndpoint('SSMEndpoint', {
+      service: {
+        name: `com.amazonaws.${this.region}.ssm`,
+        port: 443,
+      },
+      subnets: {
+        subnetType: SubnetType.PRIVATE_WITH_EGRESS,
       },
     });
 
@@ -189,6 +206,7 @@ export class DataStack extends Stack {
     this.cloudwatchVpcEndpointId = cloudwatchEndpoint.vpcEndpointId;
     this.bedrockVpcEndpointId = bedrockEndpoint.vpcEndpointId;
     this.bedrockAgentVpcEndpointId = bedrockAgentEndpoint.vpcEndpointId;
+    this.ssmVpcEndpointId = ssmEndpoint.vpcEndpointId;
     this.resultsTableArn = resultsTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
     this.azurePersonalAccessToken = azurePersonalAccessToken;
