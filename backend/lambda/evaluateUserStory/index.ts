@@ -28,7 +28,8 @@ import { InvalidWorkItemError } from '../../shared/errors';
  * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for evaluation
  * - AWS_BEDROCK_KNOWLEDGE_BASE_ID: Knowledge base ID for retrieving context
  * - AZURE_DEVOPS_PAT_PARAMETER_NAME: Parameter Store parameter name containing Azure DevOps PAT
- */ const AWS_REGION = process.env.AWS_REGION;
+ */
+const AWS_REGION = process.env.AWS_REGION || 'us-west-2';
 const AWS_ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
 if (AWS_ACCOUNT_ID === undefined) {
   throw new Error('AWS_ACCOUNT_ID environment variable is required');
@@ -42,57 +43,14 @@ if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
   throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
 
-const bedrockAgentRuntimeClient = new BedrockAgentRuntimeClient({
-  endpoint: `https://bedrock-agent-runtime.${process.env.AWS_REGION}.amazonaws.com`,
-  region: AWS_REGION || 'us-west-2',
-});
-
-const bedrockRuntimeClient = new BedrockRuntimeClient({
-  endpoint: `https://bedrock-runtime.${AWS_REGION}.amazonaws.com`,
-  region: AWS_REGION || 'us-west-2',
-});
-
-const ssmClient = new SSMClient({ region: AWS_REGION || 'us-west-2' });
-
-export const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-west-2' });
+const bedrockAgentRuntimeClient = new BedrockAgentRuntimeClient({ region: AWS_REGION });
+const bedrockRuntimeClient = new BedrockRuntimeClient({ region: AWS_REGION });
+const ssmClient = new SSMClient({ region: AWS_REGION });
+export const cloudWatchClient = new CloudWatchClient({ region: AWS_REGION });
 export const logger = new Logger({ serviceName: 'evaluateUserStory' });
 
 // Cache for the Azure DevOps PAT to avoid repeated Parameter Store calls
 let cachedAdoPat: string | null = null;
-
-/**
- * Retrieves the Azure DevOps PAT from AWS Systems Manager Parameter Store
- * @returns The PAT string or null if not configured or failed to retrieve
- */
-
-const getAzureDevOpsPat = async (): Promise<string | null> => {
-  if (cachedAdoPat !== null) {
-    return cachedAdoPat;
-  }
-
-  const parameterName = process.env.AZURE_DEVOPS_PAT_PARAMETER_NAME;
-  if (!parameterName) {
-    logger.debug('Azure DevOps PAT parameter name not configured');
-    return null;
-  }
-
-  try {
-    const command = new GetParameterCommand({
-      Name: parameterName,
-      WithDecryption: true,
-    });
-    const response = await ssmClient.send(command);
-    cachedAdoPat = response.Parameter?.Value || null;
-    logger.debug('Successfully retrieved Azure DevOps PAT from Parameter Store');
-    return cachedAdoPat;
-  } catch (error) {
-    logger.warn('Failed to retrieve Azure DevOps PAT from Parameter Store', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      parameterName,
-    });
-    return null;
-  }
-};
 
 const lambdaHandler = async (event: any, context: Context) => {
   try {
@@ -110,6 +68,11 @@ const lambdaHandler = async (event: any, context: Context) => {
         body: {
           params,
           workItem,
+          workItemStatus: {
+            pass: false,
+            comment:
+              'Work Item has already been previously evaluated by Task Genie. Please remove the `Task Genie` tag to re-evaluate this work item.',
+          },
         },
       };
     }
@@ -191,11 +154,46 @@ const validateWorkItem = (resource: any) => {
 };
 
 /**
+ * Retrieves the Azure DevOps PAT from AWS Systems Manager Parameter Store
+ * @returns The PAT string or null if not configured or failed to retrieve
+ */
+const getAzureDevOpsPat = async (): Promise<string | null> => {
+  if (cachedAdoPat !== null) {
+    return cachedAdoPat;
+  }
+
+  const parameterName = process.env.AZURE_DEVOPS_PAT_PARAMETER_NAME;
+  if (!parameterName) {
+    logger.debug('Azure DevOps PAT parameter name not configured');
+    return null;
+  }
+
+  try {
+    const command = new GetParameterCommand({
+      Name: parameterName,
+      WithDecryption: true,
+    });
+
+    const response = await ssmClient.send(command);
+
+    cachedAdoPat = response.Parameter?.Value || null;
+    return cachedAdoPat;
+  } catch (error) {
+    logger.warn('Failed to retrieve Azure DevOps PAT from Parameter Store', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      parameterName,
+    });
+    return null;
+  }
+};
+
+/**
  * Extracts image URLs and alt text from HTML content containing <img> tags
  * @param htmlContent The HTML content to parse
+ * @param context The context in which the HTML content is used (e.g., 'Description', 'AcceptanceCriteria')
  * @returns Array of WorkItemImage objects with URLs and alt text found in the content
  */
-const extractImageUrls = (htmlContent: string): WorkItemImage[] => {
+const extractImageUrls = (htmlContent: string, context: string): WorkItemImage[] => {
   if (!htmlContent || typeof htmlContent !== 'string') {
     return [];
   }
@@ -221,7 +219,7 @@ const extractImageUrls = (htmlContent: string): WorkItemImage[] => {
     }
   }
 
-  logger.debug(`Extracted ${images.length} images from HTML content`, { images });
+  logger.debug(`Extracted ${images.length} images from ${context}`, { images });
   return images;
 };
 
@@ -232,9 +230,10 @@ const extractImageUrls = (htmlContent: string): WorkItemImage[] => {
  */
 const fetchImageAsBase64 = async (imageUrl: string): Promise<string | null> => {
   try {
-    // For Azure DevOps attachment URLs, add required query parameters and auth
+    let headers: any = { 'User-Agent': 'TaskGenie/1.0' };
+
     if (imageUrl.includes('visualstudio.com')) {
-      const finalUrl = `${imageUrl}&download=true&api-version=7.1`;
+      imageUrl = `${imageUrl}&download=true&api-version=7.1`;
 
       const adoPat = await getAzureDevOpsPat();
       if (!adoPat) {
@@ -243,36 +242,14 @@ const fetchImageAsBase64 = async (imageUrl: string): Promise<string | null> => {
       }
 
       logger.debug(`Fetching image from Azure DevOps`, {
-        originalUrl: imageUrl,
-        finalUrl,
+        imageUrl,
       });
 
-      const response = await fetch(finalUrl, {
-        headers: { Authorization: `Basic ${adoPat}` },
-      });
-
-      if (!response.ok) {
-        logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
-          url: finalUrl,
-        });
-        return null;
-      }
-
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
-
-      logger.debug(`Successfully fetched image`, {
-        url: finalUrl,
-        sizeBytes: arrayBuffer.byteLength,
-      });
-
-      return base64;
+      headers = { ...headers, Authorization: `Basic ${adoPat}` };
     }
 
     // For non-Azure DevOps images, use simple fetch
-    const response = await fetch(imageUrl, {
-      headers: { 'User-Agent': 'TaskGenie/1.0' },
-    });
+    const response = await fetch(imageUrl, { headers });
 
     if (!response.ok) {
       logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
@@ -312,8 +289,8 @@ const parseEvent = (event: any): WorkItemRequest => {
   const rawAcceptanceCriteria = fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '';
 
   // Extract image URLs from both description and acceptance criteria
-  const descriptionImages = extractImageUrls(rawDescription);
-  const acceptanceCriteriaImages = extractImageUrls(rawAcceptanceCriteria);
+  const descriptionImages = extractImageUrls(rawDescription, 'Description');
+  const acceptanceCriteriaImages = extractImageUrls(rawAcceptanceCriteria, 'AcceptanceCriteria');
   const allImages = [...descriptionImages, ...acceptanceCriteriaImages];
 
   // Remove duplicates based on URL
@@ -471,7 +448,7 @@ const invokeModelWithContext = async (workItem: WorkItem, context: string): Prom
             type: 'image',
             source: {
               type: 'base64',
-              media_type: 'image/jpeg', // Use JPEG for all images like the working example
+              media_type: 'image/jpeg', // Use JPEG for all images
               data: imageData,
             },
           });

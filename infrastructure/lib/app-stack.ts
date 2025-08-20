@@ -3,7 +3,6 @@ import { Construct } from 'constructs';
 import { Choice, Condition, LogLevel, StateMachine, StateMachineType, TaskInput } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
-import { InterfaceVpcEndpoint, Port } from 'aws-cdk-lib/aws-ec2';
 import {
   AccessLogFormat,
   ApiKey,
@@ -57,36 +56,6 @@ export class AppStack extends Stack {
      * Lookup properties
      */
 
-    const vpc = props.params.vpc;
-
-    const cloudwatchVpcEndpoint = InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(
-      this,
-      'CloudWatchVpcEndpoint',
-      {
-        vpcEndpointId: props.params.cloudwatchVpcEndpointId,
-        port: 443,
-      }
-    );
-
-    const bedrockVpcEndpoint = InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(this, 'BedrockVpcEndpoint', {
-      vpcEndpointId: props.params.bedrockVpcEndpointId,
-      port: 443,
-    });
-
-    const bedrockAgentVpcEndpoint = InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(
-      this,
-      'BedrockAgentVpcEndpoint',
-      {
-        vpcEndpointId: props.params.bedrockAgentVpcEndpointId,
-        port: 443,
-      }
-    );
-
-    const ssmVpcEndpoint = InterfaceVpcEndpoint.fromInterfaceVpcEndpointAttributes(this, 'SSMVpcEndpoint', {
-      vpcEndpointId: props.params.ssmVpcEndpointId,
-      port: 443,
-    });
-
     const azurePersonalAccessToken = props.params.azurePersonalAccessToken;
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
@@ -102,7 +71,7 @@ export class AppStack extends Stack {
       entry: path.resolve(__dirname, '../../backend/lambda/evaluateUserStory/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(120),
-      vpc,
+      // vpc: removed to use default VPC with internet access
       environment: {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -121,7 +90,7 @@ export class AppStack extends Stack {
           resources: ['*'],
         }),
       ],
-      interfaceEndpoints: [cloudwatchVpcEndpoint, bedrockVpcEndpoint, bedrockAgentVpcEndpoint, ssmVpcEndpoint],
+      // interfaceEndpoints: removed since not using private VPC
     });
     azurePersonalAccessToken.grantRead(evaluateUserStoryFunction);
 
@@ -130,7 +99,7 @@ export class AppStack extends Stack {
       entry: path.resolve(__dirname, '../../backend/lambda/defineTasks/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(120),
-      vpc,
+      // vpc: removed to use default VPC with internet access
       environment: {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
@@ -143,7 +112,7 @@ export class AppStack extends Stack {
           managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
         },
       ],
-      interfaceEndpoints: [bedrockVpcEndpoint, bedrockAgentVpcEndpoint, ssmVpcEndpoint],
+      // interfaceEndpoints: removed since not using private VPC
     });
     azurePersonalAccessToken.grantRead(defineTasksFunction);
 
@@ -152,7 +121,7 @@ export class AppStack extends Stack {
       entry: path.resolve(__dirname, '../../backend/lambda/createTasks/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(30),
-      vpc,
+      // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
@@ -164,7 +133,7 @@ export class AppStack extends Stack {
           resources: ['*'],
         }),
       ],
-      interfaceEndpoints: [cloudwatchVpcEndpoint, ssmVpcEndpoint],
+      // interfaceEndpoints: removed since not using private VPC
     });
     azurePersonalAccessToken.grantRead(createTasksFunction);
 
@@ -173,13 +142,13 @@ export class AppStack extends Stack {
       entry: path.resolve(__dirname, '../../backend/lambda/addComment/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(10),
-      vpc,
+      // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
-      interfaceEndpoints: [ssmVpcEndpoint],
+      // interfaceEndpoints: removed since not using private VPC
     });
     azurePersonalAccessToken.grantRead(addCommentFunction);
 
@@ -323,15 +292,11 @@ export class AppStack extends Stack {
     const definition = evaluateUserStoryTask.next(
       new Choice(this, 'User story is defined?')
         .when(
-          Condition.or(
-            Condition.numberEquals('$.statusCode', 204),
-            Condition.numberEquals('$.statusCode', 400),
-            Condition.numberEquals('$.statusCode', 500)
-          ),
+          Condition.or(Condition.numberEquals('$.statusCode', 400), Condition.numberEquals('$.statusCode', 500)),
           sendResponseTask
         )
         .when(
-          Condition.numberEquals('$.statusCode', 412),
+          Condition.or(Condition.numberEquals('$.statusCode', 204), Condition.numberEquals('$.statusCode', 412)),
           new Choice(this, 'Add comment?')
             .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), addCommentTask.next(sendResponseTask))
             .otherwise(sendResponseTask)

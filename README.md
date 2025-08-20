@@ -2,7 +2,7 @@
 
 <div style="display: flex; align-items: center;">
    <img src="docs/logo.jpg" alt="Task Genie" width="60" style="margin-right: 10px;">
-   <span>Task Genie integrates directly in Azure DevOps Boards, utilizing AI services powered by Amazon Bedrock, to ensure the completeness of user stories and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
+   <span>Task Genie is an AI assistant that integrates directly in Azure DevOps Boards to ensure the completeness of user stories and automatically helps breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
 </span>
 </div>
 
@@ -34,9 +34,9 @@
 
 ## Architecture
 
-The architecture is deployed in AWS using a serverless model using AWS PrivateLink for private network communication between all AWS services. Integration with Azure DevOps is done through Service Hooks for each board.
+The architecture is deployed in AWS using a serverless model with Step Functions orchestrating the AI workflow. Integration with Azure DevOps is done through Service Hooks for each board.
 
-![architecture](/docs/architecture.png)
+![architecture_v2](/docs/architecture_v2.png)
 
 A state machine, leveraging AWS Step Functions, orchestrates the workflow for the interaction with the LLM.
 
@@ -72,20 +72,18 @@ Estimated monthly costs (USD) for running in an AWS ###:
 
 | Service                   | Rate (us-west-2)                      | Quantity | Estimated cost |
 | ------------------------- | ------------------------------------- | -------- | -------------- |
-| VPC public IPv4           | $0.005 per hour                       | 1        | $3.60          |
-| VPC endpoint              | $0.01 per hour                        | 2        | $14.40         |
 | CloudWatch                | $3 per dashboard                      | 1        | $3.00          |
 | Amplify                   | $0.01 per minute                      | 10       | $0.10          |
 | Lambda                    | $0.0000166667 per GB-second           | 100,000  | $1.67          |
 | Step Functions            | $0.00001667 per GB-second             | 100,000  | $1.67          |
 | Bedrock (Claude 4 Sonnet) | $3.00/1M (input) / $15.00/1M (output) | 1        | $18.00         |
-| **TOTAL (estimated)**     |                                       |          | **$42.44**     |
+| **TOTAL (estimated)**     |                                       |          | **$24.44**     |
 
 ## Getting Started
 
 ### Pre-requisites
 
-1. Create a PAT in AzureDevOps (until service principal is setup)
+1. Create a [Personal Access Token](https://amaabca.visualstudio.com/_usersSettings/tokens) in AzureDevOps (until service principal is setup)
 
 ### Deployment
 

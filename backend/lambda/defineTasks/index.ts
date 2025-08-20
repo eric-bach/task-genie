@@ -24,7 +24,8 @@ import { WorkItem, Task, BedrockConfig, BedrockResponse, WorkItemImage } from '.
  * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for task generation
  * - AWS_BEDROCK_KNOWLEDGE_BASE_ID: Knowledge base ID for retrieving context
  * - AZURE_DEVOPS_PAT_PARAMETER_NAME: Parameter Store parameter name containing Azure DevOps PAT
- */ const AWS_REGION = process.env.AWS_REGION;
+ */
+const AWS_REGION = process.env.AWS_REGION || 'us-west-2';
 const AWS_ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
 if (AWS_ACCOUNT_ID === undefined) {
   throw new Error('AWS_ACCOUNT_ID environment variable is required');
@@ -38,22 +39,61 @@ if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
   throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
 
-const bedrockAgentRuntimeClient = new BedrockAgentRuntimeClient({
-  endpoint: `https://bedrock-agent-runtime.${AWS_REGION}.amazonaws.com`,
-  region: AWS_REGION || 'us-west-2',
-});
-
-const bedrockRuntimeClient = new BedrockRuntimeClient({
-  endpoint: `https://bedrock-runtime.${AWS_REGION}.amazonaws.com`,
-  region: AWS_REGION || 'us-west-2',
-});
-
-const ssmClient = new SSMClient({ region: AWS_REGION || 'us-west-2' });
-
+const bedrockAgentRuntimeClient = new BedrockAgentRuntimeClient({ region: AWS_REGION });
+const bedrockRuntimeClient = new BedrockRuntimeClient({ region: AWS_REGION });
+const ssmClient = new SSMClient({ region: AWS_REGION });
 const logger = new Logger({ serviceName: 'defineTasks' });
 
 // Cache for the Azure DevOps PAT to avoid repeated Parameter Store calls
 let cachedAdoPat: string | null = null;
+
+const lambdaHandler = async (event: Record<string, any>, context: Context) => {
+  try {
+    // Parse event body
+    const { workItem, params, workItemStatus } = parseEventBody(event.body);
+
+    // Invoke Bedrock
+    const tasks = await evaluateBedrock(workItem, params);
+    logger.info(`✅ Identified ${tasks.length} tasks`);
+
+    return {
+      statusCode: 200,
+      body: {
+        workItem,
+        tasks,
+        workItemStatus,
+      },
+    };
+  } catch (error: any) {
+    logger.error('💣 An unexpected error occurred', { error: error });
+
+    return {
+      statusCode: 500,
+      error: error.message,
+    };
+  }
+};
+
+/**
+ * Validates the event body to ensure it contains a work item
+ * @param body The event body to validate
+ * @returns The validated body
+ */
+const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig; workItemStatus: BedrockResponse } => {
+  if (!body || !body.workItem) {
+    throw Error('Invalid event payload: the request body is missing or undefined.');
+  }
+
+  const { params, workItem, workItemStatus } = body;
+
+  logger.info(`Parsed work item ${workItem.workItemId}`, {
+    workItem,
+    workItemStatus,
+    ...(params && { params }),
+  });
+
+  return { params: params ?? {}, workItem, workItemStatus };
+};
 
 /**
  * Retrieves the Azure DevOps PAT from AWS Systems Manager Parameter Store
@@ -76,8 +116,8 @@ const getAzureDevOpsPat = async (): Promise<string | null> => {
       WithDecryption: true,
     });
     const response = await ssmClient.send(command);
+
     cachedAdoPat = response.Parameter?.Value || null;
-    logger.debug('Successfully retrieved Azure DevOps PAT from Parameter Store');
     return cachedAdoPat;
   } catch (error) {
     logger.warn('Failed to retrieve Azure DevOps PAT from Parameter Store', {
@@ -162,56 +202,6 @@ const fetchImageAsBase64 = async (imageUrl: string): Promise<string | null> => {
   }
 };
 
-const lambdaHandler = async (event: Record<string, any>, context: Context) => {
-  try {
-    // Validate event body
-    const body = validateEventBody(event.body);
-
-    // Parse event body
-    const { workItem, params, workItemStatus } = parseEventBody(body);
-
-    // Invoke Bedrock
-    const tasks = await evaluateBedrock(workItem, params);
-    logger.info(`✅ Identified ${tasks.length} tasks`);
-
-    return {
-      statusCode: 200,
-      body: {
-        workItem,
-        tasks,
-        workItemStatus,
-      },
-    };
-  } catch (error: any) {
-    logger.error('💣 An unexpected error occurred', { error: error });
-
-    return {
-      statusCode: 500,
-      error: error.message,
-    };
-  }
-};
-
-const validateEventBody = (body: any) => {
-  if (!body || !body.workItem) {
-    throw Error('Invalid event payload: the request body is missing or undefined.');
-  }
-
-  return body;
-};
-
-const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig; workItemStatus: BedrockResponse } => {
-  const { params, workItem, workItemStatus } = body;
-
-  logger.info(`Parsed work item ${workItem.workItemId}`, {
-    workItem,
-    workItemStatus,
-    ...(params && { params }),
-  });
-
-  return { params: params ?? {}, workItem, workItemStatus };
-};
-
 const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promise<Task[]> => {
   // Step 1: Try to retrieve relevant documents from Knowledge Base
   const retrievalContext = await retrieveFromKnowledgeBase(workItem);
@@ -221,18 +211,43 @@ const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promi
 };
 
 const retrieveFromKnowledgeBase = async (workItem: WorkItem): Promise<string> => {
-  const imagesInfo =
-    workItem.images && workItem.images.length > 0
-      ? `\n    - Images: ${workItem.images.length} image(s) referenced with descriptions`
-      : '';
-
   const query = `
     Given the following work item, find any relevant information such as business or domain context, and 
     technical details that can help you evaluate the user story:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
-    - Acceptance Criteria: ${workItem.acceptanceCriteria}${imagesInfo}
+    - Acceptance Criteria: ${workItem.acceptanceCriteria}
   `;
+
+  // Build filter conditions only for non-empty fields
+  const filterConditions = [];
+
+  if (workItem.areaPath) {
+    filterConditions.push({
+      equals: {
+        key: 'area_path',
+        value: workItem.areaPath,
+      },
+    });
+  }
+
+  if (workItem.businessUnit) {
+    filterConditions.push({
+      equals: {
+        key: 'business_unit',
+        value: workItem.businessUnit,
+      },
+    });
+  }
+
+  if (workItem.system) {
+    filterConditions.push({
+      equals: {
+        key: 'system',
+        value: workItem.system,
+      },
+    });
+  }
 
   const input: RetrieveCommandInput = {
     knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
@@ -242,42 +257,17 @@ const retrieveFromKnowledgeBase = async (workItem: WorkItem): Promise<string> =>
     retrievalConfiguration: {
       vectorSearchConfiguration: {
         numberOfResults: 5,
-        ...(workItem.areaPath || workItem.businessUnit || workItem.system
+        // Only add filter if we have at least 2 conditions (andAll requirement)
+        // or use a single condition with equals instead of andAll
+        ...(filterConditions.length >= 2
           ? {
               filter: {
-                andAll: [
-                  ...(workItem.areaPath
-                    ? [
-                        {
-                          equals: {
-                            key: 'area_path',
-                            value: workItem.areaPath,
-                          },
-                        },
-                      ]
-                    : []),
-                  ...(workItem.businessUnit
-                    ? [
-                        {
-                          equals: {
-                            key: 'business_unit',
-                            value: workItem.businessUnit,
-                          },
-                        },
-                      ]
-                    : []),
-                  ...(workItem.system
-                    ? [
-                        {
-                          equals: {
-                            key: 'system',
-                            value: workItem.system,
-                          },
-                        },
-                      ]
-                    : []),
-                ],
+                andAll: filterConditions,
               },
+            }
+          : filterConditions.length === 1
+          ? {
+              filter: filterConditions[0],
             }
           : {}),
       },
@@ -334,7 +324,7 @@ const invokeModelWithContext = async (workItem: WorkItem, params: BedrockConfig,
   // Prepare images information for the prompt
   const imagesInfo =
     workItem.images && workItem.images.length > 0
-      ? `\n\nImages referenced in the work item:\n${workItem.images
+      ? `Images referenced in the work item:\n${workItem.images
           .map((image, index) => {
             const altText = image.alt ? ` (Alt: "${image.alt}")` : '';
             return `${index + 1}. ${image.url}${altText}`;
@@ -358,7 +348,9 @@ const invokeModelWithContext = async (workItem: WorkItem, params: BedrockConfig,
     The work item to decompose is:
       - Title: ${workItem.title} 
       - Description: ${workItem.description} 
-      - Acceptance Criteria: ${workItem.acceptanceCriteria}${imagesInfo}
+      - Acceptance Criteria: ${workItem.acceptanceCriteria}
+      
+    ${imagesInfo}
 
     Additional business, domain context, and technical details from knowledge base:
     ${context}`;
