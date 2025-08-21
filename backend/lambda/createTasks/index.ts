@@ -1,19 +1,22 @@
 import { Context } from 'aws-lambda';
-import { CloudWatchClient } from '@aws-sdk/client-cloudwatch';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { createTaskGeneratedMetric, createUserStoriesUpdatedMetric } from './helpers/cloudwatch';
-import { createTasks } from './helpers/azureDevOps';
-import { WorkItem, Task, BedrockResponse } from '../../shared/types';
+import { WorkItem, Task } from '../../types/azureDevOps';
+import { BedrockKnowledgeDocument, BedrockResponse } from '../../types/bedrock';
+import { AzureService } from '../../services/AzureService';
+import { CloudWatchService } from '../../services/CloudWatchService';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
 if (GITHUB_ORGANIZATION === undefined) {
   throw new Error('GITHUB_ORGANIZATION environment variable is required');
 }
 
-export const cloudWatchClient = new CloudWatchClient({ region: process.env.AWS_REGION || 'us-west-2' });
 export const logger = new Logger({ serviceName: 'createTasks' });
+
+// Cache for dependencies
+let azureService: AzureService | null = null;
+let personalAccessToken: string | null = null;
 
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
@@ -21,14 +24,16 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const body = validateEventBody(event.body);
 
     // Parse work item
-    const { workItem, tasks, workItemStatus } = parseEventBody(body);
+    const { workItem, tasks, documents, workItemStatus } = parseEventBody(body);
 
     // Create tasks
-    await createTasks(workItem, tasks);
+    const azureService = getAzureService();
+    await azureService.createTasks(GITHUB_ORGANIZATION, workItem, tasks);
 
     // Add CloudWatch metrics
-    await createTaskGeneratedMetric(tasks.length);
-    await createUserStoriesUpdatedMetric();
+    const cloudWatchService = new CloudWatchService();
+    await cloudWatchService.createTaskGeneratedMetric(tasks.length);
+    await cloudWatchService.createUserStoriesUpdatedMetric();
 
     logger.info(`✅ Created ${tasks.length} tasks for work item ${workItem.workItemId}`);
 
@@ -37,6 +42,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
       body: {
         workItem,
         tasks,
+        documents,
         workItemStatus,
       },
     };
@@ -50,6 +56,17 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   }
 };
 
+/**
+ * Initialize Azure service (singleton pattern for Lambda container reuse)
+ */
+const getAzureService = (): AzureService => {
+  if (!azureService) {
+    azureService = new AzureService(personalAccessToken);
+  }
+
+  return azureService;
+};
+
 const validateEventBody = (body: any) => {
   if (!body) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
@@ -58,16 +75,19 @@ const validateEventBody = (body: any) => {
   return body;
 };
 
-const parseEventBody = (body: any): { workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
-  const { workItem, tasks, workItemStatus } = body;
+const parseEventBody = (
+  body: any
+): { workItem: WorkItem; documents: BedrockKnowledgeDocument[]; tasks: Task[]; workItemStatus: BedrockResponse } => {
+  const { workItem, tasks, documents, workItemStatus } = body;
 
   logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
     tasks,
+    documents,
     workItemStatus,
   });
 
-  return { workItem, tasks, workItemStatus };
+  return { workItem, tasks, documents, workItemStatus };
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

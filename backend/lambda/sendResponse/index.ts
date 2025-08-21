@@ -4,7 +4,8 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task, BedrockResponse } from '../../shared/types';
+import { WorkItem, Task } from '../../types/azureDevOps';
+import { BedrockWorkItemEvaluationResponse } from '../../types/bedrock';
 
 const logger = new Logger({ serviceName: 'sendResponse' });
 const dynamoClient = new DynamoDBClient({});
@@ -60,7 +61,7 @@ const validateEvent = (event: any) => {
 
 const parseEvent = (
   event: any
-): { executionName: string; workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
+): { executionName: string; workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockWorkItemEvaluationResponse } => {
   const { workItem, tasks, workItemStatus } = event.body;
   const executionName = event.executionName;
 
@@ -78,7 +79,7 @@ const saveResponseToDynamoDB = async (
   executionName: string,
   workItem: WorkItem,
   tasks: Task[],
-  workItemStatus: BedrockResponse
+  workItemStatus: BedrockWorkItemEvaluationResponse
 ) => {
   const tableName = process.env.TABLE_NAME;
 

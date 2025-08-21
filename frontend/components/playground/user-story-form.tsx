@@ -119,7 +119,7 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
   }
 }
 
-export async function pollForResults(executionName: string, maxAttempts: number = 24, intervalMs: number = 5000) {
+export async function pollForResults(executionName: string, maxAttempts: number = 36, intervalMs: number = 5000) {
   const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/executions/${executionName}`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 

@@ -1,13 +1,8 @@
+import { BedrockInferenceParams } from './bedrock';
+
 export interface WorkItemRequest {
   workItem: WorkItem;
-  params: BedrockConfig;
-}
-
-export interface BedrockConfig {
-  prompt?: string;
-  maxTokens?: number;
-  temperature?: number;
-  topP?: number;
+  params: BedrockInferenceParams;
 }
 
 export interface WorkItemImage {
@@ -33,9 +28,4 @@ export interface Task {
   taskId?: number;
   title: string;
   description: string;
-}
-
-export interface BedrockResponse {
-  pass: boolean;
-  comment: string;
 }

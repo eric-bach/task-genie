@@ -85,6 +85,8 @@ Estimated monthly costs (USD) for running in an AWS ###:
 
 1. Create a [Personal Access Token](https://amaabca.visualstudio.com/_usersSettings/tokens) in AzureDevOps (until service principal is setup)
 
+2. Encode the token with BASE 64 (save for next steps)
+
 ### Deployment
 
 #### CDK
@@ -95,8 +97,6 @@ Estimated monthly costs (USD) for running in an AWS ###:
    AZURE_DEVOPS_PERSONAL_ACCESS_TOKEN=
    GITHUB_ORGANIZATION=
    AWS_BEDROCK_MODEL_ID=
-   AWS_BEDROCK_KNOWLEDGE_BASE_ID=
-   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
    ```
 
 2. Install dependencies
@@ -112,11 +112,22 @@ Estimated monthly costs (USD) for running in an AWS ###:
    npm run deploy-prod
    ```
 
-⚠️ NOTE: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. As such, the Bedrock Knowledge Base needs to be manually created.
+⚠️ NOTE: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. As such, the Bedrock Knowledge Base needs to be manually created in the AWS console.
 
-4. Create a Bedrock Knowledge Base with the S3 Bucket from the previous deploy (step 3) as the Data Source
+4. Create a Bedrock Knowledge Base
 
-5. Re-deploy the backend
+   - Ensure the Chunking strategy is set to `Semantic chunking` with a `Maz token size for a chunk` = 150
+     ![Chunking Strategy](/docs/kb_chunking.png)
+   - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from the deployment (step 3)
+
+5. Update the `/infrastructure/.env` with the created Bedrock Knowledge Base ID and Bedrock Knowledge Base Data Source ID
+
+   ```
+   AWS_BEDROCK_KNOWLEDGE_BASE_ID=
+   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
+   ```
+
+6. Re-deploy the backend
 
    ```
    npm run deploy

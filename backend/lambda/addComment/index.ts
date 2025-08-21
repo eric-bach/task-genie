@@ -2,8 +2,9 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { addComment, addTag } from './helpers/azureDevOps';
-import { WorkItem, Task, BedrockResponse } from '../../shared/types';
+import { WorkItem, Task } from '../../types/azureDevOps';
+import { AzureService } from '../../services/AzureService';
+import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../types/bedrock';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
 if (GITHUB_ORGANIZATION === undefined) {
@@ -12,25 +13,28 @@ if (GITHUB_ORGANIZATION === undefined) {
 
 export const logger = new Logger({ serviceName: 'addComment' });
 
+// Cache for dependencies
+let azureService: AzureService | null = null;
+let personalAccessToken: string | null = null;
+
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
     // Validate event
     validateEvent(event);
 
     // Parse event
-    const { workItem, tasks, workItemStatus } = parseEvent(event);
+    const { workItem, tasks, documents, workItemStatus } = parseEvent(event);
 
     // Generate comment
-    const comment = workItemStatus.pass
-      ? `Generated ${tasks.length} tasks for work item ${workItem.workItemId}`
-      : workItemStatus.comment;
+    const comment = workItemStatus.pass ? generateComment(workItem, tasks, documents) : workItemStatus.comment;
 
     // Add comment
-    await addComment(workItem, comment);
+    const azureService = getAzureService();
+    await azureService.addComment(GITHUB_ORGANIZATION, workItem, comment);
 
     // Add tag
     if (workItemStatus.pass) {
-      await addTag(workItem, 'Task Genie');
+      await azureService.addTag(GITHUB_ORGANIZATION, workItem, 'Task Genie');
     }
 
     logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
@@ -53,6 +57,17 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   }
 };
 
+/**
+ * Initialize Azure service (singleton pattern for Lambda container reuse)
+ */
+const getAzureService = (): AzureService => {
+  if (!azureService) {
+    azureService = new AzureService(personalAccessToken);
+  }
+
+  return azureService;
+};
+
 const validateEvent = (event: Record<string, any>) => {
   if (!event.body && !event.body.workItem) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
@@ -61,19 +76,41 @@ const validateEvent = (event: Record<string, any>) => {
 
 const parseEvent = (
   event: Record<string, any>
-): { workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockResponse } => {
+): {
+  workItem: WorkItem;
+  tasks: Task[];
+  documents: BedrockKnowledgeDocument[];
+  workItemStatus: BedrockWorkItemEvaluationResponse;
+} => {
   const body = event.body;
 
-  let { workItem, tasks, workItemStatus } = body;
+  let { workItem, tasks, documents, workItemStatus } = body;
   tasks = tasks ?? [];
 
   logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
     tasks,
+    documents,
     workItemStatus,
   });
 
-  return { workItem, tasks, workItemStatus };
+  return { workItem, tasks, documents, workItemStatus };
+};
+
+const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKnowledgeDocument[]): string => {
+  const comment = `Generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
+
+  if (documents.length > 1) {
+    const sources = documents
+      .map((doc) => {
+        const fileName = doc.source.split('/').pop();
+        return fileName || doc.source;
+      })
+      .join('<br />');
+    return `${comment} from ${documents.length} knowledge base documents.<br /><br />Sources:<br />${sources}`;
+  }
+
+  return comment;
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));
