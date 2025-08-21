@@ -17,10 +17,11 @@ export interface BaseStackProps extends StackProps {
 export interface DataStackProps extends BaseStackProps {}
 export interface AppStackProps extends BaseStackProps {
   params: {
-    vpc: IVpc;
-    cloudwatchVpcEndpointId: string;
-    bedrockVpcEndpointId: string;
-    bedrockAgentVpcEndpointId: string;
+    // vpc: IVpc;
+    // cloudwatchVpcEndpointId: string;
+    // bedrockVpcEndpointId: string;
+    // bedrockAgentVpcEndpointId: string;
+    // ssmVpcEndpointId: string;
     resultsTableArn: string;
     dataSourceBucketArn: string;
     azurePersonalAccessToken: StringParameter;
@@ -59,10 +60,11 @@ const dataProps = new DataStack(app, `${APP_NAME}-data`, {
 const appProps = new AppStack(app, `${APP_NAME}-app`, {
   ...baseProps,
   params: {
-    vpc: dataProps.vpc,
-    cloudwatchVpcEndpointId: dataProps.cloudwatchVpcEndpointId,
-    bedrockVpcEndpointId: dataProps.bedrockVpcEndpointId,
-    bedrockAgentVpcEndpointId: dataProps.bedrockAgentVpcEndpointId,
+    // vpc: dataProps.vpc,
+    // cloudwatchVpcEndpointId: dataProps.cloudwatchVpcEndpointId,
+    // bedrockVpcEndpointId: dataProps.bedrockVpcEndpointId,
+    // bedrockAgentVpcEndpointId: dataProps.bedrockAgentVpcEndpointId,
+    // ssmVpcEndpointId: dataProps.ssmVpcEndpointId,
     resultsTableArn: dataProps.resultsTableArn,
     dataSourceBucketArn: dataProps.dataSourceBucketArn,
     azurePersonalAccessToken: dataProps.azurePersonalAccessToken,

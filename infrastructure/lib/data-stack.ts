@@ -11,10 +11,11 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export class DataStack extends Stack {
-  public vpc: IVpc;
-  public cloudwatchVpcEndpointId: string;
-  public bedrockVpcEndpointId: string;
-  public bedrockAgentVpcEndpointId: string;
+  // public vpc: IVpc;
+  // public cloudwatchVpcEndpointId: string;
+  // public bedrockVpcEndpointId: string;
+  // public bedrockAgentVpcEndpointId: string;
+  // public ssmVpcEndpointId: string;
   public resultsTableArn: string;
   public dataSourceBucketArn: string;
   public azurePersonalAccessToken: StringParameter;
@@ -121,51 +122,67 @@ export class DataStack extends Stack {
      * AWS VPC
      */
 
-    const vpc = new Vpc(this, 'VPC', {
-      ipAddresses: IpAddresses.cidr('10.0.0.0/16'),
-      natGateways: 0,
-      maxAzs: 1,
-      subnetConfiguration: [
-        {
-          cidrMask: 24,
-          name: `Private Subnet - ${props.appName}`,
-          subnetType: SubnetType.PRIVATE_ISOLATED,
-        },
-      ],
-      restrictDefaultSecurityGroup: true,
-    });
+    // const vpc = new Vpc(this, 'TaskGenieVPC', {
+    //   ipAddresses: IpAddresses.cidr('10.1.0.0/16'),
+    //   natGateways: 1,
+    //   maxAzs: 1,
+    //   subnetConfiguration: [
+    //     {
+    //       cidrMask: 25,
+    //       name: `Public Subnet - ${props.appName}`,
+    //       subnetType: SubnetType.PUBLIC,
+    //     },
+    //     {
+    //       cidrMask: 25,
+    //       name: `Private Subnet - ${props.appName}`,
+    //       subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+    //     },
+    //   ],
+    //   restrictDefaultSecurityGroup: true,
+    // });
 
-    // Interface VPC endpoint for CloudWatch Metrics
-    const cloudwatchEndpoint = vpc.addInterfaceEndpoint('CloudWatchEndpoint', {
-      service: {
-        name: `com.amazonaws.${this.region}.monitoring`,
-        port: 443,
-      },
-      subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
-      },
-    });
+    // // Interface VPC endpoint for CloudWatch Metrics
+    // const cloudwatchEndpoint = vpc.addInterfaceEndpoint('CloudWatchEndpoint', {
+    //   service: {
+    //     name: `com.amazonaws.${this.region}.monitoring`,
+    //     port: 443,
+    //   },
+    //   subnets: {
+    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+    //   },
+    // });
 
-    // Interface VPC endpoint for Amazon Bedrock
-    const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
-      service: {
-        name: `com.amazonaws.${this.region}.bedrock-runtime`,
-        port: 443,
-      },
-      subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
-      },
-    });
+    // // Interface VPC endpoint for Amazon Bedrock
+    // const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
+    //   service: {
+    //     name: `com.amazonaws.${this.region}.bedrock-runtime`,
+    //     port: 443,
+    //   },
+    //   subnets: {
+    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+    //   },
+    // });
 
-    const bedrockAgentEndpoint = vpc.addInterfaceEndpoint('BedrockAgentEndpoint', {
-      service: {
-        name: `com.amazonaws.${this.region}.bedrock-agent-runtime`,
-        port: 443,
-      },
-      subnets: {
-        subnetType: SubnetType.PRIVATE_ISOLATED,
-      },
-    });
+    // const bedrockAgentEndpoint = vpc.addInterfaceEndpoint('BedrockAgentEndpoint', {
+    //   service: {
+    //     name: `com.amazonaws.${this.region}.bedrock-agent-runtime`,
+    //     port: 443,
+    //   },
+    //   subnets: {
+    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+    //   },
+    // });
+
+    // // Interface VPC endpoint for SSM Parameter Store
+    // const ssmEndpoint = vpc.addInterfaceEndpoint('SSMEndpoint', {
+    //   service: {
+    //     name: `com.amazonaws.${this.region}.ssm`,
+    //     port: 443,
+    //   },
+    //   subnets: {
+    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
+    //   },
+    // });
 
     /*
      * Outputs
@@ -185,10 +202,11 @@ export class DataStack extends Stack {
      * Properties
      */
 
-    this.vpc = vpc;
-    this.cloudwatchVpcEndpointId = cloudwatchEndpoint.vpcEndpointId;
-    this.bedrockVpcEndpointId = bedrockEndpoint.vpcEndpointId;
-    this.bedrockAgentVpcEndpointId = bedrockAgentEndpoint.vpcEndpointId;
+    // this.vpc = vpc;
+    // this.cloudwatchVpcEndpointId = cloudwatchEndpoint.vpcEndpointId;
+    // this.bedrockVpcEndpointId = bedrockEndpoint.vpcEndpointId;
+    // this.bedrockAgentVpcEndpointId = bedrockAgentEndpoint.vpcEndpointId;
+    // this.ssmVpcEndpointId = ssmEndpoint.vpcEndpointId;
     this.resultsTableArn = resultsTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
     this.azurePersonalAccessToken = azurePersonalAccessToken;

@@ -5,12 +5,27 @@ import {
   RetrieveCommandInput,
 } from '@aws-sdk/client-bedrock-agent-runtime';
 import { BedrockRuntimeClient, InvokeModelCommand, InvokeModelCommandInput } from '@aws-sdk/client-bedrock-runtime';
+import { SSMClient, GetParameterCommand } from '@aws-sdk/client-ssm';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task, BedrockConfig, BedrockResponse } from '../../shared/types';
+import { WorkItem, Task, BedrockConfig, BedrockResponse, WorkItemImage } from '../../shared/types';
 
-const AWS_REGION = process.env.AWS_REGION;
+/**
+ * Lambda function to define tasks for Azure DevOps work items using AWS Bedrock
+ *
+ * Features:
+ * - Breaks down work items into actionable tasks
+ * - Includes images as context to Bedrock's multi-modal Claude models for task definition
+ * - Retrieves relevant context from knowledge base
+ * - Generates detailed task descriptions with technical guidance
+ *
+ * Environment Variables:
+ * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for task generation
+ * - AWS_BEDROCK_KNOWLEDGE_BASE_ID: Knowledge base ID for retrieving context
+ * - AZURE_DEVOPS_PAT_PARAMETER_NAME: Parameter Store parameter name containing Azure DevOps PAT
+ */
+const AWS_REGION = process.env.AWS_REGION || 'us-west-2';
 const AWS_ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
 if (AWS_ACCOUNT_ID === undefined) {
   throw new Error('AWS_ACCOUNT_ID environment variable is required');
@@ -24,25 +39,18 @@ if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
   throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
 
-const bedrockAgentRuntimeClient = new BedrockAgentRuntimeClient({
-  endpoint: `https://bedrock-agent-runtime.${AWS_REGION}.amazonaws.com`,
-  region: AWS_REGION || 'us-west-2',
-});
-
-const bedrockRuntimeClient = new BedrockRuntimeClient({
-  endpoint: `https://bedrock-runtime.${AWS_REGION}.amazonaws.com`,
-  region: AWS_REGION || 'us-west-2',
-});
-
+const bedrockAgentRuntimeClient = new BedrockAgentRuntimeClient({ region: AWS_REGION });
+const bedrockRuntimeClient = new BedrockRuntimeClient({ region: AWS_REGION });
+const ssmClient = new SSMClient({ region: AWS_REGION });
 const logger = new Logger({ serviceName: 'defineTasks' });
+
+// Cache for the Azure DevOps PAT to avoid repeated Parameter Store calls
+let cachedAdoPat: string | null = null;
 
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
-    // Validate event body
-    const body = validateEventBody(event.body);
-
     // Parse event body
-    const { workItem, params, workItemStatus } = parseEventBody(body);
+    const { workItem, params, workItemStatus } = parseEventBody(event.body);
 
     // Invoke Bedrock
     const tasks = await evaluateBedrock(workItem, params);
@@ -66,15 +74,16 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   }
 };
 
-const validateEventBody = (body: any) => {
+/**
+ * Validates the event body to ensure it contains a work item
+ * @param body The event body to validate
+ * @returns The validated body
+ */
+const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig; workItemStatus: BedrockResponse } => {
   if (!body || !body.workItem) {
     throw Error('Invalid event payload: the request body is missing or undefined.');
   }
 
-  return body;
-};
-
-const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig; workItemStatus: BedrockResponse } => {
   const { params, workItem, workItemStatus } = body;
 
   logger.info(`Parsed work item ${workItem.workItemId}`, {
@@ -84,6 +93,113 @@ const parseEventBody = (body: any): { workItem: WorkItem; params: BedrockConfig;
   });
 
   return { params: params ?? {}, workItem, workItemStatus };
+};
+
+/**
+ * Retrieves the Azure DevOps PAT from AWS Systems Manager Parameter Store
+ * @returns The PAT string or null if not configured or failed to retrieve
+ */
+const getAzureDevOpsPat = async (): Promise<string | null> => {
+  if (cachedAdoPat !== null) {
+    return cachedAdoPat;
+  }
+
+  const parameterName = process.env.AZURE_DEVOPS_PAT_PARAMETER_NAME;
+  if (!parameterName) {
+    logger.debug('Azure DevOps PAT parameter name not configured');
+    return null;
+  }
+
+  try {
+    const command = new GetParameterCommand({
+      Name: parameterName,
+      WithDecryption: true,
+    });
+    const response = await ssmClient.send(command);
+
+    cachedAdoPat = response.Parameter?.Value || null;
+    return cachedAdoPat;
+  } catch (error) {
+    logger.warn('Failed to retrieve Azure DevOps PAT from Parameter Store', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      parameterName,
+    });
+    return null;
+  }
+};
+
+/**
+ * Fetches an image from a URL and converts it to base64
+ * @param imageUrl The URL of the image to fetch
+ * @returns Object with base64 string and raw data, or null if failed
+ */
+const fetchImageAsBase64 = async (imageUrl: string): Promise<string | null> => {
+  try {
+    // For Azure DevOps attachment URLs, add required query parameters and auth
+    if (imageUrl.includes('visualstudio.com')) {
+      const finalUrl = `${imageUrl}&download=true&api-version=7.1`;
+
+      const adoPat = await getAzureDevOpsPat();
+      if (!adoPat) {
+        logger.warn('No Azure DevOps PAT available for image download');
+        return null;
+      }
+
+      logger.debug(`Fetching image from Azure DevOps`, {
+        originalUrl: imageUrl,
+        finalUrl,
+      });
+
+      const response = await fetch(finalUrl, {
+        headers: { Authorization: `Basic ${adoPat}` },
+      });
+
+      if (!response.ok) {
+        logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
+          url: finalUrl,
+        });
+        return null;
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString('base64');
+
+      logger.debug(`Successfully fetched image`, {
+        url: finalUrl,
+        sizeBytes: arrayBuffer.byteLength,
+      });
+
+      return base64;
+    }
+
+    // For non-Azure DevOps images, use simple fetch
+    const response = await fetch(imageUrl, {
+      headers: { 'User-Agent': 'TaskGenie/1.0' },
+    });
+
+    if (!response.ok) {
+      logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
+        url: imageUrl,
+      });
+      return null;
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+
+    logger.debug(`Successfully fetched image`, {
+      url: imageUrl,
+      sizeBytes: arrayBuffer.byteLength,
+    });
+
+    return base64;
+  } catch (error) {
+    logger.warn(`Error fetching image`, {
+      url: imageUrl,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return null;
+  }
 };
 
 const evaluateBedrock = async (workItem: WorkItem, params: BedrockConfig): Promise<Task[]> => {
@@ -103,6 +219,36 @@ const retrieveFromKnowledgeBase = async (workItem: WorkItem): Promise<string> =>
     - Acceptance Criteria: ${workItem.acceptanceCriteria}
   `;
 
+  // Build filter conditions only for non-empty fields
+  const filterConditions = [];
+
+  if (workItem.areaPath) {
+    filterConditions.push({
+      equals: {
+        key: 'area_path',
+        value: workItem.areaPath,
+      },
+    });
+  }
+
+  if (workItem.businessUnit) {
+    filterConditions.push({
+      equals: {
+        key: 'business_unit',
+        value: workItem.businessUnit,
+      },
+    });
+  }
+
+  if (workItem.system) {
+    filterConditions.push({
+      equals: {
+        key: 'system',
+        value: workItem.system,
+      },
+    });
+  }
+
   const input: RetrieveCommandInput = {
     knowledgeBaseId: AWS_BEDROCK_KNOWLEDGE_BASE_ID,
     retrievalQuery: {
@@ -111,28 +257,19 @@ const retrieveFromKnowledgeBase = async (workItem: WorkItem): Promise<string> =>
     retrievalConfiguration: {
       vectorSearchConfiguration: {
         numberOfResults: 5,
-        filter: {
-          andAll: [
-            {
-              equals: {
-                key: 'area_path',
-                value: workItem.areaPath,
+        // Only add filter if we have at least 2 conditions (andAll requirement)
+        // or use a single condition with equals instead of andAll
+        ...(filterConditions.length >= 2
+          ? {
+              filter: {
+                andAll: filterConditions,
               },
-            },
-            {
-              equals: {
-                key: 'business_unit',
-                value: workItem.businessUnit,
-              },
-            },
-            {
-              equals: {
-                key: 'system',
-                value: workItem.system,
-              },
-            },
-          ],
-        },
+            }
+          : filterConditions.length === 1
+          ? {
+              filter: filterConditions[0],
+            }
+          : {}),
       },
     },
   };
@@ -184,7 +321,18 @@ const invokeModelWithContext = async (workItem: WorkItem, params: BedrockConfig,
     technical details, references to relevant systems/APIs). Do NOT create any tasks for analyzing,
     investigating, analyzing, testing, or deployment.`;
 
-  const fullPrompt = `${basePrompt}
+  // Prepare images information for the prompt
+  const imagesInfo =
+    workItem.images && workItem.images.length > 0
+      ? `Images referenced in the work item:\n${workItem.images
+          .map((image, index) => {
+            const altText = image.alt ? ` (Alt: "${image.alt}")` : '';
+            return `${index + 1}. ${image.url}${altText}`;
+          })
+          .join('\n')}`
+      : '';
+
+  const textPrompt = `${basePrompt}
     
     Only return your assessment as a JSON object with the following structure:
     - "tasks": array of task objects, each with:
@@ -192,15 +340,77 @@ const invokeModelWithContext = async (workItem: WorkItem, params: BedrockConfig,
       - "description": string (detailed task description). Please use HTML tags for formatting, such as <br> for
       line breaks, to make it easier to read.
     
+    If images are provided, consider them as visual requirements, UI mockups, or design specifications when 
+    creating tasks. Reference specific visual elements in the task descriptions when relevant.
+    
     DO NOT output any text outside of the JSON object.
 
     The work item to decompose is:
       - Title: ${workItem.title} 
       - Description: ${workItem.description} 
       - Acceptance Criteria: ${workItem.acceptanceCriteria}
+      
+    ${imagesInfo}
 
     Additional business, domain context, and technical details from knowledge base:
     ${context}`;
+
+  // Prepare content array for multi-modal input
+  const contentArray: any[] = [{ type: 'text', text: textPrompt }];
+
+  // Add images to content if available
+  if (workItem.images && workItem.images.length > 0) {
+    const maxImages = 5; // Limit to 5 images to avoid request size limits
+    const imagesToProcess = workItem.images.slice(0, maxImages);
+
+    for (const image of imagesToProcess) {
+      try {
+        // Fetch image data from URL
+        const imageData = await fetchImageAsBase64(image.url);
+        if (imageData) {
+          // Check image size (Bedrock has limits)
+          const sizeInBytes = (imageData.length * 3) / 4; // Approximate size after base64 encoding
+          const sizeInMB = sizeInBytes / (1024 * 1024);
+          const maxSizeInMB = 5; // 5MB limit per image
+
+          if (sizeInBytes > maxSizeInMB * 1024 * 1024) {
+            logger.warn(`Image too large, skipping`, {
+              url: image.url,
+              sizeInMB: Math.round(sizeInMB * 100) / 100, // Round to 2 decimal places
+            });
+            continue;
+          }
+
+          contentArray.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: 'image/jpeg',
+              data: imageData,
+            },
+          });
+          logger.debug(`Added image to content array`, {
+            url: image.url,
+            alt: image.alt,
+            sizeInMB: Math.round(sizeInMB * 100) / 100, // Round to 2 decimal places
+          });
+        }
+      } catch (error) {
+        logger.warn(`Failed to fetch image for LLM context`, {
+          url: image.url,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+        // Continue with other images even if one fails
+      }
+    }
+
+    if (workItem.images.length > maxImages) {
+      logger.info(`Limited images sent to LLM`, {
+        totalImages: workItem.images.length,
+        sentImages: maxImages,
+      });
+    }
+  }
 
   // Create the payload for Claude models
   const body = {
@@ -211,7 +421,7 @@ const invokeModelWithContext = async (workItem: WorkItem, params: BedrockConfig,
     messages: [
       {
         role: 'user',
-        content: fullPrompt,
+        content: contentArray,
       },
     ],
   };
@@ -225,7 +435,10 @@ const invokeModelWithContext = async (workItem: WorkItem, params: BedrockConfig,
 
   logger.debug('Invoking Bedrock model', {
     modelId: AWS_BEDROCK_MODEL_ID,
+    contentItems: contentArray.length,
     contextLength: context.length,
+    imagesCount: workItem.images?.length || 0,
+    hasImages: (workItem.images?.length || 0) > 0,
   });
 
   try {
