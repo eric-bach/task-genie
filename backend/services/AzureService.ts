@@ -64,8 +64,7 @@ export class AzureService {
         }
 
         this.logger.debug(`Fetching image from Azure DevOps`, {
-          originalUrl: imageUrl,
-          finalUrl,
+          url: imageUrl,
         });
 
         const response = await fetch(finalUrl, {
@@ -84,7 +83,7 @@ export class AzureService {
 
         this.logger.debug(`Successfully fetched image`, {
           url: finalUrl,
-          sizeBytes: arrayBuffer.byteLength,
+          sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
         });
 
         return base64;
@@ -107,7 +106,7 @@ export class AzureService {
 
       this.logger.debug(`Successfully fetched image`, {
         url: imageUrl,
-        sizeBytes: arrayBuffer.byteLength,
+        sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
       });
 
       return base64;

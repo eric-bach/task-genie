@@ -94,7 +94,8 @@ export class BedrockService {
 
       this.logger.info('Task generation completed', {
         workItemId: workItem.workItemId,
-        tasksGenerated: tasks.length,
+        tasks,
+        tasksCount: tasks.length,
         documentsRetrieved: knowledgeContext.length,
       });
 
@@ -272,11 +273,21 @@ export class BedrockService {
 
     this.logger.debug('Invoking Bedrock model', {
       modelId: this.config.modelId,
-      contentItems: content.length,
-      knowledgeDocuments: knowledgeContext.length,
-      totalKnowledgeLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
+      contentCount: content.length - (workItem.images?.length || 0),
+      contentLength: content.reduce((sum, item) => {
+        return item.type === 'text' ? sum + (item.text?.length || 0) : sum;
+      }, 0),
+      knowledgeCount: knowledgeContext.length,
+      knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
       imagesCount: workItem.images?.length || 0,
-      hasImages: workItem.images && workItem.images.length > 0,
+      imagesSizeKB: Math.round(
+        content.reduce((sum, item) => {
+          if (item.type === 'image' && item.source?.data) {
+            return sum + (item.source.data.length * 3) / 4 / 1024;
+          }
+          return sum;
+        }, 0)
+      ),
     });
 
     try {
@@ -321,11 +332,21 @@ export class BedrockService {
 
     this.logger.debug('Invoking Bedrock model', {
       modelId: this.config.modelId,
-      contentItems: content.length,
-      knowledgeDocuments: knowledgeContext.length,
-      totalKnowledgeLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
+      contentCount: content.length - (workItem.images?.length || 0),
+      contentLength: content.reduce((sum, item) => {
+        return item.type === 'text' ? sum + (item.text?.length || 0) : sum;
+      }, 0),
+      knowledgeCount: knowledgeContext.length,
+      knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
       imagesCount: workItem.images?.length || 0,
-      hasImages: workItem.images && workItem.images.length > 0,
+      imagesSizeKB: Math.round(
+        content.reduce((sum, item) => {
+          if (item.type === 'image' && item.source?.data) {
+            return sum + (item.source.data.length * 3) / 4 / 1024;
+          }
+          return sum;
+        }, 0)
+      ),
     });
 
     try {
@@ -542,6 +563,7 @@ export class BedrockService {
     }
 
     this.logger.info('Successfully parsed model response', {
+      tasks: parsedResponse.tasks,
       tasksCount: parsedResponse.tasks.length,
     });
 
