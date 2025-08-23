@@ -39,9 +39,9 @@ interface MetadataPayload {
 const formSchema = z
   .object({
     mode: z.enum(['userStory', 'taskGeneration']),
-    areaPath: z.string(),
-    businessUnit: z.string(),
-    system: z.string(),
+    areaPath: z.string().optional(),
+    businessUnit: z.string().optional(),
+    system: z.string().optional(),
     file: z
       .any()
       .refine((files) => files?.length > 0, 'File is required')
@@ -88,10 +88,10 @@ export default function Knowledge() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       mode: 'userStory',
-      areaPath: '',
-      businessUnit: '',
-      system: '',
-      file: undefined,
+      areaPath: undefined,
+      businessUnit: undefined,
+      system: undefined,
+      file: null,
     },
   });
 
@@ -126,12 +126,12 @@ export default function Knowledge() {
 
       // Build query parameters - only include businessUnit and system for Task Generation mode
       const queryParams = new URLSearchParams({
-        area_path: areaPath,
-        file_name: file.name,
+        areaPath: areaPath,
+        fileName: file.name,
       });
 
       if (data.mode === 'taskGeneration') {
-        if (data.businessUnit) queryParams.append('business_unit', data.businessUnit);
+        if (data.businessUnit) queryParams.append('businessUnit', data.businessUnit);
         if (data.system) queryParams.append('system', data.system);
       }
 
@@ -182,11 +182,15 @@ export default function Knowledge() {
       setUploadStatus('success');
       form.reset({
         mode: data.mode, // Preserve the current mode instead of defaulting to 'userStory'
-        areaPath: '',
-        businessUnit: '',
-        system: '',
-        file: undefined,
+        areaPath: undefined,
+        businessUnit: undefined,
+        system: undefined,
+        file: null,
       });
+
+      // Also reset the actual file input element
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
     } catch (error) {
       console.error('Upload failed:', error);
       setUploadStatus('error');
@@ -256,7 +260,7 @@ export default function Knowledge() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Area Path</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder='Select an area' />
@@ -282,7 +286,7 @@ export default function Knowledge() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Business Unit</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder='Select a business unit' />
@@ -310,7 +314,7 @@ export default function Knowledge() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>System</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder='Select a system' />
@@ -374,7 +378,12 @@ export default function Knowledge() {
                                 type='button'
                                 variant='ghost'
                                 size='sm'
-                                onClick={() => onChange(undefined)}
+                                onClick={() => {
+                                  onChange(null);
+                                  // Reset the actual file input element
+                                  const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+                                  if (fileInput) fileInput.value = '';
+                                }}
                                 className='flex-shrink-0'
                               >
                                 <X className='h-4 w-4' />

@@ -231,20 +231,16 @@ export class ObservabilityStack extends Stack {
       height: 6,
     });
 
-    const errorLogs = new LogQueryWidget({
-      title: 'Error Logs',
-      logGroupNames: [
-        `/aws/lambda/${evaluateUserStoryFunction.functionName}`,
-        `/aws/lambda/${defineTasksFunction.functionName}`,
-        `/aws/lambda/${createTasksFunction.functionName}`,
-        `/aws/lambda/${addCommentFunction.functionName}`,
-        `/aws/lambda/${sendResponseFunction.functionName}`,
-      ],
-      queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}' | SOURCE '/aws/lambda/${defineTasksFunction.functionName}' | SOURCE '/aws/lambda/${createTasksFunction.functionName}' | SOURCE '/aws/lambda/${addCommentFunction.functionName}' | SOURCE '/aws/lambda/${sendResponseFunction.functionName}'
-        | fields @timestamp, @message, @logStream 
-        | filter @message like /Work item \\d+\\s+does not meet requirements/ and @message not like /Work item 0\\s+does not meet requirements/ 
-        | sort @timestamp desc 
-        | limit 1000`,
+    const failedStepFunctionExecutions = new LogQueryWidget({
+      title: 'Failed Executions',
+      logGroupNames: [`/aws/stepfunctions/${props.appName}-state-machine-${props.envName}`],
+      queryString: `fields @timestamp, @message 
+| filter @message like /(Failed|Timed out)/  
+| parse @message /execution_arn":"[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:(?<executionName>[^:]+):/ 
+| parse executionName /(ado|workitem)-(?<workItemId>[0-9]+)-rev-(?<rev>[0-9]+)/ 
+| display workItemId, rev, details.error, @timestamp
+| sort @timestamp desc
+| limit 1000`,
       width: 12,
       height: 6,
     });
@@ -259,10 +255,36 @@ export class ObservabilityStack extends Stack {
         `/aws/lambda/${sendResponseFunction.functionName}`,
       ],
       queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}' | SOURCE '/aws/lambda/${defineTasksFunction.functionName}' | SOURCE '/aws/lambda/${createTasksFunction.functionName}' | SOURCE '/aws/lambda/${addCommentFunction.functionName}' | SOURCE '/aws/lambda/${sendResponseFunction.functionName}'
-       | fields @timestamp, @message, @logStream 
-       | filter @message like /ERROR/ and @message not like /Work item \\d+\\s+does not meet requirements/
-       | sort @timestamp desc 
-       | limit 10000`,
+| fields @timestamp, @message, @logStream 
+| filter level like /ERROR/
+| filter @message not like /Work item \\d+ does not meet requirements/
+| display function_name, message, @message, @timestamp
+| sort @timestamp desc 
+| limit 1000`,
+      width: 12,
+      height: 6,
+    });
+
+    const incompleteUserStories = new LogQueryWidget({
+      title: 'Incomplete User Stories',
+      logGroupNames: [`/aws/lambda/${evaluateUserStoryFunction.functionName}`],
+      queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}'
+| fields @timestamp, @message, @logStream 
+| filter @message like /Work item \\d+ does not meet requirements/ and @message not like /Work item 0\s+does not meet requirements/
+| parse @message /Work item (?<workItemId>[0-9]+) does not meet requirements/
+| display workItemId, message, reason, @timestamp
+| sort @timestamp desc 
+| limit 1000`,
+      width: 12,
+      height: 6,
+    });
+
+    const apiGatewayAccessLogs = new LogQueryWidget({
+      title: 'API Gateway Access Logs',
+      logGroupNames: [apiGwAccessLogGroup.logGroupName],
+      queryString: `fields httpMethod, resourcePath, status, ip, responseLength, requestTime
+        | sort @timestamp desc 
+        | limit 100`,
       width: 12,
       height: 6,
     });
@@ -282,7 +304,7 @@ export class ObservabilityStack extends Stack {
         }),
       ],
       view: GraphWidgetView.TIME_SERIES,
-      width: 6,
+      width: 12,
       height: 6,
     });
 
@@ -310,16 +332,6 @@ export class ObservabilityStack extends Stack {
         }),
       ],
       view: GraphWidgetView.TIME_SERIES,
-      width: 6,
-      height: 6,
-    });
-
-    const apiGatewayAccessLogs = new LogQueryWidget({
-      title: 'API Gateway Access Logs',
-      logGroupNames: [apiGwAccessLogGroup.logGroupName],
-      queryString: `fields @timestamp, ip, httpMethod, resourcePath, status, responseLength, requestTime
-        | sort @timestamp desc 
-        | limit 100`,
       width: 12,
       height: 6,
     });
@@ -333,11 +345,12 @@ export class ObservabilityStack extends Stack {
       lambdaFunctionsDurationWidget,
       stepFunctionExecutionTimeHistogram,
       stepFunctionExecutionsHistogram,
-      errorLogs,
+      failedStepFunctionExecutions,
       unhandledErrorLogs,
+      incompleteUserStories,
+      apiGatewayAccessLogs,
       apiGatewayRequestsWidget,
-      apiGatewayLatencyWidget,
-      apiGatewayAccessLogs
+      apiGatewayLatencyWidget
     );
   }
 }

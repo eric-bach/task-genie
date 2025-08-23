@@ -1,0 +1,20 @@
+{
+  "name": "task-genie-services",
+  "version": "1.0.0",
+  "description": "Shared services for Task Genie backend",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.25.1",
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.863.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.864.0",
+    "@aws-sdk/client-cloudwatch": "^3.873.0",
+    "@aws-sdk/client-ssm": "^3.864.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.2.1",
+    "typescript": "^5.7.3"
+  }
+}

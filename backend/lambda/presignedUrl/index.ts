@@ -17,13 +17,13 @@ const s3Client = new S3Client({
 export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
   try {
     // Extract query parameters
-    const areaPath = event.queryStringParameters?.area_path;
-    const businessUnit = event.queryStringParameters?.business_unit;
+    const areaPath = event.queryStringParameters?.areaPath;
+    const businessUnit = event.queryStringParameters?.businessUnit;
     const system = event.queryStringParameters?.system;
-    const fileName = event.queryStringParameters?.file_name;
+    const fileName = event.queryStringParameters?.fileName;
 
     if (!areaPath) {
-      logger.error('area_path parameter is required');
+      logger.error('areaPath parameter is required');
 
       return {
         statusCode: 400,
@@ -34,13 +34,13 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
           'Access-Control-Allow-Headers': 'Content-Type',
         },
         body: JSON.stringify({
-          error: 'area_path parameter is required',
+          error: 'areaPath parameter is required',
         }),
       };
     }
 
     if (!fileName) {
-      logger.error('file_name parameter is required');
+      logger.error('fileName parameter is required');
 
       return {
         statusCode: 400,
@@ -51,7 +51,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
           'Access-Control-Allow-Headers': 'Content-Type',
         },
         body: JSON.stringify({
-          error: 'file_name parameter is required',
+          error: 'fileName parameter is required',
         }),
       };
     }
@@ -97,7 +97,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
           includeForEmbedding: true,
         },
         ...(businessUnit && {
-          business_unit: {
+          businessUnit: {
             value: {
               type: 'STRING',
               stringValue: businessUnit,

@@ -98,7 +98,7 @@ export class AppStack extends Stack {
       functionName: `${props.appName}-define-tasks-${props.envName}`,
       entry: path.resolve(__dirname, '../../backend/lambda/defineTasks/index.ts'),
       memorySize: 1024,
-      timeout: Duration.seconds(120),
+      timeout: Duration.seconds(180),
       // vpc: removed to use default VPC with internet access
       environment: {
         AWS_ACCOUNT_ID: this.account,
@@ -398,7 +398,7 @@ export class AppStack extends Stack {
           'application/json': `
 {
   "input": "$util.escapeJavaScript($input.body).replaceAll("\\'", "'").replaceAll(\"\\\\'\", \"'\")",
-  "name": "$input.path('$.resource.workItemId')-rev$input.path('$.resource.rev')",
+  "name": "ado-#if($input.path('$.resource.workItemId') && $input.path('$.resource.workItemId') != '')$input.path('$.resource.workItemId')#elseif($input.path('$.resource.id') && $input.path('$.resource.id') != '')$input.path('$.resource.id')#else$context.requestId#end-rev-$input.path('$.resource.rev')",
   "stateMachineArn": "${stateMachine.stateMachineArn}"
 }`,
         },

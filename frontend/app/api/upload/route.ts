@@ -6,16 +6,16 @@ export async function GET(request: NextRequest) {
 
     // Get the file name from query parameters
     const { searchParams } = new URL(request.url);
-    const areaPath = searchParams.get('area_path');
-    const businessUnit = searchParams.get('business_unit');
+    const areaPath = searchParams.get('areaPath');
+    const businessUnit = searchParams.get('businessUnit');
     const system = searchParams.get('system');
-    const fileName = searchParams.get('file_name');
+    const fileName = searchParams.get('fileName');
 
     if (!areaPath) {
-      return NextResponse.json({ error: 'area_path parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'areaPath parameter is required' }, { status: 400 });
     }
     if (!fileName) {
-      return NextResponse.json({ error: 'file_name parameter is required' }, { status: 400 });
+      return NextResponse.json({ error: 'fileName parameter is required' }, { status: 400 });
     }
 
     console.log('File name:', fileName);
@@ -33,11 +33,11 @@ export async function GET(request: NextRequest) {
 
     // Build query parameters, only including those that are provided
     const backendParams = new URLSearchParams({
-      area_path: areaPath,
-      file_name: fileName,
+      areaPath: areaPath,
+      fileName: fileName,
     });
 
-    if (businessUnit) backendParams.append('business_unit', businessUnit);
+    if (businessUnit) backendParams.append('businessUnit', businessUnit);
     if (system) backendParams.append('system', system);
 
     const backendUrl = `${baseUrl}/uploads?${backendParams.toString()}`;
