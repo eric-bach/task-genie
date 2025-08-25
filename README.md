@@ -146,6 +146,7 @@ To run the frontend locally:
    NEXT_PUBLIC_COGNITO_CLIENT_ID=
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
+   NEXT_PUBLIC_TURNSTILE_SITE_KEY=
    ```
 
 2. Install dependencies

@@ -1,19 +1,12 @@
 'use client';
 
-import {
-  Authenticator,
-  Button,
-  Heading,
-  Image,
-  Theme,
-  ThemeProvider,
-  useAuthenticator,
-  useTheme,
-  View,
-} from '@aws-amplify/ui-react';
+import { useState } from 'react';
+import { Authenticator, Button, Heading, Image, Theme, ThemeProvider, useAuthenticator, useTheme, View } from '@aws-amplify/ui-react';
 import { Amplify } from 'aws-amplify';
 import { ResourcesConfig } from '@aws-amplify/core';
 import { Toaster } from 'sonner';
+import { Turnstile } from 'next-turnstile';
+import { AlertCircle } from 'lucide-react';
 import SidebarLayout from '@/components/layout/sidebar-layout';
 
 import '@aws-amplify/ui-react/styles.css';
@@ -31,6 +24,10 @@ Amplify.configure(config, { ssr: true });
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
   const { tokens } = useTheme();
+
+  // Use test key for localhost, environment variable for production
+  const turnstileSiteKey =
+    typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '1x00000000000000000000AA' : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!;
 
   const theme: Theme = {
     name: 'Auth Example Theme',
@@ -95,9 +92,38 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       },
       Footer() {
         const { toForgotPassword } = useAuthenticator();
+        const [turnstileStatus, setTurnstileStatus] = useState<'success' | 'error' | 'expired' | 'required'>('required');
+        const [error, setError] = useState<string | null>(null);
 
         return (
           <View textAlign='center'>
+            <Turnstile
+              siteKey={turnstileSiteKey}
+              retry='auto'
+              refreshExpired='auto'
+              onError={() => {
+                setTurnstileStatus('error');
+                setError('Security check failed. Please try again.');
+              }}
+              onExpire={() => {
+                setTurnstileStatus('expired');
+                setError('Security check expired. Please verify again.');
+              }}
+              onLoad={() => {
+                setTurnstileStatus('required');
+                setError(null);
+              }}
+              onVerify={(token) => {
+                setTurnstileStatus('success');
+                setError(null);
+              }}
+            />
+            {error && (
+              <div className='flex items-center gap-2 text-red-500 text-sm mb-2' aria-live='polite'>
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
             <Button fontWeight='normal' onClick={toForgotPassword} size='small' variation='link'>
               Reset Password
             </Button>
@@ -118,9 +144,38 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       },
       Footer() {
         const { toSignIn } = useAuthenticator();
+        const [turnstileStatus, setTurnstileStatus] = useState<'success' | 'error' | 'expired' | 'required'>('required');
+        const [error, setError] = useState<string | null>(null);
 
         return (
           <View textAlign='center'>
+            <Turnstile
+              siteKey={turnstileSiteKey}
+              retry='auto'
+              refreshExpired='auto'
+              onError={() => {
+                setTurnstileStatus('error');
+                setError('Security check failed. Please try again.');
+              }}
+              onExpire={() => {
+                setTurnstileStatus('expired');
+                setError('Security check expired. Please verify again.');
+              }}
+              onLoad={() => {
+                setTurnstileStatus('required');
+                setError(null);
+              }}
+              onVerify={(token) => {
+                setTurnstileStatus('success');
+                setError(null);
+              }}
+            />
+            {error && (
+              <div className='flex items-center gap-2 text-red-500 text-sm mb-2' aria-live='polite'>
+                <AlertCircle size={16} />
+                <span>{error}</span>
+              </div>
+            )}
             <Button fontWeight='normal' onClick={toSignIn} size='small' variation='link'>
               Back to Sign In
             </Button>
