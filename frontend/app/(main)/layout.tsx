@@ -113,7 +113,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 setTurnstileStatus('required');
                 setError(null);
               }}
-              onVerify={(token) => {
+              onVerify={() => {
                 setTurnstileStatus('success');
                 setError(null);
               }}
@@ -124,9 +124,12 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 <span>{error}</span>
               </div>
             )}
-            <Button fontWeight='normal' onClick={toForgotPassword} size='small' variation='link'>
-              Reset Password
-            </Button>
+            {turnstileStatus === 'success' && (
+              <Button fontWeight='normal' onClick={toForgotPassword} size='small' variation='link'>
+                Reset Password
+              </Button>
+            )}
+            {turnstileStatus !== 'success' && <div className='text-sm text-gray-500 mb-2'>Please complete the security check above</div>}
           </View>
         );
       },
@@ -165,7 +168,7 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 setTurnstileStatus('required');
                 setError(null);
               }}
-              onVerify={(token) => {
+              onVerify={() => {
                 setTurnstileStatus('success');
                 setError(null);
               }}
@@ -176,9 +179,12 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 <span>{error}</span>
               </div>
             )}
-            <Button fontWeight='normal' onClick={toSignIn} size='small' variation='link'>
-              Back to Sign In
-            </Button>
+            {turnstileStatus === 'success' && (
+              <Button fontWeight='normal' onClick={toSignIn} size='small' variation='link'>
+                Back to Sign In
+              </Button>
+            )}
+            {turnstileStatus !== 'success' && <div className='text-sm text-gray-500 mb-2'>Please complete the security check above</div>}
           </View>
         );
       },
