@@ -135,7 +135,7 @@ export default function Knowledge() {
         if (!testAccess) {
           throw new Error('File object is no longer accessible');
         }
-      } catch (fileError) {
+      } catch {
         throw new Error('File object has been detached from DOM');
       }
 
@@ -373,7 +373,7 @@ export default function Knowledge() {
                 <FormField
                   control={form.control}
                   name='file'
-                  render={({ field: { onChange, value, ...field } }) => (
+                  render={({ field: { onChange } }) => (
                     <FormItem>
                       <FormLabel>Document File</FormLabel>
                       <FormControl>
