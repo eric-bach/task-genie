@@ -1,7 +1,17 @@
 'use client';
 
-import { useState } from 'react';
-import { Authenticator, Button, Heading, Image, Theme, ThemeProvider, useAuthenticator, useTheme, View } from '@aws-amplify/ui-react';
+import { useState, useEffect } from 'react';
+import {
+  Authenticator,
+  Button,
+  Heading,
+  Image,
+  Theme,
+  ThemeProvider,
+  useAuthenticator,
+  useTheme,
+  View,
+} from '@aws-amplify/ui-react';
 import { Amplify } from 'aws-amplify';
 import { ResourcesConfig } from '@aws-amplify/core';
 import { Toaster } from 'sonner';
@@ -27,7 +37,9 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
 
   // Use test key for localhost, environment variable for production
   const turnstileSiteKey =
-    typeof window !== 'undefined' && window.location.hostname === 'localhost' ? '1x00000000000000000000AA' : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!;
+    typeof window !== 'undefined' && window.location.hostname === 'localhost'
+      ? '1x00000000000000000000AA'
+      : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!;
 
   const theme: Theme = {
     name: 'Auth Example Theme',
@@ -92,8 +104,40 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       },
       Footer() {
         const { toForgotPassword } = useAuthenticator();
-        const [turnstileStatus, setTurnstileStatus] = useState<'success' | 'error' | 'expired' | 'required'>('required');
+        const [turnstileStatus, setTurnstileStatus] = useState<'success' | 'error' | 'expired' | 'required'>(
+          'required'
+        );
         const [error, setError] = useState<string | null>(null);
+
+        // Effect to disable the Sign in button until turnstile is successful
+        useEffect(() => {
+          const disableSignInButton = () => {
+            // Target the specific Amplify button with the exact classes you provided
+            const signInButton = document.querySelector(
+              'button.amplify-button.amplify-field-group__control.amplify-button--primary[type="submit"]'
+            ) as HTMLButtonElement;
+
+            if (signInButton && signInButton.textContent?.trim() === 'Sign in') {
+              const shouldDisable = turnstileStatus !== 'success';
+
+              signInButton.disabled = shouldDisable;
+              signInButton.style.opacity = shouldDisable ? '0.5' : '1';
+              signInButton.style.cursor = shouldDisable ? 'not-allowed' : 'pointer';
+
+              if (shouldDisable) {
+                signInButton.title = 'Please complete the security check first';
+              } else {
+                signInButton.removeAttribute('title');
+              }
+            }
+          };
+
+          // Run immediately and then set up an interval to check periodically
+          disableSignInButton();
+          const interval = setInterval(disableSignInButton, 500);
+
+          return () => clearInterval(interval);
+        }, [turnstileStatus]);
 
         return (
           <View textAlign='center'>
@@ -129,7 +173,9 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 Reset Password
               </Button>
             )}
-            {turnstileStatus !== 'success' && <div className='text-sm text-gray-500 mb-2'>Please complete the security check above</div>}
+            {turnstileStatus !== 'success' && (
+              <div className='text-sm text-gray-500 mb-2'>Please complete the security check above</div>
+            )}
           </View>
         );
       },
@@ -147,8 +193,40 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
       },
       Footer() {
         const { toSignIn } = useAuthenticator();
-        const [turnstileStatus, setTurnstileStatus] = useState<'success' | 'error' | 'expired' | 'required'>('required');
+        const [turnstileStatus, setTurnstileStatus] = useState<'success' | 'error' | 'expired' | 'required'>(
+          'required'
+        );
         const [error, setError] = useState<string | null>(null);
+
+        // Effect to disable the Sign up button until turnstile is successful
+        useEffect(() => {
+          const disableSignUpButton = () => {
+            // Target the specific Amplify button with the exact classes you provided
+            const signUpButton = document.querySelector(
+              'button.amplify-button.amplify-field-group__control.amplify-button--primary.amplify-button--fullwidth[type="submit"]'
+            ) as HTMLButtonElement;
+
+            if (signUpButton && signUpButton.textContent?.trim() === 'Create Account') {
+              const shouldDisable = turnstileStatus !== 'success';
+
+              signUpButton.disabled = shouldDisable;
+              signUpButton.style.opacity = shouldDisable ? '0.5' : '1';
+              signUpButton.style.cursor = shouldDisable ? 'not-allowed' : 'pointer';
+
+              if (shouldDisable) {
+                signUpButton.title = 'Please complete the security check first';
+              } else {
+                signUpButton.removeAttribute('title');
+              }
+            }
+          };
+
+          // Run immediately and then set up an interval to check periodically
+          disableSignUpButton();
+          const interval = setInterval(disableSignUpButton, 500);
+
+          return () => clearInterval(interval);
+        }, [turnstileStatus]);
 
         return (
           <View textAlign='center'>
@@ -184,7 +262,9 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
                 Back to Sign In
               </Button>
             )}
-            {turnstileStatus !== 'success' && <div className='text-sm text-gray-500 mb-2'>Please complete the security check above</div>}
+            {turnstileStatus !== 'success' && (
+              <div className='text-sm text-gray-500 mb-2'>Please complete the security check above</div>
+            )}
           </View>
         );
       },
