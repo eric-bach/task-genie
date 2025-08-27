@@ -25,6 +25,7 @@ export interface AppStackProps extends BaseStackProps {
     resultsTableArn: string;
     dataSourceBucketArn: string;
     azurePersonalAccessToken: StringParameter;
+    azureDevOpsSecretName: string;
   };
 }
 export interface ObservabilityStackProps extends BaseStackProps {
@@ -68,6 +69,7 @@ const appProps = new AppStack(app, `${APP_NAME}-app`, {
     resultsTableArn: dataProps.resultsTableArn,
     dataSourceBucketArn: dataProps.dataSourceBucketArn,
     azurePersonalAccessToken: dataProps.azurePersonalAccessToken,
+    azureDevOpsSecretName: dataProps.azureDevOpsSecretName,
   },
 });
 

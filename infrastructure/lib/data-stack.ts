@@ -7,6 +7,7 @@ import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import { IpAddresses, IVpc, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { DataStackProps } from '../bin/task-genie';
 import * as dotenv from 'dotenv';
+import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ export class DataStack extends Stack {
   public resultsTableArn: string;
   public dataSourceBucketArn: string;
   public azurePersonalAccessToken: StringParameter;
+  public azureDevOpsSecretName: string;
 
   /**
    * Constructs a new instance of the Task Genie DataStack.
@@ -119,6 +121,25 @@ export class DataStack extends Stack {
     });
 
     /*
+     * AWS Secrets Manager
+     */
+
+    const azureDevOpsSecret = new Secret(this, 'AzureDevOpsCredentials', {
+      secretName: `${props.appName}/${props.envName}/azure-devops-credentials`,
+      description: 'Azure DevOps OAuth credentials',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({
+          AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
+          AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
+          AZURE_DEVOPS_CLIENT_SECRET: process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
+          AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
+        }),
+        generateStringKey: 'password',
+      },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    /*
      * AWS VPC
      */
 
@@ -210,5 +231,6 @@ export class DataStack extends Stack {
     this.resultsTableArn = resultsTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
     this.azurePersonalAccessToken = azurePersonalAccessToken;
+    this.azureDevOpsSecretName = azureDevOpsSecret.secretName;
   }
 }
