@@ -40,7 +40,6 @@ export const logger = new Logger({ serviceName: 'evaluateUserStory' });
 
 // Cache for dependencies
 let bedrockService: BedrockService | null = null;
-let personalAccessToken: string | null = null;
 
 const lambdaHandler = async (event: any, context: Context) => {
   try {
@@ -129,7 +128,7 @@ const getBedrockService = (): BedrockService => {
       maxImages: 3,
     };
 
-    bedrockService = new BedrockService(config, personalAccessToken);
+    bedrockService = new BedrockService(config);
   }
   return bedrockService;
 };

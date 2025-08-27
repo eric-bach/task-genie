@@ -30,9 +30,8 @@ export class BedrockService {
   private readonly bedrockRuntimeClient: BedrockRuntimeClient;
   private readonly logger: any;
   private readonly config: Required<BedrockServiceConfig>;
-  private readonly personalAccessToken: string | null;
 
-  constructor(config: BedrockServiceConfig, personalAccessToken: string | null) {
+  constructor(config: BedrockServiceConfig) {
     this.config = {
       maxKnowledgeDocuments: 3,
       maxImageSize: 5,
@@ -40,7 +39,6 @@ export class BedrockService {
       ...config,
     };
 
-    this.personalAccessToken = personalAccessToken;
     this.logger = new Logger({ serviceName: 'BedrockService' });
     this.bedrockAgentClient = new BedrockAgentRuntimeClient({ region: config.region });
     this.bedrockRuntimeClient = new BedrockRuntimeClient({ region: config.region });
@@ -468,7 +466,7 @@ export class BedrockService {
 
     for (const image of imagesToProcess) {
       try {
-        const azureService = new AzureService(this.personalAccessToken);
+        const azureService = new AzureService();
 
         const imageData = await azureService.fetchImage(image.url);
         if (imageData && this.isImageSizeValid(imageData)) {

@@ -1,10 +1,8 @@
 import { Logger } from '@aws-lambda-powertools/logger';
-import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
 import { Task, WorkItem } from '../types/azureDevOps';
 import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager/dist-types/SecretsManagerClient';
 import { GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
-const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
 interface AzureDevOpsCredentials {
@@ -16,47 +14,13 @@ interface AzureDevOpsCredentials {
 
 export class AzureService {
   private readonly logger: Logger;
-  private personalAccessToken: string | null;
   private azureDevOpsCredentials: AzureDevOpsCredentials | null = null;
   private accessToken: string | null = null;
   private tokenExpiresAt: number = 0;
 
-  constructor(personalAccessToken: string | null) {
-    this.personalAccessToken = personalAccessToken;
+  constructor() {
     this.logger = new Logger({ serviceName: 'AzureService' });
   }
-
-  /**
-   * Retrieve Azure DevOps PAT from Parameter Store
-   */
-  getPersonalAccessToken = async (): Promise<string | null> => {
-    if (this.personalAccessToken !== null) {
-      return this.personalAccessToken;
-    }
-
-    const parameterName = process.env.AZURE_DEVOPS_PAT_PARAMETER_NAME;
-    if (!parameterName) {
-      this.logger.debug('Azure DevOps PAT parameter name not configured');
-      return null;
-    }
-
-    try {
-      const command = new GetParameterCommand({
-        Name: parameterName,
-        WithDecryption: true,
-      });
-      const response = await ssmClient.send(command);
-
-      this.personalAccessToken = response.Parameter?.Value || null;
-      return this.personalAccessToken;
-    } catch (error) {
-      this.logger.warn('Failed to retrieve Azure DevOps PAT from Parameter Store', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        parameterName,
-      });
-      return null;
-    }
-  };
 
   private async getAzureDevOpsCredentials(): Promise<AzureDevOpsCredentials> {
     const azureDevOpsSecretName = process.env.AZURE_DEVOPS_SECRET_NAME;

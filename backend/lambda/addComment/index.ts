@@ -15,7 +15,6 @@ export const logger = new Logger({ serviceName: 'addComment' });
 
 // Cache for dependencies
 let azureService: AzureService | null = null;
-let personalAccessToken: string | null = null;
 
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
@@ -62,7 +61,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
  */
 const getAzureService = (): AzureService => {
   if (!azureService) {
-    azureService = new AzureService(personalAccessToken);
+    azureService = new AzureService();
   }
 
   return azureService;

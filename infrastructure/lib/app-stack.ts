@@ -57,10 +57,12 @@ export class AppStack extends Stack {
      * Lookup properties
      */
 
-    const azurePersonalAccessToken = props.params.azurePersonalAccessToken;
-
-    const azureDevOpsSecretName = props.params.azureDevOpsSecretName;
-    const azureDevOpsSecret = Secret.fromSecretNameV2(this, 'AzureDevOpsSecret', azureDevOpsSecretName);
+    const azureDevOpsCredentialsSecretName = props.params.azureDevOpsCredentialsSecretName;
+    const azureDevOpsCredentialsSecret = Secret.fromSecretNameV2(
+      this,
+      'AzureDevOpsCredentialsSecret',
+      azureDevOpsCredentialsSecretName
+    );
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
 
@@ -80,8 +82,7 @@ export class AppStack extends Stack {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-        AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
-        AZURE_DEVOPS_SECRET_NAME: azureDevOpsSecretName,
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
@@ -97,8 +98,7 @@ export class AppStack extends Stack {
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
-    azurePersonalAccessToken.grantRead(evaluateUserStoryFunction);
-    azureDevOpsSecret.grantRead(evaluateUserStoryFunction);
+    azureDevOpsCredentialsSecret.grantRead(evaluateUserStoryFunction);
 
     const defineTasksFunction = new TaskGenieLambda(this, 'DefineTasks', {
       functionName: `${props.appName}-define-tasks-${props.envName}`,
@@ -110,8 +110,7 @@ export class AppStack extends Stack {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-        AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
-        AZURE_DEVOPS_SECRET_NAME: azureDevOpsSecretName,
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
@@ -121,8 +120,7 @@ export class AppStack extends Stack {
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
-    azurePersonalAccessToken.grantRead(defineTasksFunction);
-    azureDevOpsSecret.grantRead(defineTasksFunction);
+    azureDevOpsCredentialsSecret.grantRead(defineTasksFunction);
 
     const createTasksFunction = new TaskGenieLambda(this, 'CreateTasks', {
       functionName: `${props.appName}-create-tasks-${props.envName}`,
@@ -131,8 +129,7 @@ export class AppStack extends Stack {
       timeout: Duration.seconds(30),
       // vpc: removed to use default VPC with internet access
       environment: {
-        AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
-        AZURE_DEVOPS_SECRET_NAME: azureDevOpsSecretName,
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
@@ -144,8 +141,7 @@ export class AppStack extends Stack {
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
-    azurePersonalAccessToken.grantRead(createTasksFunction);
-    azureDevOpsSecret.grantRead(createTasksFunction);
+    azureDevOpsCredentialsSecret.grantRead(createTasksFunction);
 
     const addCommentFunction = new TaskGenieLambda(this, 'AddComment', {
       functionName: `${props.appName}-add-comment-${props.envName}`,
@@ -154,15 +150,13 @@ export class AppStack extends Stack {
       timeout: Duration.seconds(10),
       // vpc: removed to use default VPC with internet access
       environment: {
-        AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
-        AZURE_DEVOPS_SECRET_NAME: azureDevOpsSecretName,
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
         GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       // interfaceEndpoints: removed since not using private VPC
     });
-    azurePersonalAccessToken.grantRead(addCommentFunction);
-    azureDevOpsSecret.grantRead(addCommentFunction);
+    azureDevOpsCredentialsSecret.grantRead(addCommentFunction);
 
     const sendResponseFunction = new TaskGenieLambda(this, 'SendResponse', {
       functionName: `${props.appName}-send-response-${props.envName}`,

@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
 import { Bucket, HttpMethods } from 'aws-cdk-lib/aws-s3';
@@ -19,14 +19,13 @@ export class DataStack extends Stack {
   // public ssmVpcEndpointId: string;
   public resultsTableArn: string;
   public dataSourceBucketArn: string;
-  public azurePersonalAccessToken: StringParameter;
-  public azureDevOpsSecretName: string;
+  public azureDevOpsCredentialsSecretName: string;
 
   /**
    * Constructs a new instance of the Task Genie DataStack.
    *
    * This stack sets up the stateful resources for the Task Genie application, including:
-   * - Cognito User Pool for user authentication and management.
+   * - Cognito User Pool for user authenticatapion and management.
    * - DynamoDB table for storing evaluation results.
    * - S3 bucket for storing knowledge base documents.
    * - VPC and VPC endpoints for networking.
@@ -111,30 +110,17 @@ export class DataStack extends Stack {
     });
 
     /*
-     * Tokens (until an Azure Service Principal is setup)
-     */
-
-    const azurePersonalAccessToken = new StringParameter(this, 'AzureDevOpsPersonalAccessToken', {
-      parameterName: `/${props.appName}/${props.envName}/azure-devops-personal-access-token`,
-      stringValue: process.env.AZURE_DEVOPS_PERSONAL_ACCESS_TOKEN || '',
-      description: 'Azure DevOps Personal Access Token',
-    });
-
-    /*
      * AWS Secrets Manager
      */
 
-    const azureDevOpsSecret = new Secret(this, 'AzureDevOpsCredentials', {
+    const azureDevOpsCredentials = new Secret(this, 'AzureDevOpsCredentials', {
       secretName: `${props.appName}/${props.envName}/azure-devops-credentials`,
       description: 'Azure DevOps OAuth credentials',
-      generateSecretString: {
-        secretStringTemplate: JSON.stringify({
-          AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
-          AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
-          AZURE_DEVOPS_CLIENT_SECRET: process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
-          AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
-        }),
-        generateStringKey: 'password',
+      secretObjectValue: {
+        tenantId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_TENANT_ID || ''),
+        clientId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_ID || ''),
+        clientSecret: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_SECRET || ''),
+        scope: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_SCOPE || ''),
       },
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -230,7 +216,6 @@ export class DataStack extends Stack {
     // this.ssmVpcEndpointId = ssmEndpoint.vpcEndpointId;
     this.resultsTableArn = resultsTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
-    this.azurePersonalAccessToken = azurePersonalAccessToken;
-    this.azureDevOpsSecretName = azureDevOpsSecret.secretName;
+    this.azureDevOpsCredentialsSecretName = azureDevOpsCredentials.secretName;
   }
 }
