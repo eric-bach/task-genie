@@ -22,7 +22,7 @@ export class AzureService {
   }
 
   private async getAzureDevOpsCredentials(): Promise<AzureDevOpsCredentials> {
-    const azureDevOpsSecretName = process.env.AZURE_DEVOPS_SECRET_NAME;
+    const azureDevOpsSecretName = process.env.AZURE_DEVOPS_CREDENTIALS_SECRET_NAME;
     if (!azureDevOpsSecretName) {
       this.logger.debug('Azure DevOps secret name not configured');
       throw new Error('Azure DevOps secret name not configured');
