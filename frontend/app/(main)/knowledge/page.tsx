@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -45,11 +45,14 @@ const formSchema = z
     file: z
       .any()
       .refine((files) => files?.length > 0, 'File is required')
-      .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, 'File size must be less than 10MB')
-      .refine(
-        (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
-        'Only PDF, Word, Text, and Markdown files are allowed'
-      ),
+      .refine((files) => {
+        const file = files?.[0];
+        return file && file.size <= MAX_FILE_SIZE;
+      }, 'File size must be less than 10MB')
+      .refine((files) => {
+        const file = files?.[0];
+        return file && ACCEPTED_FILE_TYPES.includes(file.type);
+      }, 'Only PDF, Word, Text, and Markdown files are allowed'),
   })
   .superRefine((data, ctx) => {
     // Only validate dropdown fields for taskGeneration mode
@@ -83,6 +86,7 @@ type FormData = z.infer<typeof formSchema>;
 export default function Knowledge() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -118,6 +122,23 @@ export default function Knowledge() {
 
     try {
       const file = data.file[0];
+
+      // Check if file is still valid and accessible
+      if (!file || file.size === 0) {
+        throw new Error('Invalid file: File is empty or has been corrupted');
+      }
+
+      // Additional check to ensure file object is still usable
+      try {
+        // Try to access file properties to ensure it's not detached
+        const testAccess = file.name && file.size && file.type;
+        if (!testAccess) {
+          throw new Error('File object is no longer accessible');
+        }
+      } catch (fileError) {
+        throw new Error('File object has been detached from DOM');
+      }
+
       console.log('Uploading file:', file, data);
 
       // Step 1: Get presigned URL
@@ -180,6 +201,8 @@ export default function Knowledge() {
       console.log('File uploaded successfully:', metadataPayload);
 
       setUploadStatus('success');
+
+      // Reset form with proper cleanup
       form.reset({
         mode: data.mode, // Preserve the current mode instead of defaulting to 'userStory'
         areaPath: undefined,
@@ -188,11 +211,22 @@ export default function Knowledge() {
         file: null,
       });
 
-      // Also reset the actual file input element
-      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-      if (fileInput) fileInput.value = '';
+      // Clear the file input safely
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       console.error('Upload failed:', error);
+
+      // Specific handling for DOM exceptions
+      if (error instanceof DOMException) {
+        console.error('DOM Exception details:', {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+        });
+      }
+
       setUploadStatus('error');
     } finally {
       setIsUploading(false);
@@ -339,7 +373,7 @@ export default function Knowledge() {
                 <FormField
                   control={form.control}
                   name='file'
-                  render={({ field: { onChange, ...field } }) => (
+                  render={({ field: { onChange, value, ...field } }) => (
                     <FormItem>
                       <FormLabel>Document File</FormLabel>
                       <FormControl>
@@ -351,7 +385,7 @@ export default function Knowledge() {
                               onChange={(e) => onChange(e.target.files)}
                               className='hidden'
                               id='file-upload'
-                              {...field}
+                              ref={fileInputRef}
                             />
                             <label htmlFor='file-upload' className='cursor-pointer flex flex-col items-center gap-2'>
                               <Upload className='h-8 w-8 text-muted-foreground' />
@@ -380,9 +414,10 @@ export default function Knowledge() {
                                 size='sm'
                                 onClick={() => {
                                   onChange(null);
-                                  // Reset the actual file input element
-                                  const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-                                  if (fileInput) fileInput.value = '';
+                                  // Clear the file input safely
+                                  if (fileInputRef.current) {
+                                    fileInputRef.current.value = '';
+                                  }
                                 }}
                                 className='flex-shrink-0'
                               >

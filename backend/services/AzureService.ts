@@ -1,7 +1,6 @@
 import { Logger } from '@aws-lambda-powertools/logger';
 import { Task, WorkItem } from '../types/azureDevOps';
-import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager/dist-types/SecretsManagerClient';
-import { GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
 
