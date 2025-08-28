@@ -8,11 +8,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 // Configure logging
-const logger = new Logger({ serviceName: 'presignedUrl' });
+const logger = new Logger({ serviceName: 'generatePresignedUrl' });
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-west-2',
-});
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
 
 export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
   try {
@@ -21,6 +19,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
     const businessUnit = event.queryStringParameters?.businessUnit;
     const system = event.queryStringParameters?.system;
     const fileName = event.queryStringParameters?.fileName;
+    const username = event.queryStringParameters?.username;
 
     if (!areaPath) {
       logger.error('areaPath parameter is required');
@@ -80,7 +79,10 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
     const pathComponents = [areaPath, businessUnit, system].filter(Boolean);
     const key = `${pathComponents.join('/')}/${fileName}`;
 
-    logger.info('Generating presigned URL', { bucketName: bucketName, key: key });
+    // Determine mode based on areaPath
+    const mode = areaPath === 'agile-process' ? 'userStory' : 'taskGeneration';
+
+    logger.info('Generating presigned URL', { bucketName: bucketName, key: key, mode });
 
     // Generate metadata file for Bedrock Knowledge Base
     const metadataFileName = `${fileName}.metadata.json`;
@@ -137,22 +139,32 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
       await s3Client.send(metadataUploadCommand);
       metadataUploaded = true;
 
-      logger.info('Uploaded metadata file to S3', { metadataKey });
+      logger.info('Created Bedrock metadata file', { metadataKey });
 
       // Generate presigned URL for main file only after metadata is uploaded
       const command = new PutObjectCommand({
         Bucket: bucketName,
         Key: key,
         ContentType: 'application/octet-stream', // Generic content type, will be overridden by the client
+        Tagging: [
+          `areaPath=${encodeURIComponent(areaPath)}`,
+          `mode=${encodeURIComponent(mode)}`,
+          businessUnit ? `businessUnit=${encodeURIComponent(businessUnit)}` : '',
+          system ? `system=${encodeURIComponent(system)}` : '',
+          username ? `username=${encodeURIComponent(username)}` : '',
+        ]
+          .filter(Boolean)
+          .join('&'),
       });
 
       const presignedUrl = await getSignedUrl(s3Client, command, {
         expiresIn: 900, // 15 minutes
       });
 
-      logger.info('Uploaded source file to S3', { key });
-
-      logger.info('✅ Uploaded files to bucket', { bucketName });
+      logger.info('✅ Generated presigned URL and created Bedrock metadata file', {
+        presignedUrl,
+        metadataFile: metadataKey,
+      });
 
       return {
         statusCode: 200,
@@ -175,7 +187,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
         }),
       };
     } catch (uploadError: any) {
-      logger.error('🛑 Error during upload process:', uploadError);
+      logger.error('🛑 Could not upload Bedrock metadata file', { uploadError });
 
       // If metadata was uploaded but presigned URL generation failed, clean up metadata
       if (metadataUploaded) {
@@ -199,7 +211,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
       }
     }
   } catch (error: any) {
-    logger.error('🛑 Error generating presigned URL:', error);
+    logger.error('💣 Error generating presigned URL', { error });
 
     return {
       statusCode: 500,
@@ -210,7 +222,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
         'Access-Control-Allow-Headers': 'Content-Type',
       },
       body: JSON.stringify({
-        error: ' 💣Failed to generate presigned URL',
+        error: 'Failed to generate presigned URL',
         details: error instanceof Error ? error.message : 'Unknown error',
       }),
     };

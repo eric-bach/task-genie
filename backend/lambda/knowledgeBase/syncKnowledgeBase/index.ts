@@ -2,7 +2,6 @@ import { S3Event, Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import { BedrockAgentClient, StartIngestionJobCommand, GetIngestionJobCommand } from '@aws-sdk/client-bedrock-agent';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import middy from '@middy/core';
 
 // Configure logging
@@ -19,16 +18,12 @@ export const lambdaHandler = async (event: S3Event, context: Context): Promise<L
     const bucketName = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
 
-    logger.info('Processing file', { filePath: `${bucketName}/${key}` });
+    logger.info('Processing S3 event', { filePath: `${bucketName}/${key}`, eventName: record.eventName });
 
-    // Only process document files
-    if (
-      !key.toLowerCase().endsWith('.pdf') &&
-      !key.toLowerCase().endsWith('.doc') &&
-      !key.toLowerCase().endsWith('.docx') &&
-      !key.toLowerCase().endsWith('.md') &&
-      !key.toLowerCase().endsWith('.txt')
-    ) {
+    // Only process supported document files. For delete events, Key may still be present; use suffix check regardless.
+    const lowerKey = key.toLowerCase();
+    const isSupported = ['.pdf', '.doc', '.docx', '.md', '.txt'].some((ext) => lowerKey.endsWith(ext));
+    if (!isSupported) {
       logger.info('Skipping non-supported file', { filePath: key });
       continue;
     }
@@ -53,22 +48,9 @@ export const lambdaHandler = async (event: S3Event, context: Context): Promise<L
         region: process.env.AWS_REGION || 'us-west-2',
       });
 
-      // Get the S3 object details
-      const s3Client = new S3Client({
-        region: process.env.AWS_REGION || 'us-west-2',
-      });
-
-      const getObjectCommand = new GetObjectCommand({
-        Bucket: bucketName,
-        Key: key,
-      });
-
-      const s3Object = await s3Client.send(getObjectCommand);
-
       logger.info('Syncing file with Knowledge Base', { filePath: key, knowledgeBaseId });
 
-      // Create a data source sync request
-      // This is the actual sync operation with Bedrock Knowledge Base
+      // Start a data source sync request (works for both creates and deletes)
       try {
         // Start an ingestion job to sync the new file
         const startIngestionCommand = new StartIngestionJobCommand({

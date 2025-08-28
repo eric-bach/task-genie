@@ -4,8 +4,8 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task } from '../../types/azureDevOps';
-import { BedrockWorkItemEvaluationResponse } from '../../types/bedrock';
+import { WorkItem, Task } from '../../../types/azureDevOps';
+import { BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
 const logger = new Logger({ serviceName: 'sendResponse' });
 const dynamoClient = new DynamoDBClient({});
@@ -26,6 +26,8 @@ const lambdaHandler = async (event: any, context: Context) => {
     // Save response to DynamoDB
     await saveResponseToDynamoDB(executionName, workItem, tasks, workItemStatus);
 
+    logger.info('✅ Completed execution workflow');
+
     return {
       statusCode: event.statusCode,
       body: {
@@ -39,11 +41,13 @@ const lambdaHandler = async (event: any, context: Context) => {
   } catch (error: any) {
     logger.error('💣 An unexpected error occurred', { error: event.error, reason: event.message });
 
-    return {
-      statusCode: 500,
-      error: event.error,
-      message: event.message,
-    };
+    throw new Error(
+      `Could not complete execution: ${JSON.stringify({
+        statusCode: 500,
+        error: event.error,
+        message: event.message,
+      })}`
+    );
   }
 };
 
@@ -125,7 +129,8 @@ const saveResponseToDynamoDB = async (
 
   try {
     await docClient.send(command);
-    logger.info('✅ Saved result to DynamoDB', { workItemId: workItem.workItemId });
+
+    logger.info('Saved result to DynamoDB', { workItemId: workItem.workItemId });
   } catch (error) {
     logger.error('🛑 Failed to save to DynamoDB', { error, workItemId: workItem.workItemId });
     throw error;
