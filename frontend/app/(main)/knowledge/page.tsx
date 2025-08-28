@@ -491,7 +491,7 @@ export default function Knowledge() {
                 <FormField
                   control={form.control}
                   name='file'
-                  render={({ field: { onChange, ...field } }) => (
+                  render={({ field: { onChange } }) => (
                     <FormItem>
                       <FormLabel>Document File</FormLabel>
                       <FormControl>
@@ -775,13 +775,13 @@ export default function Knowledge() {
               </div>
               <p className='text-muted-foreground mb-4'>
                 Are you sure you want to delete{' '}
-                <span className='font-medium text-foreground'>"{documentToDelete.fileName}"</span>? This action cannot
-                be undone.
+                <span className='font-medium text-foreground'>{documentToDelete.fileName}</span>? This action cannot be
+                undone.
               </p>
 
               <div className='mb-6'>
                 <label htmlFor='delete-confirm' className='block text-sm font-medium text-foreground mb-2'>
-                  Type "confirm" to proceed with deletion:
+                  Type &quot;confirm&quot; to proceed with deletion:
                 </label>
                 <input
                   id='delete-confirm'

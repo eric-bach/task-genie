@@ -157,9 +157,13 @@ export async function DELETE(request: Request) {
 
     const data = await resp.json();
     return NextResponse.json(data);
-  } catch (error: any) {
+  } catch (error: unknown) {
     const message =
-      error?.name === 'AbortError' ? 'Request timed out after 30 seconds' : error?.message || 'Unknown error';
+      error instanceof Error && error.name === 'AbortError'
+        ? 'Request timed out after 30 seconds'
+        : error instanceof Error
+        ? error.message
+        : 'Unknown error';
     return NextResponse.json({ error: 'Failed to delete document', details: message }, { status: 500 });
   }
 }
