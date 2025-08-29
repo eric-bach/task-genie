@@ -3,8 +3,7 @@ import { App, StackProps } from 'aws-cdk-lib';
 import { AppStack } from '../lib/app-stack';
 import { DataStack } from '../lib/data-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
-import { IVpc } from 'aws-cdk-lib/aws-ec2';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
+// import { IVpc } from 'aws-cdk-lib/aws-ec2';
 
 export interface BaseStackProps extends StackProps {
   appName: string;
@@ -25,7 +24,7 @@ export interface AppStackProps extends BaseStackProps {
     configTableArn: string;
     resultsTableArn: string;
     dataSourceBucketArn: string;
-    azurePersonalAccessToken: StringParameter;
+    azureDevOpsCredentialsSecretName: string;
   };
 }
 export interface ObservabilityStackProps extends BaseStackProps {
@@ -69,7 +68,7 @@ const appProps = new AppStack(app, `${APP_NAME}-app`, {
     configTableArn: dataProps.configTableArn,
     resultsTableArn: dataProps.resultsTableArn,
     dataSourceBucketArn: dataProps.dataSourceBucketArn,
-    azurePersonalAccessToken: dataProps.azurePersonalAccessToken,
+    azureDevOpsCredentialsSecretName: dataProps.azureDevOpsCredentialsSecretName,
   },
 });
 

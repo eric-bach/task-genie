@@ -46,7 +46,6 @@ const logger = new Logger({ serviceName: 'defineTasks' });
 
 // Cache for dependencies
 let bedrockService: BedrockService | null = null;
-let personalAccessToken: string | null = null;
 
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   try {
@@ -98,7 +97,7 @@ const getBedrockService = (): BedrockService => {
       configTableName: CONFIG_TABLE_NAME,
     };
 
-    bedrockService = new BedrockService(config, personalAccessToken);
+    bedrockService = new BedrockService(config);
   }
   return bedrockService;
 };

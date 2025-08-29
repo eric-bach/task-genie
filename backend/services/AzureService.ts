@@ -1,49 +1,109 @@
 import { Logger } from '@aws-lambda-powertools/logger';
-import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm';
 import { Task, WorkItem } from '../types/azureDevOps';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
-const ssmClient = new SSMClient({ region: process.env.AWS_REGION });
+const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
+
+interface AzureDevOpsCredentials {
+  tenantId: string;
+  clientId: string;
+  clientSecret: string;
+  scope: string;
+}
 
 export class AzureService {
   private readonly logger: Logger;
-  private personalAccessToken: string | null;
+  private azureDevOpsCredentials: AzureDevOpsCredentials | null = null;
+  private accessToken: string | null = null;
+  private tokenExpiresAt: number = 0;
 
-  constructor(personalAccessToken: string | null) {
-    this.personalAccessToken = personalAccessToken;
+  constructor() {
     this.logger = new Logger({ serviceName: 'AzureService' });
   }
 
-  /**
-   * Retrieve Azure DevOps PAT from Parameter Store
-   */
-  getPersonalAccessToken = async (): Promise<string | null> => {
-    if (this.personalAccessToken !== null) {
-      return this.personalAccessToken;
+  private async getAzureDevOpsCredentials(): Promise<AzureDevOpsCredentials> {
+    const azureDevOpsSecretName = process.env.AZURE_DEVOPS_CREDENTIALS_SECRET_NAME;
+    if (!azureDevOpsSecretName) {
+      this.logger.debug('Azure DevOps secret name not configured');
+      throw new Error('Azure DevOps secret name not configured');
     }
 
-    const parameterName = process.env.AZURE_DEVOPS_PAT_PARAMETER_NAME;
-    if (!parameterName) {
-      this.logger.debug('Azure DevOps PAT parameter name not configured');
-      return null;
+    if (this.azureDevOpsCredentials) {
+      return this.azureDevOpsCredentials;
     }
 
     try {
-      const command = new GetParameterCommand({
-        Name: parameterName,
-        WithDecryption: true,
+      const command = new GetSecretValueCommand({
+        SecretId: azureDevOpsSecretName,
       });
-      const response = await ssmClient.send(command);
+      const response = await secretsManagerClient.send(command);
 
-      this.personalAccessToken = response.Parameter?.Value || null;
-      return this.personalAccessToken;
+      if (!response.SecretString) {
+        this.logger.error('Azure DevOps secret is empty', {
+          secretName: azureDevOpsSecretName,
+        });
+        throw new Error('Azure DevOps secret is empty');
+      }
+
+      this.azureDevOpsCredentials = JSON.parse(response.SecretString) as AzureDevOpsCredentials;
+
+      return this.azureDevOpsCredentials;
     } catch (error) {
-      this.logger.warn('Failed to retrieve Azure DevOps PAT from Parameter Store', {
+      this.logger.warn('Failed to retrieve Azure DevOps credentials from Secrets Manager', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        parameterName,
+        secretName: azureDevOpsSecretName,
       });
-      return null;
+      throw error;
     }
-  };
+  }
+
+  private async getAccessToken(): Promise<string> {
+    const now = Date.now();
+
+    if (this.accessToken && now < this.tokenExpiresAt - 60000) {
+      // Use cached token if not expired (minus 60s buffer)
+      return this.accessToken;
+    }
+
+    // get values from secret manager
+    const { tenantId, clientId, clientSecret, scope } = await this.getAzureDevOpsCredentials();
+
+    const url = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    const body = new URLSearchParams({
+      grant_type: 'client_credentials',
+      client_id: clientId,
+      client_secret: clientSecret,
+      scope: scope,
+    });
+
+    this.logger.debug('Fetching Azure AD token', { url, body: body.toString() });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      this.logger.error(`Failed to acquire Azure AD token: ${response.status} ${response.statusText} - ${errText}`);
+      throw new Error(`Failed to acquire access token: ${response.statusText}`);
+    }
+
+    const tokenResponse = await response.json();
+
+    this.accessToken = tokenResponse.access_token;
+    this.tokenExpiresAt = now + tokenResponse.expires_in * 1000;
+
+    if (!this.accessToken) {
+      this.logger.error('Failed to parse token response', { response: JSON.stringify(response) });
+      throw new Error('Failed to parse token response');
+    }
+
+    this.logger.debug('Received Azure AD token');
+
+    return this.accessToken;
+  }
 
   /**
    * Fetches an image from a URL and converts it to base64
@@ -55,25 +115,17 @@ export class AzureService {
     try {
       // For Azure DevOps attachment URLs, add required query parameters and auth
       if (imageUrl.includes('visualstudio.com')) {
-        const finalUrl = `${imageUrl}&download=true&api-version=7.1`;
+        const url = `${imageUrl}&download=true&api-version=7.1`;
 
-        const adoPat = await this.getPersonalAccessToken();
-        if (!adoPat) {
-          this.logger.warn('No Azure DevOps PAT available for image download');
-          return null;
-        }
+        const headers = { Authorization: `Bearer ${await this.getAccessToken()}` };
 
-        this.logger.debug(`Fetching image from Azure DevOps`, {
-          url: imageUrl,
-        });
-
-        const response = await fetch(finalUrl, {
-          headers: { Authorization: `Basic ${adoPat}` },
+        const response = await fetch(url, {
+          headers,
         });
 
         if (!response.ok) {
           this.logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
-            url: finalUrl,
+            url: url,
           });
           return null;
         }
@@ -82,7 +134,7 @@ export class AzureService {
         const base64 = Buffer.from(arrayBuffer).toString('base64');
 
         this.logger.debug(`Successfully fetched image`, {
-          url: finalUrl,
+          url: url,
           sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
         });
 
@@ -119,31 +171,25 @@ export class AzureService {
     }
   };
 
-  async getHeaders(contentType: string): Promise<HeadersInit> {
-    const personalAccessToken = await this.getPersonalAccessToken();
-
-    return {
-      'Content-Type': contentType,
-      Authorization: `Basic ${personalAccessToken}`,
-    };
-  }
-
   async addComment(githubOrganization: string, workItem: WorkItem, comment: string) {
     this.logger.info(`Adding comment to work item ${workItem.workItemId}`, { workItem, comment });
-
-    const headers = await this.getHeaders('application/json');
-
-    const body = JSON.stringify({
-      text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${comment}</div>`,
-    });
 
     try {
       const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}/comments?api-version=7.1-preview.4`;
 
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
+
+      const body = JSON.stringify({
+        text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${comment}</div>`,
+      });
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: headers,
-        body: body,
+        headers,
+        body,
       });
 
       this.logger.debug('Add comment response', { response: JSON.stringify(response) });
@@ -166,8 +212,6 @@ export class AzureService {
   addTag = async (githubOrganization: string, workItem: WorkItem, tag: string): Promise<string> => {
     this.logger.info(`Adding tag to work item ${workItem.workItemId}`, { workItem, tag });
 
-    const headers = await this.getHeaders('application/json-patch+json');
-
     const fields = [
       {
         op: 'add',
@@ -175,15 +219,21 @@ export class AzureService {
         value: tag,
       },
     ];
-    const body = JSON.stringify(fields);
 
     try {
       const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?api-version=7.1`;
 
+      const headers = {
+        'Content-Type': 'application/json-patch+json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
+
+      const body = JSON.stringify(fields);
+
       const response = await fetch(url, {
         method: 'PATCH',
-        headers: headers,
-        body: body,
+        headers,
+        body,
       });
 
       this.logger.debug('Add tag response', { response: JSON.stringify(response) });
@@ -206,12 +256,10 @@ export class AzureService {
   async createTasks(githubOrganization: string, workItem: WorkItem, tasks: Task[]) {
     this.logger.info(`Creating ${tasks.length} total tasks`, { tasks: tasks });
 
-    const headers = await this.getHeaders('application/json-patch+json');
-
     let taskId = 0;
     let i = 0;
     for (const task of tasks) {
-      taskId = await this.createTask(githubOrganization, headers, workItem, task, ++i);
+      taskId = await this.createTask(githubOrganization, workItem, task, ++i);
 
       // Set task Id
       task.taskId = taskId;
@@ -220,13 +268,7 @@ export class AzureService {
     this.logger.info(`All ${tasks.length} tasks created`);
   }
 
-  createTask = async (
-    githubOrganization: string,
-    header: HeadersInit,
-    workItem: WorkItem,
-    task: Task,
-    i: number
-  ): Promise<number> => {
+  async createTask(githubOrganization: string, workItem: WorkItem, task: Task, i: number): Promise<number> {
     const taskFields = [
       {
         op: 'add',
@@ -250,17 +292,22 @@ export class AzureService {
       },
     ];
 
-    const body = JSON.stringify(taskFields);
-
     try {
       const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$task?api-version=7.1`;
+
+      const body = JSON.stringify(taskFields);
+
+      const headers = {
+        'Content-Type': 'application/json-patch+json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
 
       this.logger.debug(`Creating task (${i})`, { task: task });
 
       const response = await fetch(url, {
         method: 'POST',
-        headers: header,
-        body: body,
+        headers,
+        body,
       });
 
       // logger.debug('Create task response', { response: JSON.stringify(response) });
@@ -272,18 +319,17 @@ export class AzureService {
       const data = await response.json();
       this.logger.info(`Created task ${data.id}`);
 
-      await this.linkTask(githubOrganization, header, workItem.teamProject, workItem.workItemId, data.id);
+      await this.linkTask(githubOrganization, workItem.teamProject, workItem.workItemId, data.id);
 
       return data.id;
     } catch (error) {
       this.logger.error('Error creating task', { error: error });
       throw new Error('Error creating task');
     }
-  };
+  }
 
   linkTask = async (
     githubOrganization: string,
-    headers: HeadersInit,
     teamProject: string,
     workItemId: number,
     taskId: string
@@ -304,6 +350,11 @@ export class AzureService {
           }
         }
       ]`;
+
+      const headers = {
+        'Content-Type': 'application/json-patch+json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
 
       this.logger.debug(`Linking task ${taskId} to work item ${workItemId}`);
 

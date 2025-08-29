@@ -58,11 +58,7 @@ A state machine, leveraging AWS Step Functions, orchestrates the workflow for th
 
    ⚠️ Azure DevOps Service Hooks can only be configured to trigger on one or all fields when a work item is updated. So when the Title, Description, and Acceptance Criteria of a work item is updated, Task Genie will be triggered 3 times, resulting in 3x the number of tasks being generated. ⚠️
 
-2. Azure DevOps Personal Access Tokens
-
-   ⚠️ The current implementation uses an Azure DevOps Personal Access Token which is tied to a user. Task Genie can be updated to use an Azure Service Principal once this is created (TASK0224374). ⚠️
-
-3. Amazon Bedrock Knowledge Bases
+2. Amazon Bedrock Knowledge Bases
 
    ⚠️ Task Genie uses S3 Vectors for the Knowledge Base Data Store, which is currently not supported in CloudFormation. As such, the Bedrock Knowledge Base needs to be manually created in the console and the IDs need to be set in the `.env` file. ⚠️
 
@@ -81,11 +77,14 @@ Estimated monthly costs (USD) for running in an AWS ###:
 
 ## Getting Started
 
-### Pre-requisites
+### Pre-requisites (one-time setup)
 
-1. Create a [Personal Access Token](https://amaabca.visualstudio.com/_usersSettings/tokens) in AzureDevOps (until service principal is setup)
+1. Request the `Identity and Productivity Team` to create an Azure Service Principal in AzureDevOps with "Read & Write" permissions to "Work Items". Use these values to populate the `.env` in the next step.
 
-2. Encode the token with BASE 64 (save for next steps)
+2. Log in to Azure DevOps, click `Organization Settings`, click `Users`, and click `Add users`
+
+3. Enter the Service Principal Client Id and set the `Access Level` and `Project`. Uncheck `Send email invites`.
+   ![ADO Service Principal](/docs/service_principal.png)
 
 ### Deployment
 
@@ -94,9 +93,14 @@ Estimated monthly costs (USD) for running in an AWS ###:
 1. Update the `/infrastructure/.env` file with the parameters:
 
    ```
-   AZURE_DEVOPS_PERSONAL_ACCESS_TOKEN=
+   AZURE_DEVOPS_TENANT_ID=
+   AZURE_DEVOPS_CLIENT_ID=
+   AZURE_DEVOPS_CLIENT_SECRET=
+   AZURE_DEVOPS_SCOPE=
    GITHUB_ORGANIZATION=
    AWS_BEDROCK_MODEL_ID=
+   AWS_BEDROCK_KNOWLEDGE_BASE_ID=
+   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
    ```
 
 2. Install dependencies

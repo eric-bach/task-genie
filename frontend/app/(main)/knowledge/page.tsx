@@ -62,11 +62,14 @@ const formSchema = z
     file: z
       .any()
       .refine((files) => files?.length > 0, 'File is required')
-      .refine((files) => files?.[0]?.size <= MAX_FILE_SIZE, 'File size must be less than 10MB')
-      .refine(
-        (files) => ACCEPTED_FILE_TYPES.includes(files?.[0]?.type),
-        'Only PDF, Word, Text, and Markdown files are allowed'
-      ),
+      .refine((files) => {
+        const file = files?.[0];
+        return file && file.size <= MAX_FILE_SIZE;
+      }, 'File size must be less than 10MB')
+      .refine((files) => {
+        const file = files?.[0];
+        return file && ACCEPTED_FILE_TYPES.includes(file.type);
+      }, 'Only PDF, Word, Text, and Markdown files are allowed'),
   })
   .superRefine((data, ctx) => {
     // Only validate dropdown fields for taskGeneration mode
@@ -267,6 +270,23 @@ export default function Knowledge() {
 
     try {
       const file = data.file[0];
+
+      // Check if file is still valid and accessible
+      if (!file || file.size === 0) {
+        throw new Error('Invalid file: File is empty or has been corrupted');
+      }
+
+      // Additional check to ensure file object is still usable
+      try {
+        // Try to access file properties to ensure it's not detached
+        const testAccess = file.name && file.size && file.type;
+        if (!testAccess) {
+          throw new Error('File object is no longer accessible');
+        }
+      } catch {
+        throw new Error('File object has been detached from DOM');
+      }
+
       console.log('Uploading file:', file, data);
 
       // Step 1: Get presigned URL
@@ -333,6 +353,8 @@ export default function Knowledge() {
       console.log('File uploaded successfully:', metadataPayload);
 
       setUploadStatus('success');
+
+      // Reset form with proper cleanup
       form.reset({
         mode: data.mode, // Preserve the current mode instead of defaulting to 'userStory'
         areaPath: undefined,
@@ -350,6 +372,16 @@ export default function Knowledge() {
       fetchDocuments(currentPage, pageSize, nextToken);
     } catch (error) {
       console.error('Upload failed:', error);
+
+      // Specific handling for DOM exceptions
+      if (error instanceof DOMException) {
+        console.error('DOM Exception details:', {
+          name: error.name,
+          message: error.message,
+          code: error.code,
+        });
+      }
+
       setUploadStatus('error');
     } finally {
       setIsUploading(false);
