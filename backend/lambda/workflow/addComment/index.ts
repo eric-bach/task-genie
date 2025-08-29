@@ -6,9 +6,9 @@ import { WorkItem, Task } from '../../../types/azureDevOps';
 import { AzureService } from '../../../services/AzureService';
 import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
-export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
-if (GITHUB_ORGANIZATION === undefined) {
-  throw new Error('GITHUB_ORGANIZATION environment variable is required');
+export const AZURE_DEVOPS_PROJECT = process.env.AZURE_DEVOPS_PROJECT;
+if (AZURE_DEVOPS_PROJECT === undefined) {
+  throw new Error('AZURE_DEVOPS_PROJECT environment variable is required');
 }
 
 export const logger = new Logger({ serviceName: 'addComment' });
@@ -29,11 +29,11 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 
     // Add comment
     const azureService = getAzureService();
-    await azureService.addComment(GITHUB_ORGANIZATION, workItem, comment);
+    await azureService.addComment(AZURE_DEVOPS_PROJECT, workItem, comment);
 
     // Add tag
     if (workItemStatus.pass) {
-      await azureService.addTag(GITHUB_ORGANIZATION, workItem, 'Task Genie');
+      await azureService.addTag(AZURE_DEVOPS_PROJECT, workItem, 'Task Genie');
     }
 
     logger.info(`✅ Added comment to work item ${workItem.workItemId}`);

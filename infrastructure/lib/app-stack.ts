@@ -138,7 +138,7 @@ export class AppStack extends Stack {
       // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
+        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       policyStatements: [
@@ -159,7 +159,7 @@ export class AppStack extends Stack {
       // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        GITHUB_ORGANIZATION: process.env.GITHUB_ORGANIZATION || '',
+        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       // interfaceEndpoints: removed since not using private VPC
