@@ -74,7 +74,7 @@ export class AppStack extends Stack {
 
     const evaluateUserStoryFunction = new TaskGenieLambda(this, 'EvaluateUserStory', {
       functionName: `${props.appName}-evaluate-user-story-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/evaluateUserStory/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/evaluateUserStory/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(120),
       // vpc: removed to use default VPC with internet access
@@ -102,7 +102,7 @@ export class AppStack extends Stack {
 
     const defineTasksFunction = new TaskGenieLambda(this, 'DefineTasks', {
       functionName: `${props.appName}-define-tasks-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/defineTasks/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/defineTasks/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(180),
       // vpc: removed to use default VPC with internet access
@@ -124,7 +124,7 @@ export class AppStack extends Stack {
 
     const createTasksFunction = new TaskGenieLambda(this, 'CreateTasks', {
       functionName: `${props.appName}-create-tasks-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/createTasks/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/createTasks/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(30),
       // vpc: removed to use default VPC with internet access
@@ -145,7 +145,7 @@ export class AppStack extends Stack {
 
     const addCommentFunction = new TaskGenieLambda(this, 'AddComment', {
       functionName: `${props.appName}-add-comment-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/addComment/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/addComment/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(10),
       // vpc: removed to use default VPC with internet access
@@ -160,7 +160,7 @@ export class AppStack extends Stack {
 
     const sendResponseFunction = new TaskGenieLambda(this, 'SendResponse', {
       functionName: `${props.appName}-send-response-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/sendResponse/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/sendResponse/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(3),
       environment: {
@@ -173,7 +173,7 @@ export class AppStack extends Stack {
 
     const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
       functionName: `${props.appName}-poll-execution-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/pollExecution/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/pollExecution/index.ts'),
       memorySize: 384,
       timeout: Duration.seconds(5),
       environment: {
@@ -185,7 +185,7 @@ export class AppStack extends Stack {
 
     const syncKnowledgeBaseFunction = new TaskGenieLambda(this, 'SyncKnowledgeBase', {
       functionName: `${props.appName}-sync-knowledge-base-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/syncKnowledgeBase/index.ts'),
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/syncKnowledgeBase/index.ts'),
       memorySize: 512,
       timeout: Duration.minutes(5),
       environment: {
@@ -245,10 +245,12 @@ export class AppStack extends Stack {
         suffix: '.doc',
       }
     );
+    // Also trigger for object deletions (covers Delete and DeleteMarkerCreated) to sync removals
+    dataSourceBucket.addEventNotification(EventType.OBJECT_REMOVED, new LambdaDestination(syncKnowledgeBaseFunction));
 
-    const presignedUrlFunction = new TaskGenieLambda(this, 'PresignedUrl', {
-      functionName: `${props.appName}-presigned-url-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/presignedUrl/index.ts'),
+    const generatePresignedUrlFunction = new TaskGenieLambda(this, 'GeneratePresignedUrl', {
+      functionName: `${props.appName}-generate-presigned-url-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/generatePresignedUrl/index.ts'),
       memorySize: 384,
       timeout: Duration.seconds(5),
       environment: {
@@ -256,8 +258,50 @@ export class AppStack extends Stack {
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
     });
-    // Grant the Lambda function permission to generate presigned URLs for the S3 bucket
-    dataSourceBucket.grantPut(presignedUrlFunction);
+    // Grant the Lambda function permission to generate a presigned URL for the S3 bucket
+    dataSourceBucket.grantPut(generatePresignedUrlFunction);
+
+    const listKnowledgeBaseDocumentsFunction = new TaskGenieLambda(this, 'ListKnowledgeBaseDocuments', {
+      functionName: `${props.appName}-list-knowledge-base-documents-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/listKnowledgeBaseDocuments/index.ts'),
+      memorySize: 512,
+      timeout: Duration.seconds(30),
+      environment: {
+        S3_BUCKET_NAME: dataSourceBucket.bucketName,
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['bedrock:GetKnowledgeBase', 'bedrock:ListKnowledgeBases', 'bedrock:ListKnowledgeBaseDocuments'],
+          resources: ['*'],
+        }),
+      ],
+    });
+    // Grant the Lambda function permission to read from the S3 bucket
+    dataSourceBucket.grantRead(listKnowledgeBaseDocumentsFunction);
+
+    const deleteKnowledgeBaseDocumentFunction = new TaskGenieLambda(this, 'DeleteKnowledgeBaseDocument', {
+      functionName: `${props.appName}-delete-knowledge-base-document-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/deleteKnowledgeBaseDocument/index.ts'),
+      memorySize: 512,
+      timeout: Duration.minutes(3),
+      environment: {
+        S3_BUCKET_NAME: dataSourceBucket.bucketName,
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['bedrock:StartIngestionJob', 'bedrock:GetIngestionJob', 'bedrock:ListIngestionJobs'],
+          resources: ['*'],
+        }),
+      ],
+    });
+    dataSourceBucket.grantDelete(deleteKnowledgeBaseDocumentFunction);
+    dataSourceBucket.grantRead(deleteKnowledgeBaseDocumentFunction);
 
     /*
      * AWS Step Functions
@@ -491,16 +535,39 @@ export class AppStack extends Stack {
       ],
     });
 
-    // Add method to generate a S3 presigned URL to upload knowledge base documents
-    //  GET /uploads/presigned-url
-    const presignedUrlResource = api.root.addResource('uploads');
-    presignedUrlResource.addMethod(
+    // Add method to list knowledge base documents
+    //  GET /knowledge-base/documents
+    const knowledgeBaseResource = api.root.addResource('knowledge-base');
+
+    // Add method to generate a S3 presigned URL
+    //  GET /knowledge-base/presigned-url
+    const generatePresignedUrlResource = knowledgeBaseResource.addResource('presigned-url');
+    generatePresignedUrlResource.addMethod(
       'GET',
-      new LambdaIntegration(presignedUrlFunction, {
+      new LambdaIntegration(generatePresignedUrlFunction, {
         proxy: true,
       }),
       {
-        apiKeyRequired: false, // No API key required for presigned URLs
+        apiKeyRequired: false, // No API key required for uploading documents
+      }
+    );
+    const documentsResource = knowledgeBaseResource.addResource('documents');
+    documentsResource.addMethod(
+      'GET',
+      new LambdaIntegration(listKnowledgeBaseDocumentsFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false, // No API key required for listing documents
+      }
+    );
+    documentsResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteKnowledgeBaseDocumentFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false,
       }
     );
 

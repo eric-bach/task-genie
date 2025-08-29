@@ -2,9 +2,9 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task } from '../../types/azureDevOps';
-import { AzureService } from '../../services/AzureService';
-import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../types/bedrock';
+import { WorkItem, Task } from '../../../types/azureDevOps';
+import { AzureService } from '../../../services/AzureService';
+import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
 export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
 if (GITHUB_ORGANIZATION === undefined) {
@@ -49,10 +49,12 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
   } catch (error: any) {
     logger.error('💣 An unexpected error occurred', { error: error });
 
-    return {
-      statusCode: 500,
-      error: error.message,
-    };
+    throw new Error(
+      `Could not add comment: ${JSON.stringify({
+        statusCode: 500,
+        error: error.message,
+      })}`
+    );
   }
 };
 

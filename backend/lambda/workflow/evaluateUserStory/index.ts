@@ -2,10 +2,10 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItemRequest, WorkItemImage } from '../../types/azureDevOps';
-import { CloudWatchService } from '../../services/CloudWatchService';
-import { InvalidWorkItemError } from '../../types/errors';
-import { BedrockService, BedrockServiceConfig } from '../../services/BedrockService';
+import { WorkItemRequest, WorkItemImage } from '../../../types/azureDevOps';
+import { CloudWatchService } from '../../../services/CloudWatchService';
+import { InvalidWorkItemError } from '../../../types/errors';
+import { BedrockService, BedrockServiceConfig } from '../../../services/BedrockService';
 
 /**
  * Lambda function to evaluate Azure DevOps work items using AWS Bedrock
@@ -73,7 +73,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     const bedrockResponse = await bedrock.evaluateWorkItem(workItem);
 
     if (bedrockResponse.pass !== true) {
-      logger.error(`❌ Work item ${workItem.workItemId} does not meet requirements`, {
+      logger.error(`🛑 Work item ${workItem.workItemId} does not meet requirements`, {
         reason: bedrockResponse.comment,
       });
 
@@ -98,19 +98,23 @@ const lambdaHandler = async (event: any, context: Context) => {
     if (error instanceof InvalidWorkItemError) {
       logger.error(`💣 ${error.error}`, { error: error.message });
 
-      return {
-        statusCode: error.code,
-        error: error.error,
-        message: error.message,
-      };
+      throw new Error(
+        `Could not evaluate work item: ${JSON.stringify({
+          statusCode: error.code,
+          error: error.error,
+          message: error.message,
+        })}`
+      );
     }
 
     logger.error('💣 An unknown error occurred', { error: error });
 
-    return {
-      statusCode: 500,
-      error: error,
-    };
+    throw new Error(
+      `Could not evaluate work item: ${JSON.stringify({
+        statusCode: 500,
+        error: error,
+      })}`
+    );
   }
 };
 

@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
     const businessUnit = searchParams.get('businessUnit');
     const system = searchParams.get('system');
     const fileName = searchParams.get('fileName');
+    const username = searchParams.get('username');
 
     if (!areaPath) {
       return NextResponse.json({ error: 'areaPath parameter is required' }, { status: 400 });
@@ -39,8 +40,9 @@ export async function GET(request: NextRequest) {
 
     if (businessUnit) backendParams.append('businessUnit', businessUnit);
     if (system) backendParams.append('system', system);
+    if (username) backendParams.append('username', username);
 
-    const backendUrl = `${baseUrl}/uploads?${backendParams.toString()}`;
+    const backendUrl = `${baseUrl}/knowledge-base/presigned-url?${backendParams.toString()}`;
     console.log('Making request to backend URL:', backendUrl);
 
     const controller = new AbortController();
