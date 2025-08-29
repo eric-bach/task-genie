@@ -420,7 +420,7 @@ export default function Knowledge() {
                           <Select onValueChange={field.onChange} value={field.value || ''}>
                             <FormControl>
                               <SelectTrigger>
-                                <SelectValue placeholder='Select an area' />
+                                <SelectValue placeholder='Select an area path' />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>

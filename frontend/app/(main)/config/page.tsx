@@ -328,7 +328,7 @@ export default function ConfigPage() {
                   </Label>
                   <Select value={areaPath} onValueChange={(v) => setAreaPath(v)} disabled={!!editing}>
                     <SelectTrigger id='areaPath'>
-                      <SelectValue placeholder='ADO area path' />
+                      <SelectValue placeholder='Select an area path' />
                     </SelectTrigger>
                     <SelectContent>
                       {AREA_PATHS.map((ap) => (
@@ -345,7 +345,7 @@ export default function ConfigPage() {
                   </Label>
                   <Select value={businessUnit} onValueChange={(v) => setBusinessUnit(v)} disabled={!!editing}>
                     <SelectTrigger id='businessUnit'>
-                      <SelectValue placeholder='ADO business unit' />
+                      <SelectValue placeholder='Select a business unit' />
                     </SelectTrigger>
                     <SelectContent>
                       {BUSINESS_UNITS.map((bu) => (
@@ -362,7 +362,7 @@ export default function ConfigPage() {
                   </Label>
                   <Select value={system} onValueChange={(v) => setSystem(v)} disabled={!!editing}>
                     <SelectTrigger id='system'>
-                      <SelectValue placeholder='ADO system' />
+                      <SelectValue placeholder='Select a system' />
                     </SelectTrigger>
                     <SelectContent>
                       {SYSTEMS.map((s) => (

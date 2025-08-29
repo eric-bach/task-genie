@@ -502,7 +502,6 @@ export function UserStoryForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the Area Path for the user story</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -529,7 +528,6 @@ export function UserStoryForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the Business Unit for the user story</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -556,7 +554,6 @@ export function UserStoryForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the system for the user story</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -572,7 +569,6 @@ export function UserStoryForm() {
                           <FormControl>
                             <Input placeholder='As a user, I want to...' {...field} />
                           </FormControl>
-                          <FormDescription>A concise title for your user story.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -611,9 +607,6 @@ export function UserStoryForm() {
                               {...field}
                             />
                           </FormControl>
-                          <FormDescription>
-                            Define what conditions must be met for this story to be considered complete.
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
