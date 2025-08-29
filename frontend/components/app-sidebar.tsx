@@ -38,8 +38,8 @@ const items = [
     icon: Brain,
   },
   {
-    title: 'Settings',
-    url: '#',
+    title: 'Configuration',
+    url: '/config',
     icon: Settings,
   },
 ];
@@ -78,7 +78,7 @@ export function AppSidebar({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <SidebarMenuButton>
-                  <User2 /> Settings
+                  <User2 /> Profile
                   <ChevronUp className='ml-auto' />
                 </SidebarMenuButton>
               </DropdownMenuTrigger>

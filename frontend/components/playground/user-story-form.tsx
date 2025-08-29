@@ -16,6 +16,7 @@ import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
 import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
@@ -376,6 +377,7 @@ export function UserStoryForm() {
                                           {...field}
                                         />
                                       </FormControl>
+                                      <PromptSuffixInfo />
                                       <FormDescription>
                                         Customize how the AI generates tasks from your user story.
                                       </FormDescription>
@@ -500,7 +502,6 @@ export function UserStoryForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the Area Path for the user story</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -527,7 +528,6 @@ export function UserStoryForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the Business Unit for the user story</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -554,7 +554,6 @@ export function UserStoryForm() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormDescription>Select the system for the user story</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -570,7 +569,6 @@ export function UserStoryForm() {
                           <FormControl>
                             <Input placeholder='As a user, I want to...' {...field} />
                           </FormControl>
-                          <FormDescription>A concise title for your user story.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -609,9 +607,6 @@ export function UserStoryForm() {
                               {...field}
                             />
                           </FormControl>
-                          <FormDescription>
-                            Define what conditions must be met for this story to be considered complete.
-                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}

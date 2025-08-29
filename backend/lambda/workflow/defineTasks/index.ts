@@ -36,6 +36,10 @@ const AWS_BEDROCK_KNOWLEDGE_BASE_ID = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
 if (!AWS_BEDROCK_KNOWLEDGE_BASE_ID) {
   throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
+const CONFIG_TABLE_NAME = process.env.CONFIG_TABLE_NAME;
+if (!CONFIG_TABLE_NAME) {
+  throw new Error('CONFIG_TABLE_NAME environment variable is required');
+}
 
 // Clients and services
 const logger = new Logger({ serviceName: 'defineTasks' });
@@ -91,6 +95,7 @@ const getBedrockService = (): BedrockService => {
       maxKnowledgeDocuments: 3,
       maxImageSize: 5, // 5MB
       maxImages: 3,
+      configTableName: CONFIG_TABLE_NAME,
     };
 
     bedrockService = new BedrockService(config, personalAccessToken);

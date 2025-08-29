@@ -59,6 +59,7 @@ export class AppStack extends Stack {
     const azurePersonalAccessToken = props.params.azurePersonalAccessToken;
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
+    const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
 
     const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
 
@@ -105,12 +106,19 @@ export class AppStack extends Stack {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
         AZURE_DEVOPS_PAT_PARAMETER_NAME: azurePersonalAccessToken.parameterName,
+        CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
         {
           managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
         },
+      ],
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['dynamodb:GetItem'],
+          resources: [props.params.configTableArn],
+        }),
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
@@ -296,6 +304,45 @@ export class AppStack extends Stack {
     });
     dataSourceBucket.grantDelete(deleteKnowledgeBaseDocumentFunction);
     dataSourceBucket.grantRead(deleteKnowledgeBaseDocumentFunction);
+
+    // Update Config Lambda
+    const updateConfigFunction = new TaskGenieLambda(this, 'UpdateConfig', {
+      functionName: `${props.appName}-update-config-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/config/updateConfig/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        CONFIG_TABLE_NAME: configTable.tableName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+    configTable.grantReadWriteData(updateConfigFunction);
+
+    // List Config Lambda
+    const listConfigFunction = new TaskGenieLambda(this, 'ListConfig', {
+      functionName: `${props.appName}-list-config-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/config/listConfig/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        CONFIG_TABLE_NAME: configTable.tableName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+    configTable.grantReadData(listConfigFunction);
+
+    // Delete Config Lambda
+    const deleteConfigFunction = new TaskGenieLambda(this, 'DeleteConfig', {
+      functionName: `${props.appName}-delete-config-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/config/deleteConfig/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        CONFIG_TABLE_NAME: configTable.tableName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+    configTable.grantWriteData(deleteConfigFunction);
 
     /*
      * AWS Step Functions
@@ -564,6 +611,19 @@ export class AppStack extends Stack {
         apiKeyRequired: false,
       }
     );
+
+    // Config API resource
+    //  PUT /config
+    const configResource = api.root.addResource('config');
+    configResource.addMethod('PUT', new LambdaIntegration(updateConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+    configResource.addMethod('GET', new LambdaIntegration(listConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+    configResource.addMethod('DELETE', new LambdaIntegration(deleteConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
 
     // Add method to poll Step Function execution results
     //  GET /executions/{executionName}
