@@ -39,8 +39,10 @@ export default function ConfigPage() {
 
   const [items, setItems] = useState<ConfigItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [pageSize, setPageSize] = useState(50);
+  const [pageSize, setPageSize] = useState(10);
   const [nextToken, setNextToken] = useState<string | undefined>(undefined);
+  const [prevTokens, setPrevTokens] = useState<string[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
   const [showSheet, setShowSheet] = useState(false);
   const [editing, setEditing] = useState<ConfigItem | null>(null);
 
@@ -56,7 +58,7 @@ export default function ConfigPage() {
   const [prompt, setPrompt] = useState('');
   const [saving, setSaving] = useState(false);
 
-  const loadItems = async (token?: string) => {
+  const loadItems = async (token?: string, direction?: 'next' | 'prev') => {
     setIsLoading(true);
     try {
       const url = new URL('/api/config', window.location.origin);
@@ -67,11 +69,47 @@ export default function ConfigPage() {
       const data = await resp.json();
       setItems(data.items || []);
       setNextToken(data.nextToken);
+      if (direction === 'next') {
+        setPrevTokens((prev) => [...prev, token || '']);
+        setCurrentPage((p) => p + 1);
+      } else if (direction === 'prev') {
+        setCurrentPage((p) => Math.max(1, p - 1));
+      } else {
+        setCurrentPage(1);
+        setPrevTokens([]);
+      }
     } catch (e) {
       toast.error('Failed to load configuration', { description: e instanceof Error ? e.message : 'Unknown error' });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const goToNextPage = () => {
+    if (nextToken) {
+      loadItems(nextToken, 'next');
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (prevTokens.length > 1) {
+      const tokens = [...prevTokens];
+      tokens.pop(); // remove current
+      const prevToken = tokens.pop();
+      setPrevTokens(tokens);
+      loadItems(prevToken, 'prev');
+    } else {
+      // Go back to first page
+      setPrevTokens([]);
+      loadItems(undefined);
+    }
+  };
+
+  const changePageSize = (newPageSize: number) => {
+    setPageSize(newPageSize);
+    setCurrentPage(1);
+    setPrevTokens([]);
+    loadItems(undefined);
   };
 
   const openNew = () => {
@@ -169,7 +207,12 @@ export default function ConfigPage() {
 
   return (
     <div className='container mx-auto py-10 px-4 min-h-screen'>
-      <div className='max-w-5xl mx-auto'>
+      <div className='max-w-4xl xl:max-w-6xl mx-auto'>
+        <h1 className='text-2xl font-bold mb-2'>Prompt Override Configuration</h1>
+        <p className='text-md text-muted-foreground mb-8'>
+          Use this page to configure prompt overrides for your ADO board.
+        </p>
+
         <Card>
           <CardHeader>
             <div className='flex items-center justify-between'>
@@ -182,7 +225,7 @@ export default function ConfigPage() {
               </div>
               <div className='flex items-center gap-2'>
                 <Button variant='outline' size='sm' onClick={() => loadItems()} disabled={isLoading}>
-                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
                 </Button>
                 <Button size='sm' onClick={openNew}>
                   <Plus className='h-4 w-4 mr-1' /> Override
@@ -216,7 +259,6 @@ export default function ConfigPage() {
                         <TableCell className='whitespace-nowrap'>{it.areaPath || '-'}</TableCell>
                         <TableCell className='whitespace-nowrap'>{it.businessUnit || '-'}</TableCell>
                         <TableCell className='whitespace-nowrap'>{it.system || '-'}</TableCell>
-
                         <TableCell className='whitespace-nowrap'>{it.updatedAt || '-'}</TableCell>
                         <TableCell className='whitespace-nowrap'>{it.updatedBy || '-'}</TableCell>
                         <TableCell className='whitespace-nowrap'>
@@ -234,6 +276,38 @@ export default function ConfigPage() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+            {/* Pagination Controls */}
+            <div className='mt-6 flex items-center justify-between'>
+              <div className='flex items-center gap-2'>
+                <span className='text-sm text-muted-foreground'>Page size:</span>
+                <Select value={pageSize.toString()} onValueChange={(value) => changePageSize(parseInt(value))}>
+                  <SelectTrigger className='w-20'>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='1'>1</SelectItem>
+                    <SelectItem value='10'>10</SelectItem>
+                    <SelectItem value='25'>25</SelectItem>
+                    <SelectItem value='50'>50</SelectItem>
+                    <SelectItem value='100'>100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='flex items-center gap-2'>
+                <Button
+                  variant='outline'
+                  size='sm'
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  Previous
+                </Button>
+                <span className='text-sm text-muted-foreground'>Page {currentPage}</span>
+                <Button variant='outline' size='sm' onClick={goToNextPage} disabled={!nextToken || isLoading}>
+                  Next
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
