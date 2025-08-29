@@ -26,7 +26,7 @@ export class CloudWatchService {
 
     try {
       const response = await this.cloudWatchClient.send(command);
-      this.logger.info(`${metric.MetricName} metric created`, { response: JSON.stringify(response) });
+      this.logger.info(`📈 ${metric.MetricName} metric created`, { response: JSON.stringify(response) });
     } catch (error) {
       this.logger.error('Error creating custom metric', { error: error });
     }

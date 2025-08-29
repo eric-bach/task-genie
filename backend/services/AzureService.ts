@@ -76,6 +76,8 @@ export class AzureService {
       scope: scope,
     });
 
+    this.logger.debug('Fetching Azure AD token', { url, body: body.toString() });
+
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -98,6 +100,8 @@ export class AzureService {
       throw new Error('Failed to parse token response');
     }
 
+    this.logger.debug('Received Azure AD token');
+
     return this.accessToken;
   }
 
@@ -113,7 +117,7 @@ export class AzureService {
       if (imageUrl.includes('visualstudio.com')) {
         const url = `${imageUrl}&download=true&api-version=7.1`;
 
-        const headers = { Authorization: `Basic ${await this.getAccessToken()}` };
+        const headers = { Authorization: `Bearer ${await this.getAccessToken()}` };
 
         const response = await fetch(url, {
           headers,
@@ -175,7 +179,7 @@ export class AzureService {
 
       const headers = {
         'Content-Type': 'application/json',
-        Authorization: `Basic ${await this.getAccessToken()}`,
+        Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
       const body = JSON.stringify({
@@ -221,7 +225,7 @@ export class AzureService {
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
-        Authorization: `Basic ${await this.getAccessToken()}`,
+        Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
       const body = JSON.stringify(fields);
@@ -264,7 +268,7 @@ export class AzureService {
     this.logger.info(`All ${tasks.length} tasks created`);
   }
 
-  createTask = async (githubOrganization: string, workItem: WorkItem, task: Task, i: number): Promise<number> => {
+  async createTask(githubOrganization: string, workItem: WorkItem, task: Task, i: number): Promise<number> {
     const taskFields = [
       {
         op: 'add',
@@ -295,7 +299,7 @@ export class AzureService {
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
-        Authorization: `Basic ${await this.getAccessToken()}`,
+        Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
       this.logger.debug(`Creating task (${i})`, { task: task });
@@ -322,7 +326,7 @@ export class AzureService {
       this.logger.error('Error creating task', { error: error });
       throw new Error('Error creating task');
     }
-  };
+  }
 
   linkTask = async (
     githubOrganization: string,
@@ -349,7 +353,7 @@ export class AzureService {
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
-        Authorization: `Basic ${await this.getAccessToken()}`,
+        Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
       this.logger.debug(`Linking task ${taskId} to work item ${workItemId}`);
