@@ -7,9 +7,9 @@ import { BedrockKnowledgeDocument, BedrockResponse } from '../../../types/bedroc
 import { AzureService } from '../../../services/AzureService';
 import { CloudWatchService } from '../../../services/CloudWatchService';
 
-export const GITHUB_ORGANIZATION = process.env.GITHUB_ORGANIZATION;
-if (GITHUB_ORGANIZATION === undefined) {
-  throw new Error('GITHUB_ORGANIZATION environment variable is required');
+export const AZURE_DEVOPS_PROJECT = process.env.AZURE_DEVOPS_PROJECT;
+if (AZURE_DEVOPS_PROJECT === undefined) {
+  throw new Error('AZURE_DEVOPS_PROJECT environment variable is required');
 }
 
 export const logger = new Logger({ serviceName: 'createTasks' });
@@ -27,7 +27,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 
     // Create tasks
     const azureService = getAzureService();
-    await azureService.createTasks(GITHUB_ORGANIZATION, workItem, tasks);
+    await azureService.createTasks(AZURE_DEVOPS_PROJECT, workItem, tasks);
 
     // Add CloudWatch metrics
     const cloudWatchService = new CloudWatchService();

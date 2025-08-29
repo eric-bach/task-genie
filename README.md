@@ -93,11 +93,11 @@ Estimated monthly costs (USD) for running in an AWS ###:
 1. Update the `/infrastructure/.env` file with the parameters:
 
    ```
+   AZURE_DEVOPS_PROJECT=
    AZURE_DEVOPS_TENANT_ID=
    AZURE_DEVOPS_CLIENT_ID=
    AZURE_DEVOPS_CLIENT_SECRET=
    AZURE_DEVOPS_SCOPE=
-   GITHUB_ORGANIZATION=
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
