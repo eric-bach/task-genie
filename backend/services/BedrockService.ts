@@ -6,6 +6,7 @@ import {
   RetrievalFilter,
 } from '@aws-sdk/client-bedrock-agent-runtime';
 import { InvokeModelCommand, InvokeModelCommandInput, BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
+import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 
 import { AzureService } from './AzureService';
 import { WorkItem, Task } from '../types/azureDevOps';
@@ -23,11 +24,13 @@ export interface BedrockServiceConfig {
   maxKnowledgeDocuments?: number;
   maxImageSize?: number; // in MB
   maxImages?: number;
+  configTableName?: string; // Optional: for custom prompts
 }
 
 export class BedrockService {
   private readonly bedrockAgentClient: BedrockAgentRuntimeClient;
   private readonly bedrockRuntimeClient: BedrockRuntimeClient;
+  private readonly dynamoClient: DynamoDBClient;
   private readonly logger: any;
   private readonly config: Required<BedrockServiceConfig>;
 
@@ -36,12 +39,14 @@ export class BedrockService {
       maxKnowledgeDocuments: 3,
       maxImageSize: 5,
       maxImages: 3,
+      configTableName: config.configTableName || '',
       ...config,
     };
 
     this.logger = new Logger({ serviceName: 'BedrockService' });
     this.bedrockAgentClient = new BedrockAgentRuntimeClient({ region: config.region });
     this.bedrockRuntimeClient = new BedrockRuntimeClient({ region: config.region });
+    this.dynamoClient = new DynamoDBClient({ region: config.region });
   }
 
   /**
@@ -86,6 +91,18 @@ export class BedrockService {
       const query = this.buildTaskBreakdownKnowledgeQuery(workItem);
       const filters = this.buildTaskBreakdownFilters(workItem);
       const knowledgeContext = await this.retrieveKnowledgeContext(query, filters);
+
+      // Check if a custom override prompt exists
+      if (!params.prompt) {
+        this.logger.debug('Checking if a custom prompt override was defined for ADO project', {
+          areaPath: workItem.areaPath,
+          businessUnit: workItem.businessUnit,
+          system: workItem.system,
+        });
+
+        let prompt = await this.getCustomPrompt(workItem);
+        params = { prompt };
+      }
 
       // Step 2: Generate tasks using the model
       const tasks = await this.invokeModelForTaskGeneration(workItem, params, knowledgeContext);
@@ -180,7 +197,7 @@ export class BedrockService {
    * Build the knowledge base query for user story evaluation
    */
   private buildWorkItemEvaluationKnowledgeQuery(workItem: WorkItem): string {
-    return `Find any information about the user story process and guidelines that would help evaluate the following user story:
+    return `Find relevant information about the user story process and guidelines that would help evaluate the following user story is well-defined:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
     - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
@@ -190,7 +207,7 @@ export class BedrockService {
    * Build the knowledge base query for task breakdown
    */
   private buildTaskBreakdownKnowledgeQuery(workItem: WorkItem): string {
-    return `Find relevant information to help with task breakdown and implementation guidance for the following use story:
+    return `Find relevant information to help with task breakdown (such as technical details, application architecture, business context, etc.) for the following use story:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
     - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
@@ -310,7 +327,7 @@ export class BedrockService {
     params: BedrockInferenceParams,
     knowledgeContext: BedrockKnowledgeDocument[]
   ): Promise<Task[]> {
-    const prompt = this.buildTaskGenerationPrompt(workItem, params, knowledgeContext);
+    const prompt = await this.buildTaskGenerationPrompt(workItem, params, knowledgeContext);
     const content = await this.buildModelContent(workItem, prompt);
 
     const payload = {
@@ -375,46 +392,43 @@ export class BedrockService {
         ? `${workItem.images.map((img, i) => `${i + 1}. ${img.url}${img.alt ? ` (${img.alt})` : ''}`).join('\n')}`
         : '';
 
-    const prompt = `You are an AI assistant that reviews Azure DevOps work items. You evaluate work items to ensure they are reasonably clear, have enough detail to be understood, and are ready for a developer to work on with minimal clarification.
+    return `You are an AI assistant that reviews Azure DevOps work items. 
+**Instructions**
+- Evaluate the work item to ensure it is reasonably clear, has enough detail to be understood, and is ready for a developer to work on with minimal clarification.
+- Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
 
-    Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
+- Evaluate the user story based on the following criteria:
+  - It states the user, need, and business value in some form.
+  - The acceptance criteria is testable and provides some direction.
+  - If images are provided, treat them as additional context.
 
-    Evaluate the user story based on the following criteria:
-      - It states the user, need, and business value in some form.
-      - The acceptance criteria is testable and provides some direction.
-      - If images are provided, treat them as additional context.
-
-    Return your assessment as a valid JSON object with the following structure:
-      - "pass": boolean (true if the work item is good enough to proceed, false only it it is seriously incomplete or unclear)
-      - if "pass" is false, include a "comment" field (string), explain what's missing or unclear, and provide
-      a concrete example of a high-quality story that would pass. If you have multiple feedback points, use
-      line breaks and indentations with HTML tags.
- 
-    Only output the JSON object, no additional text.
-
-    The work item to review is: 
-      - Title: ${workItem.title}
-      - Description: ${workItem.description}
-      - Acceptance Criteria: ${workItem.acceptanceCriteria}
+**Context**
+- The work item to review is: 
+  - Title: ${workItem.title}
+  - Description: ${workItem.description}
+  - Acceptance Criteria: ${workItem.acceptanceCriteria}
       
-    Additional business or domain context from knowledge base:
-      ${knowledgeSection}
+Additional business or domain context from knowledge base:
+  ${knowledgeSection}
 
-    Images referenced:
-      ${imagesSection}
-    `;
+Images referenced:
+  ${imagesSection}
 
-    return prompt;
+**Output Rules**
+- Return your assessment as a valid JSON object with the following structure:
+  - "pass": boolean (true if the work item is good enough to proceed, false only it it is seriously incomplete or unclear)
+  - if "pass" is false, include a "comment" field (string), explain what's missing or unclear, and provide a concrete example of a high-quality story that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
+- Only output a JSON object, no additional text.`;
   }
 
   /**
    * Build the prompt for task generation
    */
-  private buildTaskGenerationPrompt(
+  private async buildTaskGenerationPrompt(
     workItem: WorkItem,
     params: BedrockInferenceParams,
     knowledgeContext: BedrockKnowledgeDocument[]
-  ): string {
+  ): Promise<string> {
     const imagesSection =
       workItem.images && workItem.images.length > 0
         ? `${workItem.images.map((img, i) => `${i + 1}. ${img.url}${img.alt ? ` (${img.alt})` : ''}`).join('\n')}`
@@ -424,32 +438,33 @@ export class BedrockService {
         ? `${knowledgeContext.map((doc) => `- ${doc.content.substring(0, 500)}...`).join('\n')}`
         : '';
 
-    const prompt =
-      params.prompt ||
-      `You are an expert Agile software development assistant for Azure DevOps that specializes in decomposing work items into actionable tasks.
+    const defaultPrompt = `You are an expert Agile software development assistant for Azure DevOps that specializes in decomposing work items into actionable tasks.
+**Instructions**
+- Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
+- Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
+- Do NOT create any tasks for analyzing, investigating, testing, or deployment.`;
 
-      Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable separately.
+    const prompt = params.prompt || defaultPrompt;
 
-      Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs). Do NOT create any tasks for analyzing, investigating, testing, or deployment.`;
+    return `${prompt}\n
+**Context**
+- Here is the work item:
+  - Title: ${workItem.title}
+  - Description: ${workItem.description}
+  - Acceptance Criteria: ${workItem.acceptanceCriteria}
 
-    return `${prompt}
-      Only return your assessment as a JSON object with the following structure:
-      - "tasks": array of task objects, each with:
-        - "title": string (task title, prefixed with order, e.g., "1. Task Title")
-        - "description": string (detailed task description with HTML formatting)
-
-      DO NOT output any text outside of the JSON object.
-
-      Work Item Details:
-      - Title: ${workItem.title}
-      - Description: ${workItem.description}
-      - Acceptance Criteria: ${workItem.acceptanceCriteria}
-
-      Images referenced:
-        ${imagesSection}
+- Here are the images referenced (if any were included):
+  ${imagesSection}
       
-      Additional context from knowledge base:
-        ${knowledgeSection}`;
+- Here is additional context that you should consider (if any were provided):
+  ${knowledgeSection}
+
+**Output Rules**
+- ONLY return a JSON object with the following structure:
+  - "tasks": array of task objects, each with:
+    - "title": string (task title, prefixed with order, e.g., "1. Task Title")
+    - "description": string (detailed task description with HTML formatting)
+- DO NOT output any text outside of the JSON object.`;
   }
 
   /**
@@ -586,6 +601,51 @@ export class BedrockService {
       return JSON.parse(jsonSubstring);
     } catch {
       return undefined; // Invalid JSON
+    }
+  }
+
+  /**
+   * Retrieve a custom prompt from the DynamoDB config table if available.
+   */
+  private async getCustomPrompt(workItem: WorkItem): Promise<string | undefined> {
+    if (!this.config.configTableName) {
+      this.logger.warn('Config table name not configured, skipping custom prompt lookup.');
+      return undefined;
+    }
+
+    // Construct the adoKey from workItem properties
+    const adoKey = `${workItem.areaPath}#${workItem.businessUnit || ''}#${workItem.system || ''}`;
+
+    const input = {
+      TableName: this.config.configTableName,
+      Key: {
+        adoKey: { S: adoKey },
+      },
+    };
+
+    try {
+      const command = new GetItemCommand(input);
+      const response = await this.dynamoClient.send(command);
+
+      if (response.Item) {
+        const configItem = response.Item as any;
+        this.logger.info('⭐ Found custom prompt override. Using prompt override.', {
+          adoKey: adoKey,
+          prompt: configItem.prompt?.S,
+        });
+
+        return configItem.prompt?.S;
+      }
+
+      this.logger.debug('No custom prompt override found. Using default prompt.', { adoKey: adoKey });
+
+      return undefined;
+    } catch (error) {
+      this.logger.error('Failed to retrieve custom prompt from config table', {
+        adoKey: adoKey,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return undefined;
     }
   }
 }

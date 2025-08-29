@@ -17,6 +17,7 @@ export class DataStack extends Stack {
   // public bedrockVpcEndpointId: string;
   // public bedrockAgentVpcEndpointId: string;
   // public ssmVpcEndpointId: string;
+  public configTableArn: string;
   public resultsTableArn: string;
   public dataSourceBucketArn: string;
   public azureDevOpsCredentialsSecretName: string;
@@ -78,6 +79,18 @@ export class DataStack extends Stack {
     /*
      * Amazon DynamoDB
      */
+
+    const configTable = new Table(this, 'ConfigurationTable', {
+      tableName: `${props.appName}-config-${props.envName}`,
+      partitionKey: {
+        name: 'adoKey',
+        type: AttributeType.STRING,
+      },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecovery: true,
+      timeToLiveAttribute: 'ttl',
+    });
 
     const resultsTable = new Table(this, 'EvaluationResultsTable', {
       tableName: `${props.appName}-results-${props.envName}`,
@@ -214,6 +227,7 @@ export class DataStack extends Stack {
     // this.bedrockVpcEndpointId = bedrockEndpoint.vpcEndpointId;
     // this.bedrockAgentVpcEndpointId = bedrockAgentEndpoint.vpcEndpointId;
     // this.ssmVpcEndpointId = ssmEndpoint.vpcEndpointId;
+    this.configTableArn = configTable.tableArn;
     this.resultsTableArn = resultsTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
     this.azureDevOpsCredentialsSecretName = azureDevOpsCredentials.secretName;
