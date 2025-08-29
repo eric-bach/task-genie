@@ -22,6 +22,7 @@ export interface AppStackProps extends BaseStackProps {
     // bedrockVpcEndpointId: string;
     // bedrockAgentVpcEndpointId: string;
     // ssmVpcEndpointId: string;
+    configTableArn: string;
     resultsTableArn: string;
     dataSourceBucketArn: string;
     azurePersonalAccessToken: StringParameter;
@@ -65,6 +66,7 @@ const appProps = new AppStack(app, `${APP_NAME}-app`, {
     // bedrockVpcEndpointId: dataProps.bedrockVpcEndpointId,
     // bedrockAgentVpcEndpointId: dataProps.bedrockAgentVpcEndpointId,
     // ssmVpcEndpointId: dataProps.ssmVpcEndpointId,
+    configTableArn: dataProps.configTableArn,
     resultsTableArn: dataProps.resultsTableArn,
     dataSourceBucketArn: dataProps.dataSourceBucketArn,
     azurePersonalAccessToken: dataProps.azurePersonalAccessToken,

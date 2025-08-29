@@ -122,4 +122,4 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
   }
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger));
+export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

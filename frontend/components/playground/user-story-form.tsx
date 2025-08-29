@@ -16,6 +16,7 @@ import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
 import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
@@ -376,6 +377,7 @@ export function UserStoryForm() {
                                           {...field}
                                         />
                                       </FormControl>
+                                      <PromptSuffixInfo />
                                       <FormDescription>
                                         Customize how the AI generates tasks from your user story.
                                       </FormDescription>

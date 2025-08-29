@@ -38,8 +38,8 @@ const items = [
     icon: Brain,
   },
   {
-    title: 'Settings',
-    url: '#',
+    title: 'Configuration',
+    url: '/config',
     icon: Settings,
   },
 ];
