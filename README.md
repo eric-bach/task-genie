@@ -79,27 +79,12 @@ Estimated monthly costs (USD) for running in an AWS ###:
 
 ### Pre-requisites (one-time setup)
 
-1. Request the `Identity Team` to create an Azure Service Principal in AzureDevOps with "Read & Write" permissions to "Work Items". Use these values to populate the `.env` in the next step.
+1. Request the `Identity and Productivity Team` to create an Azure Service Principal in AzureDevOps with "Read & Write" permissions to "Work Items". Use these values to populate the `.env` in the next step.
 
-If you receive the following error it means the Azure Service Principal must sign in interactively at least once before it can use OAuth tokens.
+2. Log in to Azure DevOps, click `Organization Settings`, click `Users`, and click `Add users`
 
-```
-{
-    "$id": "1",
-    "innerException": null,
-    "message": "TF401444: Please sign-in at least once as 34e00eac-5fcb-4b7a-babb-d702ada2ed16\\34e00eac-5fcb-4b7a-babb-d702ada2ed16\\0f9765e8-8bc6-4283-8eb3-55cedf882697 in a web browser to enable access to the service.",
-    "typeName": "Microsoft.TeamFoundation.Framework.Server.UnauthorizedRequestException, Microsoft.TeamFoundation.Framework.Server",
-    "typeKey": "UnauthorizedRequestException",
-    "errorCode": 0,
-    "eventId": 3000
-}
-```
-
-To do so run the command
-
-```
-az login --service-principal -u <client_id> -p <client_secret> --tenant <tenant_id>
-```
+3. Enter the Service Principal Client Id and set the `Access Level` and `Project`. Uncheck `Send email invites`.
+   ![ADO Service Principal](/docs/service_principal.png)
 
 ### Deployment
 
