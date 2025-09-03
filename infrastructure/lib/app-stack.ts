@@ -2,12 +2,13 @@ import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Choice, Condition, LogLevel, StateMachine, StateMachineType, TaskInput } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import {
   AccessLogFormat,
   ApiKey,
   ApiKeySourceType,
   AwsIntegration,
+  CfnAccount,
   Cors,
   EndpointType,
   LambdaIntegration,
@@ -438,6 +439,17 @@ export class AppStack extends Stack {
       logGroupName: `/aws/apigateway/${props.appName}-api-access-logs`,
       retention: RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Create CloudWatch Logs role for API Gateway
+    const apiGatewayCloudWatchLogsRole = new Role(this, 'ApiGatewayCloudWatchLogsRole', {
+      assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonAPIGatewayPushToCloudWatchLogs')],
+    });
+
+    // Configure API Gateway account settings for CloudWatch logging
+    new CfnAccount(this, 'ApiGatewayAccount', {
+      cloudWatchRoleArn: apiGatewayCloudWatchLogsRole.roleArn,
     });
 
     const api = new RestApi(this, 'TaskGenieAPI', {

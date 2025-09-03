@@ -16,7 +16,7 @@
   },
   "context": {
     "@aws-cdk/core:defaultProvider": {
-      "profile": "observability2"
+      "profile": "task-genie-stage"
     },
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,

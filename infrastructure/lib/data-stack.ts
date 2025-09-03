@@ -65,7 +65,7 @@ export class DataStack extends Stack {
     new UserPoolDomain(this, 'CognitoUserPoolDomain', {
       userPool: userPool,
       cognitoDomain: {
-        domainPrefix: `${props.appName}`,
+        domainPrefix: `${props.appName}-${props.envName}`,
       },
     });
 

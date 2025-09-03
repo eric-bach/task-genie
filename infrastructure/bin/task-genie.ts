@@ -42,7 +42,7 @@ export interface ObservabilityStackProps extends BaseStackProps {
 const app = new App();
 
 const APP_NAME = 'task-genie';
-const ENV_NAME = app.node.tryGetContext('envName') || 'dev';
+const ENV_NAME = app.node.tryGetContext('envName') || 'stage';
 
 const baseProps: BaseStackProps = {
   appName: APP_NAME,
@@ -53,11 +53,11 @@ const baseProps: BaseStackProps = {
   },
 };
 
-const dataProps = new DataStack(app, `${APP_NAME}-data`, {
+const dataProps = new DataStack(app, `${APP_NAME}-data-${ENV_NAME}`, {
   ...baseProps,
 });
 
-const appProps = new AppStack(app, `${APP_NAME}-app`, {
+const appProps = new AppStack(app, `${APP_NAME}-app-${ENV_NAME}`, {
   ...baseProps,
   params: {
     // vpc: dataProps.vpc,
@@ -72,7 +72,7 @@ const appProps = new AppStack(app, `${APP_NAME}-app`, {
   },
 });
 
-new ObservabilityStack(app, `${APP_NAME}-observability`, {
+new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
   ...baseProps,
   params: {
     stateMachineArn: appProps.stateMachineArn,
