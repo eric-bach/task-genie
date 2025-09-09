@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Test and Security Scan
 
 on:
   pull_request:
@@ -13,6 +13,7 @@ env:
 permissions:
   id-token: write
   contents: read
+  security-events: write
 
 jobs:
   test:

@@ -1,72 +1,114 @@
 # Task Genie
 
-<div style="display: flex; align-items: center;">
-   <img src="docs/logo.jpg" alt="Task Genie" width="60" style="margin-right: 10px;">
-   <span>Task Genie is an AI assistant that integrates directly in Azure DevOps Boards to ensure the completeness of user stories and automatically helps breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
-</span>
+<div align="center">
+  <img src="docs/logo.jpg" alt="Task Genie" width="120">
 </div>
 
-## Features
+<div align="center">
 
-1. User Story Validation
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![AWS](https://img.shields.io/badge/AWS-Serverless-orange.svg)](https://aws.amazon.com/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-14.0+-black.svg)](https://nextjs.org/)
+[![Azure DevOps](https://img.shields.io/badge/Azure%20DevOps-Integration-blue.svg)](https://azure.microsoft.com/en-us/services/devops/)
+[![AI Powered](https://img.shields.io/badge/AI-Bedrock%20Claude-purple.svg)](https://aws.amazon.com/bedrock/)
+[![Serverless](https://img.shields.io/badge/Architecture-Serverless-green.svg)](https://aws.amazon.com/serverless/)
+[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/eric-bach/task-genie/graphs/commit-activity)
 
-   - Ensures user stories follow best practices
-   - Identifies missing components in user stories
-   - Provides suggestions to improve clarity and completeness
-   - NEW: Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
+</div>
 
-2. Task Breakdown
+<div align="center">
+  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure user story completeness and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.</strong>
+</div>
 
-   - Automatically decomposes validated user stories into smaller, actionable tasks
-   - Ensures tasks align with agile methodologies for efficient development
-   - ![ui](docs/ui.png)
+<br>
 
-3. Azure DevOps Boards integration
+<div align="center">
+  <a href="#features">Features</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#getting-started">Getting Started</a> •
+  <a href="#deployment">Deployment</a> •
+  <a href="#pricing">Pricing</a> •
+  <a href="#contributing">Contributing</a>
+</div>
 
-   - Supports integration with Azure DevOps Boards to automatically update work items and tasks
+## ✨ Features
 
-4. Powerful Insights
+### 🔍 User Story Validation
 
-   - Built-in dashboards to visualize performance and effectiveness of task generation
-   - Offers recommendations for improving workflows based on historical data
-   - Detects potential bottlenecks or ambiguities in user stories
-   - ![dashboard](docs/dashboard.png)
+- Ensures user stories follow best practices
+- Identifies missing components in user stories
+- Provides suggestions to improve clarity and completeness
+- **NEW**: Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
 
-## Architecture
+### 📋 Task Breakdown
 
-The architecture is deployed in AWS using a serverless model with Step Functions orchestrating the AI workflow. Integration with Azure DevOps is done through Service Hooks for each board.
+- Automatically decomposes validated user stories into smaller, actionable tasks
+- Ensures tasks align with agile methodologies for efficient development
 
-![architecture_v2](/docs/architecture_v2.png)
+<div align="center">
+  <img src="docs/ui.png" alt="Task Genie UI" width="800">
+</div>
 
-A state machine, leveraging AWS Step Functions, orchestrates the workflow for the interaction with the LLM.
+### 🔗 Azure DevOps Boards Integration
 
-![state_machine](/docs/state_machine.png)
+- Seamless integration with Azure DevOps Boards
+- Automatically updates work items and tasks
+- Supports custom workflows and board configurations
 
-### Technology
+### 📊 Powerful Insights
 
-|                                                                                                                                      |     Technology      |
-| :----------------------------------------------------------------------------------------------------------------------------------: | :-----------------: |
-|     <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/aws.png">      | Amazon Web Services |
-|   <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/next_js.png">    |       Next.js       |
-|  <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/shadcn_ui.png">   |      ShadCn UI      |
-| <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/tailwind_css.png"> |    Tailwind CSS     |
-|  <img height="30" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/typescript.png">  |     TypeScript      |
+- Built-in dashboards to visualize performance and effectiveness of task generation
+- Offers recommendations for improving workflows based on historical data
+- Detects potential bottlenecks or ambiguities in user stories
 
-### Limitations
+<div align="center">
+  <img src="docs/dashboard.png" alt="Dashboard" width="800">
+</div>
 
-1. Azure DevOps Service Hooks limitations
+## 🏗️ Architecture
 
-   ⚠️ Azure DevOps Service Hooks can only be configured to trigger on one or all fields when a work item is updated. So when the Title, Description, and Acceptance Criteria of a work item is updated, Task Genie will be triggered 3 times, resulting in 3x the number of tasks being generated. ⚠️
+The architecture is deployed in AWS using a **serverless model** with **Step Functions** orchestrating the AI workflow. Integration with Azure DevOps is done through **Service Hooks** for each board.
 
-2. Amazon Bedrock Knowledge Bases
+<div align="center">
+  <img src="docs/architecture_v2.png" alt="Architecture Diagram" width="800">
+</div>
 
-   ⚠️ Task Genie uses S3 Vectors for the Knowledge Base Data Store, which is currently not supported in CloudFormation. As such, the Bedrock Knowledge Base needs to be manually created in the console and the IDs need to be set in the `.env` file. ⚠️
+A state machine, leveraging **AWS Step Functions**, orchestrates the workflow for the interaction with the LLM.
 
-## Pricing
+<div align="center">
+  <img src="docs/state_machine.png" alt="State Machine" width="600">
+</div>
 
-Estimated monthly costs (USD) for running in an AWS ###:
+### 🛠️ Technology Stack
 
-| Service                   | Rate (us-west-2)                      | Quantity | Estimated cost |
+<div align="center">
+
+|                                                              Technology                                                              |                  Description                   |
+| :----------------------------------------------------------------------------------------------------------------------------------: | :--------------------------------------------: |
+|     <img height="40" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/aws.png">      | **Amazon Web Services** - Cloud infrastructure |
+|   <img height="40" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/next_js.png">    |   **Next.js** - React framework for frontend   |
+|  <img height="40" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/shadcn_ui.png">   |      **ShadCN UI** - Modern UI components      |
+| <img height="40" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/tailwind_css.png"> | **Tailwind CSS** - Utility-first CSS framework |
+|  <img height="40" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/typescript.png">  |     **TypeScript** - Type-safe development     |
+
+</div>
+
+### ⚠️ Current Limitations
+
+> **Azure DevOps Service Hooks Limitation**  
+> Azure DevOps Service Hooks can only be configured to trigger on one or all fields when a work item is updated. When the Title, Description, and Acceptance Criteria of a work item are updated simultaneously, Task Genie will be triggered 3 times, resulting in 3x the number of tasks being generated.
+
+> **Amazon Bedrock Knowledge Bases**  
+> Task Genie uses S3 Vectors for the Knowledge Base Data Store, which is currently not supported in CloudFormation. The Bedrock Knowledge Base needs to be manually created in the console and the IDs need to be set in the `.env` file.
+
+## 💰 Pricing
+
+Estimated monthly costs (USD) for running in AWS:
+
+<div align="center">
+
+| Service                   | Rate (us-west-2)                      | Quantity | Estimated Cost |
 | ------------------------- | ------------------------------------- | -------- | -------------- |
 | CloudWatch                | $3 per dashboard                      | 1        | $3.00          |
 | Amplify                   | $0.01 per minute                      | 10       | $0.10          |
@@ -75,116 +117,98 @@ Estimated monthly costs (USD) for running in an AWS ###:
 | Bedrock (Claude 4 Sonnet) | $3.00/1M (input) / $15.00/1M (output) | 1        | $18.00         |
 | **TOTAL (estimated)**     |                                       |          | **$24.44**     |
 
-## Getting Started
+</div>
 
-### Pre-requisites (one-time setup)
+## 🚀 Getting Started
 
-1. Request the `Identity and Productivity Team` to create an Azure Service Principal in AzureDevOps with "Read & Write" permissions to "Work Items". Use these values to populate the `.env` in the next step.
+### 📋 Prerequisites (One-time setup)
 
-2. Log in to Azure DevOps, click `Organization Settings`, click `Users`, and click `Add users`
+1. **Azure Service Principal Setup**
 
-3. Enter the Service Principal Client Id and set the `Access Level` and `Project`. Uncheck `Send email invites`.
+   - Request the `Identity and Productivity Team` to create an Azure Service Principal in Azure DevOps with "Read & Write" permissions to "Work Items"
+   - Use these values to populate the `.env` in the next step
 
-   ![ADO Service Principal](/docs/service_principal.png)
+2. **Azure DevOps User Configuration**
 
-### Deployment
+   - Log in to Azure DevOps → `Organization Settings` → `Users` → `Add users`
+   - Enter the Service Principal Client Id and set the `Access Level` and `Project`
+   - Uncheck `Send email invites`
 
-#### Backend (automated deployment)
+   - Uncheck `Send email invites`
 
-The backend is deployed using GitHub Actions.
+<div align="center">
+  <img src="docs/service_principal.png" alt="Azure DevOps Service Principal" width="600">
+</div>
 
-- CI Pipeline (`ci.yml`)
-  - Runs on every pull request and push
+## 🔧 Deployment
+
+### 🚀 Backend Deployment Options
+
+#### Option 1: Automated Deployment (GitHub Actions)
+
+The backend is deployed using GitHub Actions with the following pipelines:
+
+- **CI Pipeline** (`ci.yml`) - Runs on every pull request and push
   - Builds and tests the code
   - Validates CloudFormation templates
   - Runs security scans
-- Staging Deployment (`deploy-staging.yml`)
-  - Automatically deploys to staging on `main` branch pushes
-  - Can also be triggered manually
-- Production Deployment (`deploy-production.yml`)
-  - Manual deployment only
-  - Requires typing "DEPLOY" for confirmation
-  - Uses production environment protection rules
+- **Staging Deployment** (`deploy-staging.yml`) - Automatically deploys to staging on `main` branch pushes
+- **Production Deployment** (`deploy-production.yml`) - Manual deployment only with confirmation
 
-To setup the automated deployments follow this one-time setup:
+**One-time Setup for Automated Deployment:**
 
-1. Deploy GitHub Actions Infrastructure
+1. **Deploy GitHub Actions Infrastructure**
 
-The GitHub Actions OIDC provider and IAM role are automatically deployed when you run the standard deployment command:
+   The GitHub Actions OIDC provider and IAM role are automatically deployed when you run the standard deployment command:
 
-```bash
-cd infrastructure
-npm run deploy
-```
-
-This will deploy all stacks including:
-
-- AWS OIDC provider for GitHub Actions
-- IAM role with necessary permissions for CDK deployment
-- Your application infrastructure (data, app, observability stacks)
-- Output with the role ARN you'll need for GitHub
-
-**Note:** The GitHub Actions infrastructure is only deployed in the staging environment to avoid duplication.
-
-2. Configure GitHub Repository
-
-**Create Environments**
-
-1. Go to your GitHub repository
-2. Navigate to **Settings** → **Environments**
-3. Create two environments:
-
-   - `staging`
-   - `production`
-
-4. Add Secrets
-
-For each environment, add the following secrets under **Settings** → **Secrets and variables** → **Actions**:
-
-**Required Secrets:**
-
-- `AWS_ROLE_ARN`: The role ARN from the CDK output (step 1)
-- `AZURE_DEVOPS_PROJECT`: Your Azure DevOps project name
-- `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
-- `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
-- `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
-- `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
-- `AWS_BEDROCK_MODEL_ID`: Bedrock model ID
-
-**Environment-Specific Secrets:**
-
-For **staging** environment:
-
-- `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
-- `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
-
-For **production** environment:
-
-- `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
-- `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
-
-⚠️ NOTE: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. As such, the Bedrock Knowledge Base needs to be manually created in the AWS console.
-
-5. Create a Bedrock Knowledge Base
-
-   - Ensure the Chunking strategy is set to `Semantic chunking` with a `Maz token size for a chunk` = 150
-     ![Chunking Strategy](/docs/kb_chunking.png)
-   - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from the deployment (step 3)
-
-6. Update the `/infrastructure/.env` with the created Bedrock Knowledge Base ID and Bedrock Knowledge Base Data Source ID
-
-   ```
-   AWS_BEDROCK_KNOWLEDGE_BASE_ID=
-   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
+   ```bash
+   cd infrastructure
+   npm run deploy
    ```
 
-#### Backend (manual deployment)
+   This will deploy all stacks including:
 
-To deploy the backend manually follow the following steps:
+   - AWS OIDC provider for GitHub Actions
+   - IAM role with necessary permissions for CDK deployment
+   - Your application infrastructure (data, app, observability stacks)
+   - Output with the role ARN you'll need for GitHub
 
-1. Update the `/infrastructure/.env` file with the parameters:
+   > **Note:** The GitHub Actions infrastructure is only deployed in the staging environment to avoid duplication.
 
-   ```
+2. **Configure GitHub Repository**
+
+   **Create Environments:**
+
+   1. Go to your GitHub repository
+   2. Navigate to **Settings** → **Environments**
+   3. Create two environments: `staging` and `production`
+
+   **Add Secrets:**
+   For each environment, add the following secrets under **Settings** → **Secrets and variables** → **Actions**:
+
+   **Required Secrets:**
+
+   - `AWS_ROLE_ARN`: The role ARN from the CDK output (step 1)
+   - `AZURE_DEVOPS_PROJECT`: Your Azure DevOps project name
+   - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
+   - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
+   - `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
+   - `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
+   - `AWS_BEDROCK_MODEL_ID`: Bedrock model ID
+
+   **Environment-Specific Secrets:**
+   For **staging** and **production** environments:
+
+   - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
+   - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
+
+#### Option 2: Manual Deployment (CDK)
+
+1. **Environment Configuration**
+
+   Update the `/infrastructure/.env` file with your parameters:
+
+   ```env
    AZURE_DEVOPS_PROJECT=
    AZURE_DEVOPS_TENANT_ID=
    AZURE_DEVOPS_CLIENT_ID=
@@ -195,35 +219,58 @@ To deploy the backend manually follow the following steps:
    AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
    ```
 
-2. Install dependencies
+2. **Install Dependencies**
 
-   ```
+   ```bash
    npm run install
    ```
 
-3. Deploy the backend
+3. **Deploy Infrastructure**
 
-   ```
+   ```bash
    npm run deploy
    npm run deploy-prod
    ```
 
-⚠️ 4. If you have not created the Bedrock Knowledge Base in the previous GitHub Actions backend deployment then please refer to step 5-6 in that section and then redeploy the backend
+   > ⚠️ **Note**: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. The Bedrock Knowledge Base needs to be manually created in the AWS console.
 
-```
-npm run deploy
-npm run deploy-prod
-```
+4. **Create Bedrock Knowledge Base**
 
-#### Frontend (automated deployment)
+   - Set the Chunking strategy to `Semantic chunking` with `Max token size for a chunk` = 150
 
-The frontend is deployed using Vercel.
+   <div align="center">
+     <img src="docs/kb_chunking.png" alt="Chunking Strategy" width="600">
+   </div>
 
-To run the frontend locally:
+   - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from step 3
 
-1. Update the `/frontend/.env.local` file with the parameters from the backend deployment:
+5. **Update Environment Variables**
 
+   Update `/infrastructure/.env` with the created Bedrock Knowledge Base details:
+
+   ```env
+   AWS_BEDROCK_KNOWLEDGE_BASE_ID=your_kb_id
+   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=your_data_source_id
    ```
+
+6. **Re-deploy Backend**
+
+   ```bash
+   npm run deploy
+   npm run deploy-prod
+   ```
+
+### 🌐 Frontend Deployment
+
+The frontend is deployed using **Vercel**.
+
+#### Local Development
+
+1. **Environment Configuration**
+
+   Update `/frontend/.env.local` with backend deployment parameters:
+
+   ```env
    NEXT_PUBLIC_COGNITO_USER_POOL_ID=
    NEXT_PUBLIC_COGNITO_CLIENT_ID=
    NEXT_PUBLIC_API_GATEWAY_URL=
@@ -231,46 +278,88 @@ To run the frontend locally:
    NEXT_PUBLIC_TURNSTILE_SITE_KEY=
    ```
 
-2. Install dependencies
+2. **Install Dependencies**
 
-   ```
+   ```bash
    npm run install
    ```
 
-3. Run the frontend
+3. **Start Development Server**
 
-   ```
+   ```bash
    npm run dev
    ```
 
-### Azure DevOps configuration (one-time, per board)
+### 🔗 Azure DevOps Configuration (One-time, per board)
 
-The integration with Azure DevOps leverages Service Hooks and requires 4 Service Hooks to be created for each Board.
+The integration with Azure DevOps leverages **Service Hooks** and requires **4 Service Hooks** to be created for each Board:
 
 - Work item created
 - Work item updated (title)
 - Work item updated (description)
 - Work item updated (acceptance criteria)
 
-![service_hooks](/docs/service_hooks.png)
+<div align="center">
+  <img src="docs/service_hooks.png" alt="Service Hooks Configuration" width="700">
+</div>
 
-⚠️ NOTE: This means when the title, AC, and description is updated at the same time, it will trigger 3x, resulting in 3x the number of tasks being generated. Please be aware of this. This is a limitation of Azure DevOps and not Task Genie. ⚠️
+> ⚠️ **Important**: When the title, acceptance criteria, and description are updated simultaneously, it will trigger 3 times, resulting in 3x the number of tasks being generated. This is a limitation of Azure DevOps, not Task Genie.
 
-1. In the Azure DevOps project, click on the gear to open the Project Settings
+#### Configuration Steps
 
-2. Click on Service hooks
+1. **Access Project Settings**
 
-3. Click the '+' plus sign to create a new Service Hook
+   - In Azure DevOps project → Click the gear icon → `Project Settings`
 
-4. Create four (4) Service Hooks with the following configuration:
-   - **Trigger on this type of event:** work item created (1), work item updated (3)
-   - **Area path:** the name of the Azure DevOps project to configure
-   - **Work item type:** User Story
+2. **Navigate to Service Hooks**
 
-- **URL:** the API Gateway URL from the backend deployment with `/executions` as the path (i.e. https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions)
-  - **HTTP headers:** Set this to x-api-key:<the API Gateway API Key from the backend deployment>
+   - Click on `Service hooks`
 
-## References
+3. **Create New Service Hook**
 
-- https://www.youtube.com/watch?v=POn5WYFw4xU
-- https://github.com/aws-samples/genai-for-devops/tree/main/automating-kanban-workflows
+   - Click the `+` plus sign to create a new Service Hook
+
+4. **Configure Four Service Hooks**
+
+   Create **four (4) Service Hooks** with the following configuration:
+
+   | Setting                           | Value                                                                   |
+   | --------------------------------- | ----------------------------------------------------------------------- |
+   | **Trigger on this type of event** | work item created (1), work item updated (3)                            |
+   | **Area path**                     | Azure DevOps project name                                               |
+   | **Work item type**                | User Story                                                              |
+   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` |
+   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                      |
+
+## 📚 References
+
+- [YouTube Demo](https://www.youtube.com/watch?v=POn5WYFw4xU)
+- [AWS GenAI for DevOps Samples](https://github.com/aws-samples/genai-for-devops/tree/main/automating-kanban-workflows)
+
+## 🤝 Contributing
+
+We welcome contributions to Task Genie! Please feel free to submit issues, feature requests, or pull requests.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+If you encounter any issues or have questions, please:
+
+1. Check the [Issues](https://github.com/eric-bach/task-genie/issues) page
+2. Create a new issue if your problem isn't already reported
+3. Provide detailed information about your environment and the issue
+
+---
+
+<div align="center">
+  <strong>Made with ❤️ by the Task Genie Team</strong>
+</div>
