@@ -6,10 +6,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "build-all": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '🚧 Building {}' ; -execdir sh -c 'npm run build' ; && find ./../backend/services -mindepth 1 -maxdepth 1 -type f -name 'package.json' -exec echo '🚧 Building {}' ; -execdir sh -c 'npm run build' ;",
+    "build-all": "find ./../backend -name 'package.json' -not -path '*/node_modules/*' -printf '🚧 Building in %h\n' -execdir npm run build \\;",
     "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=stage",
     "deploy-prod": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-prod --context envName=prod",
-    "install-all": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ; && find ./../backend/services -mindepth 1 -maxdepth 1 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ;",
+    "install-all": "find ./../backend -name 'package.json' -not -path '*/node_modules/*' -printf '🛠️ Installing in %h\n' -execdir npm install \\;",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk"
