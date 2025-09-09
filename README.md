@@ -6,14 +6,25 @@
 
 <div align="center">
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![AWS](https://img.shields.io/badge/AWS-Serverless-orange.svg)](https://aws.amazon.com/)
+<!-- Repository Stats -->
+
+[![GitHub issues](https://img.shields.io/github/issues/eric-bach/task-genie)](https://github.com/eric-bach/task-genie/issues)
+[![GitHub pull requests](https://img.shields.io/github/issues-pr/eric-bach/task-genie)](https://github.com/eric-bach/task-genie/pulls)
+[![GitHub last commit](https://img.shields.io/github/last-commit/eric-bach/task-genie)](https://github.com/eric-bach/task-genie/commits/main)
+[![GitHub release](https://img.shields.io/github/v/release/eric-bach/task-genie?include_prereleases)](https://github.com/eric-bach/task-genie/releases)
+
+<!-- Technology Stack -->
+
+[![Azure DevOps](https://img.shields.io/badge/Azure%20DevOps-Integration-blue.svg)](https://azure.microsoft.com/en-us/services/devops/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://typescriptlang.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14.0+-black.svg)](https://nextjs.org/)
-[![Azure DevOps](https://img.shields.io/badge/Azure%20DevOps-Integration-blue.svg)](https://azure.microsoft.com/en-us/services/devops/)
-[![AI Powered](https://img.shields.io/badge/AI-Bedrock%20Claude-purple.svg)](https://aws.amazon.com/bedrock/)
-[![Serverless](https://img.shields.io/badge/Architecture-Serverless-green.svg)](https://aws.amazon.com/serverless/)
-[![Maintenance](https://img.shields.io/badge/Maintained%3F-yes-green.svg)](https://github.com/eric-bach/task-genie/graphs/commit-activity)
+[![Node.js](https://img.shields.io/badge/Node.js-22+-green.svg)](https://nodejs.org/)
+
+<!-- Project Status -->
+
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/eric-bach/task-genie?style=social)](https://github.com/eric-bach/task-genie/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/eric-bach/task-genie?style=social)](https://github.com/eric-bach/task-genie/network/members)
 
 </div>
 
