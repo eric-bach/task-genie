@@ -84,11 +84,103 @@ Estimated monthly costs (USD) for running in an AWS ###:
 2. Log in to Azure DevOps, click `Organization Settings`, click `Users`, and click `Add users`
 
 3. Enter the Service Principal Client Id and set the `Access Level` and `Project`. Uncheck `Send email invites`.
+
    ![ADO Service Principal](/docs/service_principal.png)
 
 ### Deployment
 
-#### CDK
+#### Backend (automated deployment)
+
+The backend is deployed using GitHub Actions.
+
+- CI Pipeline (`ci.yml`)
+  - Runs on every pull request and push
+  - Builds and tests the code
+  - Validates CloudFormation templates
+  - Runs security scans
+- Staging Deployment (`deploy-staging.yml`)
+  - Automatically deploys to staging on `main` branch pushes
+  - Can also be triggered manually
+- Production Deployment (`deploy-production.yml`)
+  - Manual deployment only
+  - Requires typing "DEPLOY" for confirmation
+  - Uses production environment protection rules
+
+To setup the automated deployments follow this one-time setup:
+
+1. Deploy GitHub Actions Infrastructure
+
+The GitHub Actions OIDC provider and IAM role are automatically deployed when you run the standard deployment command:
+
+```bash
+cd infrastructure
+npm run deploy
+```
+
+This will deploy all stacks including:
+
+- AWS OIDC provider for GitHub Actions
+- IAM role with necessary permissions for CDK deployment
+- Your application infrastructure (data, app, observability stacks)
+- Output with the role ARN you'll need for GitHub
+
+**Note:** The GitHub Actions infrastructure is only deployed in the staging environment to avoid duplication.
+
+2. Configure GitHub Repository
+
+**Create Environments**
+
+1. Go to your GitHub repository
+2. Navigate to **Settings** → **Environments**
+3. Create two environments:
+
+   - `staging`
+   - `production`
+
+4. Add Secrets
+
+For each environment, add the following secrets under **Settings** → **Secrets and variables** → **Actions**:
+
+**Required Secrets:**
+
+- `AWS_ROLE_ARN`: The role ARN from the CDK output (step 1)
+- `AZURE_DEVOPS_PROJECT`: Your Azure DevOps project name
+- `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
+- `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
+- `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
+- `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
+- `AWS_BEDROCK_MODEL_ID`: Bedrock model ID
+
+**Environment-Specific Secrets:**
+
+For **staging** environment:
+
+- `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
+- `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
+
+For **production** environment:
+
+- `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
+- `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
+
+⚠️ NOTE: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. As such, the Bedrock Knowledge Base needs to be manually created in the AWS console.
+
+5. Create a Bedrock Knowledge Base
+
+   - Ensure the Chunking strategy is set to `Semantic chunking` with a `Maz token size for a chunk` = 150
+     ![Chunking Strategy](/docs/kb_chunking.png)
+   - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from the deployment (step 3)
+
+6. Update the `/infrastructure/.env` with the created Bedrock Knowledge Base ID and Bedrock Knowledge Base Data Source ID
+
+   ```
+   AWS_BEDROCK_KNOWLEDGE_BASE_ID=
+   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
+   ```
+
+#### Backend (manual deployment)
+
+To deploy the backend manually follow the following steps:
 
 1. Update the `/infrastructure/.env` file with the parameters:
 
@@ -116,28 +208,14 @@ Estimated monthly costs (USD) for running in an AWS ###:
    npm run deploy-prod
    ```
 
-⚠️ NOTE: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. As such, the Bedrock Knowledge Base needs to be manually created in the AWS console.
+⚠️ 4. If you have not created the Bedrock Knowledge Base in the previous GitHub Actions backend deployment then please refer to step 5-6 in that section and then redeploy the backend
 
-4. Create a Bedrock Knowledge Base
+```
+npm run deploy
+npm run deploy-prod
+```
 
-   - Ensure the Chunking strategy is set to `Semantic chunking` with a `Maz token size for a chunk` = 150
-     ![Chunking Strategy](/docs/kb_chunking.png)
-   - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from the deployment (step 3)
-
-5. Update the `/infrastructure/.env` with the created Bedrock Knowledge Base ID and Bedrock Knowledge Base Data Source ID
-
-   ```
-   AWS_BEDROCK_KNOWLEDGE_BASE_ID=
-   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
-   ```
-
-6. Re-deploy the backend
-
-   ```
-   npm run deploy
-   ```
-
-#### Frontend
+#### Frontend (automated deployment)
 
 The frontend is deployed using Vercel.
 
