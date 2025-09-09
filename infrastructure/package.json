@@ -9,7 +9,9 @@
     "build-all": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '🚧 Building {}' ; -execdir sh -c 'npm run build' ; && find ./../backend/services -mindepth 1 -maxdepth 1 -type f -name 'package.json' -exec echo '🚧 Building {}' ; -execdir sh -c 'npm run build' ;",
     "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=stage",
     "deploy-prod": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-prod --context envName=prod",
-    "install-all": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ; && find ./../backend/services -mindepth 1 -maxdepth 1 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ;",
+    "install-all": "npm run install-lambda && npm run install-services",
+    "install-lambda": "find ./../backend/lambda -mindepth 2 -maxdepth 2 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ;",
+    "install-services": "find ./../backend/services -mindepth 1 -maxdepth 1 -type f -name 'package.json' -exec echo '💾 Installing {}' ; -execdir sh -c 'npm install' ;",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk"
