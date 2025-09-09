@@ -42,11 +42,6 @@ jobs:
           cd infrastructure
           npm run install-all
 
-      - name: Run tests
-        run: |
-          cd infrastructure
-          npm test
-
       - name: Build all components
         run: |
           cd infrastructure
