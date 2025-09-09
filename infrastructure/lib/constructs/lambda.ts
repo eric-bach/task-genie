@@ -41,7 +41,7 @@ export class TaskGenieLambda extends NodejsFunction {
     const projectRoot = props.projectRoot ?? path.resolve(__dirname, '../../..');
     const handler = props.handler ?? 'handler';
     const runtime = props.runtime ?? Runtime.NODEJS_22_X;
-    const architecture = props.architecture ?? Architecture.ARM_64;
+    const architecture = props.architecture ?? Architecture.X86_64;
     const layers = props.layers ?? [powertoolsLayer];
     const memorySize = props.memorySize ?? 256;
     const timeout = props.timeout ?? Duration.seconds(10);
