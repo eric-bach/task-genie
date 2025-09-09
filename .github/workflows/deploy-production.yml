@@ -1,0 +1,80 @@
+name: Deploy to Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+        type: string
+
+env:
+  AWS_REGION: us-west-2
+  NODE_VERSION: '22'
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  verify-input:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify production deployment confirmation
+        if: ${{ github.event.inputs.confirm_production != 'DEPLOY' }}
+        run: |
+          echo "❌ Production deployment not confirmed. Please type 'DEPLOY' to proceed."
+          exit 1
+
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+    needs: verify-input
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: |
+            infrastructure/package-lock.json
+            backend/lambda/*/package-lock.json
+            backend/services/package-lock.json
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Install dependencies
+        run: |
+          cd infrastructure
+          npm ci
+          npm run install-all
+
+      - name: Build all components
+        run: |
+          cd infrastructure
+          npm run build-all
+
+      - name: Deploy infrastructure
+        run: |
+          cd infrastructure
+          npm run cdk bootstrap -- --context envName=prod
+          npm run cdk deploy -- --all --require-approval=never --context envName=prod
+        env:
+          # Environment variables for your application
+          AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
+          AZURE_DEVOPS_TENANT_ID: ${{ secrets.AZURE_DEVOPS_TENANT_ID }}
+          AZURE_DEVOPS_CLIENT_ID: ${{ secrets.AZURE_DEVOPS_CLIENT_ID }}
+          AZURE_DEVOPS_CLIENT_SECRET: ${{ secrets.AZURE_DEVOPS_CLIENT_SECRET }}
+          AZURE_DEVOPS_SCOPE: ${{ secrets.AZURE_DEVOPS_SCOPE }}
+          AWS_BEDROCK_MODEL_ID: ${{ secrets.AWS_BEDROCK_MODEL_ID }}
+          AWS_BEDROCK_KNOWLEDGE_BASE_ID: ${{ secrets.AWS_BEDROCK_KNOWLEDGE_BASE_ID }}
+          AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: ${{ secrets.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID }}

@@ -3,6 +3,7 @@ import { App, StackProps } from 'aws-cdk-lib';
 import { AppStack } from '../lib/app-stack';
 import { DataStack } from '../lib/data-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
+import { GitHubActionsStack } from '../lib/github-actions-stack';
 // import { IVpc } from 'aws-cdk-lib/aws-ec2';
 
 export interface BaseStackProps extends StackProps {
@@ -84,3 +85,12 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
     apiGwAccessLogGroupArn: appProps.apiGwAccessLogGroupArn,
   },
 });
+
+// GitHub Actions stack (only deploy in one environment to avoid duplication)
+if (ENV_NAME === 'stage') {
+  new GitHubActionsStack(app, `${APP_NAME}-github-actions`, {
+    ...baseProps,
+    appName: APP_NAME,
+    gitHubRepo: 'eric-bach/task-genie', // Update this with your actual GitHub repo
+  });
+}
