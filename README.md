@@ -170,7 +170,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
 
 1. **Deploy GitHub Actions Infrastructure**
 
-   The GitHub Actions OIDC provider and IAM role are automatically deployed when you run the standard deployment command:
+   The GitHub Actions OIDC provider and IAM role are automatically deployed when you run the deployment command:
 
    ```bash
    cd infrastructure
@@ -183,8 +183,6 @@ The backend is deployed using GitHub Actions with the following pipelines:
    - IAM role with necessary permissions for CDK deployment
    - Your application infrastructure (data, app, observability stacks)
    - Output with the role ARN you'll need for GitHub
-
-   > **Note:** The GitHub Actions infrastructure is only deployed in the staging environment to avoid duplication.
 
 2. **Configure GitHub Repository**
 
@@ -199,7 +197,6 @@ The backend is deployed using GitHub Actions with the following pipelines:
 
    **Required Secrets:**
 
-   - `AWS_ROLE_ARN`: The role ARN from the CDK output (step 1)
    - `AZURE_DEVOPS_PROJECT`: Your Azure DevOps project name
    - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
    - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
@@ -210,6 +207,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
    **Environment-Specific Secrets:**
    For **staging** and **production** environments:
 
+   - `AWS_ROLE_ARN`
    - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
    - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
 

@@ -55,6 +55,12 @@ const baseProps: BaseStackProps = {
   },
 };
 
+new GitHubActionsStack(app, `${APP_NAME}-github-actions-${ENV_NAME}`, {
+  ...baseProps,
+  appName: APP_NAME,
+  gitHubRepo: 'eric-bach/task-genie',
+});
+
 const dataProps = new DataStack(app, `${APP_NAME}-data-${ENV_NAME}`, {
   ...baseProps,
 });
@@ -87,12 +93,3 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
     apiName: appProps.apiName,
   },
 });
-
-// GitHub Actions stack (only deploy in one environment to avoid duplication)
-if (ENV_NAME === 'stage') {
-  new GitHubActionsStack(app, `${APP_NAME}-github-actions`, {
-    ...baseProps,
-    appName: APP_NAME,
-    gitHubRepo: 'eric-bach/task-genie', // Update this with your actual GitHub repo
-  });
-}
