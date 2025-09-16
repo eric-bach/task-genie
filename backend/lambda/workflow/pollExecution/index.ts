@@ -11,10 +11,11 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
 const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
   try {
-    // Extract execution name from path parameters
-    const executionName = event.pathParameters?.executionName;
+    // Extract execution id from path parameters and decode it
+    const rawExecutionId = event.pathParameters?.executionId;
+    const executionId = rawExecutionId ? decodeURIComponent(rawExecutionId) : undefined;
 
-    if (!executionName) {
+    if (!executionId) {
       return {
         statusCode: 400,
         headers: {
@@ -24,17 +25,17 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
           'Access-Control-Allow-Methods': 'GET,OPTIONS',
         },
         body: JSON.stringify({
-          error: 'Missing executionName parameter',
-          message: 'executionName is required in the path parameters',
+          error: 'Missing executionId parameter',
+          message: 'executionId is required in the path parameters',
         }),
       };
     }
 
     // Query DynamoDB for the execution result
-    const result = await pollExecutionResult(executionName);
+    const result = await pollExecutionResult(executionId);
 
     if (result) {
-      logger.info('✅ Execution result found', { executionName, result });
+      logger.info('✅ Execution result found', { executionId, result });
 
       return {
         statusCode: 200,
@@ -46,12 +47,12 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
         },
         body: JSON.stringify({
           status: 'completed',
-          executionName,
+          executionId,
           result,
         }),
       };
     } else {
-      logger.info('Execution result not found - still running', { executionName });
+      logger.info('Execution result not found - still running', { executionId });
 
       return {
         statusCode: 202,
@@ -63,7 +64,7 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
         },
         body: JSON.stringify({
           status: 'running',
-          executionName,
+          executionId,
           message: 'Step function execution is still in progress',
         }),
       };
@@ -87,21 +88,21 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
   }
 };
 
-const pollExecutionResult = async (executionName: string) => {
+const pollExecutionResult = async (executionId: string) => {
   const tableName = process.env.TABLE_NAME;
 
   if (!tableName) {
     throw new Error('TABLE_NAME environment variable is not set');
   }
 
-  logger.info('Querying DynamoDB for execution result', { executionName, tableName });
+  logger.info('Querying DynamoDB for execution result', { executionId, tableName });
 
   const command = new GetCommand({
     TableName: tableName,
     Key: {
-      executionName: executionName,
+      executionId: executionId,
     },
-    ProjectionExpression: 'executionName, executionResult, workItemId, workItem, tasksCount, tasks, workItemComment',
+    ProjectionExpression: 'executionId, executionResult, workItemId, workItem, tasksCount, tasks, workItemComment',
   });
 
   try {
@@ -109,7 +110,7 @@ const pollExecutionResult = async (executionName: string) => {
 
     if (response.Item) {
       logger.info('Found execution result in DynamoDB', {
-        executionName,
+        executionId,
         executionResult: response.Item.executionResult,
         workItemId: response.Item.workItemId,
         workItemComment: response.Item.workItemComment,
@@ -117,11 +118,11 @@ const pollExecutionResult = async (executionName: string) => {
       });
       return response.Item;
     } else {
-      logger.info('No execution result found in DynamoDB', { executionName });
+      logger.info('No execution result found in DynamoDB', { executionId });
       return null;
     }
   } catch (error) {
-    logger.error('Failed to query DynamoDB', { error, executionName });
+    logger.error('Failed to query DynamoDB', { error, executionId });
     throw error;
   }
 };

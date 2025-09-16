@@ -381,7 +381,7 @@ export class AppStack extends Stack {
       payload: TaskInput.fromObject({
         'body.$': '$.body',
         'statusCode.$': '$.statusCode',
-        'executionName.$': '$$.Execution.Name',
+        'executionArn.$': '$$.Execution.Id',
       }),
       outputPath: '$.Payload',
     });
@@ -644,8 +644,8 @@ export class AppStack extends Stack {
     });
 
     // Add method to poll Step Function execution results
-    //  GET /executions/{executionName}
-    const pollResource = executionsResource.addResource('{executionName}');
+    //  GET /executions/{executionId} (URL-encoded execution ID with colons)
+    const pollResource = executionsResource.addResource('{executionId}');
     pollResource.addMethod(
       'GET',
       new LambdaIntegration(pollExecutionFunction, {

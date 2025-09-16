@@ -38,12 +38,12 @@ export default function StatsSection() {
               </p>
 
               <div className='mt-6 space-y-3'>
-                <cite className='block font-medium'>Sarah L, Scrum Master at TechFlow Solutions</cite>
+                <cite className='block font-medium'>Sarah L, Scrum Master at Vercel</cite>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   className='h-5 w-fit dark:invert'
-                  src='https://html.tailus.io/blocks/customers/nvidia.svg'
-                  alt='Nvidia Logo'
+                  src='https://html.tailus.io/blocks/customers/vercel.svg'
+                  alt='Vercel Logo'
                   height='20'
                   width='auto'
                 />

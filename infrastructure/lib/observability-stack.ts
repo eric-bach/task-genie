@@ -236,8 +236,8 @@ export class ObservabilityStack extends Stack {
       logGroupNames: [`/aws/stepfunctions/${props.appName}-state-machine-${props.envName}`],
       queryString: `fields @timestamp, @message 
 | filter @message like /(Failed|Timed out)/  
-| parse @message /execution_arn":"[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:(?<executionName>[^:]+):/ 
-| parse executionName /(ado|workitem)-(?<workItemId>[0-9]+)-rev-(?<rev>[0-9]+)/ 
+| parse @message /execution_arn":"[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:(?<executionId>[^:]+):/ 
+| parse executionId /(ado|workitem)-(?<workItemId>[0-9]+)-rev-(?<rev>[0-9]+)/ 
 | display workItemId, rev, details.error, @timestamp
 | sort @timestamp desc
 | limit 1000`,
