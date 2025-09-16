@@ -238,6 +238,7 @@ export class ObservabilityStack extends Stack {
 | filter @message like /(Failed|Timed out)/  
 | parse @message /execution_arn":"[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:[^:]+:(?<executionId>[^:]+):/ 
 | parse executionId /(ado|workitem)-(?<workItemId>[0-9]+)-rev-(?<rev>[0-9]+)/ 
+| filter executionId not like /ado-0-rev-1/ 
 | display workItemId, rev, details.error, @timestamp
 | sort @timestamp desc
 | limit 1000`,
@@ -270,7 +271,7 @@ export class ObservabilityStack extends Stack {
       logGroupNames: [`/aws/lambda/${evaluateUserStoryFunction.functionName}`],
       queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}'
 | fields @timestamp, @message, @logStream 
-| filter @message like /Work item \\d+ does not meet requirements/ and @message not like /Work item 0\s+does not meet requirements/
+| filter @message like /Work item \\d+ does not meet requirements/ and @message not like /Work item 0\\s+does not meet requirements/
 | parse @message /Work item (?<workItemId>[0-9]+) does not meet requirements/
 | display workItemId, message, reason, @timestamp
 | sort @timestamp desc 

@@ -134,7 +134,7 @@ const saveResponseToDynamoDB = async (
   try {
     await docClient.send(command);
 
-    logger.info('Saved result to DynamoDB', { workItemId: workItem.workItemId });
+    logger.info('💾 Saved result to DynamoDB', { workItemId: workItem.workItemId });
   } catch (error) {
     logger.error('🛑 Failed to save to DynamoDB', { error, workItemId: workItem.workItemId });
     throw error;

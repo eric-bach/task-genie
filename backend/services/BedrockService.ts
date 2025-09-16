@@ -149,7 +149,7 @@ export class BedrockService {
       const response = await this.bedrockAgentClient.send(command);
       const results = response.retrievalResults || [];
 
-      this.logger.info(`Retrieved ${results.length} knowledge documents`);
+      this.logger.info(`📄 Retrieved ${results.length} knowledge documents`);
 
       return this.processKnowledgeResults(results);
     } catch (error) {
@@ -278,7 +278,7 @@ export class BedrockService {
       accept: 'application/json',
     };
 
-    this.logger.debug('Invoking Bedrock model', {
+    this.logger.debug('🧠 Invoking Bedrock model', {
       modelId: this.config.modelId,
       contentCount: content.length - (workItem.images?.length || 0),
       contentLength: content.reduce((sum, item) => {
@@ -471,6 +471,7 @@ Images referenced:
 
     const imagesToProcess = workItem.images.slice(0, this.config.maxImages);
 
+    let i = 0;
     for (const image of imagesToProcess) {
       try {
         const azureService = new AzureService();
@@ -486,7 +487,7 @@ Images referenced:
             },
           });
 
-          this.logger.debug('Added image to model input', {
+          this.logger.debug(`📷 Added image (${++i}/${imagesToProcess.length}) to model input`, {
             url: image.url,
             sizeKB: Math.round((imageData.length * 3) / 4 / 1024),
           });
@@ -663,8 +664,6 @@ Images referenced:
 
         return configItem.prompt?.S;
       }
-
-      this.logger.debug('No custom prompt override found. Using default prompt.', { adoKey: adoKey });
 
       return undefined;
     } catch (error) {
