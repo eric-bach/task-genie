@@ -37,6 +37,7 @@ export interface ObservabilityStackProps extends BaseStackProps {
     addCommentFunctionArn: string;
     sendResponseFunctionArn: string;
     apiGwAccessLogGroupArn: string;
+    apiName: string;
   };
 }
 
@@ -83,6 +84,7 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
     addCommentFunctionArn: appProps.addCommentFunctionArn,
     sendResponseFunctionArn: appProps.sendResponseFunctionArn,
     apiGwAccessLogGroupArn: appProps.apiGwAccessLogGroupArn,
+    apiName: appProps.apiName,
   },
 });
 

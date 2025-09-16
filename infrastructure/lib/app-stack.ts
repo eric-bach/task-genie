@@ -38,6 +38,7 @@ export class AppStack extends Stack {
   public addCommentFunctionArn: string;
   public sendResponseFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
+  public apiName: string;
 
   /**
    * Constructs a new instance of the Task Genie AppStack.
@@ -694,5 +695,6 @@ export class AppStack extends Stack {
     this.addCommentFunctionArn = addCommentFunction.functionArn;
     this.sendResponseFunctionArn = sendResponseFunction.functionArn;
     this.apiGwAccessLogGroupArn = apiGwAccessLogGroup.logGroupArn;
+    this.apiName = api.restApiName;
   }
 }

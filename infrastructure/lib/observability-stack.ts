@@ -297,7 +297,7 @@ export class ObservabilityStack extends Stack {
           namespace: 'AWS/ApiGateway',
           metricName: 'Count',
           dimensionsMap: {
-            ApiName: 'TaskGenieAPI',
+            ApiName: props.params.apiName,
           },
           statistic: 'Sum',
           period: Duration.minutes(5),
@@ -316,7 +316,7 @@ export class ObservabilityStack extends Stack {
           namespace: 'AWS/ApiGateway',
           metricName: 'Latency',
           dimensionsMap: {
-            ApiName: 'TaskGenieAPI',
+            ApiName: props.params.apiName,
           },
           statistic: 'Average',
           period: Duration.minutes(5),
@@ -325,7 +325,7 @@ export class ObservabilityStack extends Stack {
           namespace: 'AWS/ApiGateway',
           metricName: 'IntegrationLatency',
           dimensionsMap: {
-            ApiName: 'TaskGenieAPI',
+            ApiName: props.params.apiName,
           },
           statistic: 'Average',
           period: Duration.minutes(5),
