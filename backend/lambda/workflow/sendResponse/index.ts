@@ -26,7 +26,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     // Save response to DynamoDB
     await saveResponseToDynamoDB(executionId, workItem, tasks, workItemStatus);
 
-    logger.info('✅ Completed execution workflow');
+    logger.info(`✅ Completed execution workflow for work item ${workItem.workItemId}`);
 
     return {
       statusCode: event.statusCode,
