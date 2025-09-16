@@ -76,6 +76,7 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
       },
       resource: {
         workItemId: 0,
+        rev: 1,
         revision: {
           fields: {
             'System.ChangedBy': userId,
@@ -105,13 +106,17 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
     const data = await response.json();
     console.log('API response:', data);
 
-    // Get the step function execution name from the execution ARN
-    const executionName = data.executionArn.split(':').slice(-2)[0] || '';
+    // Get the step function execution id from the execution ARN
+    // ARN format: arn:aws:states:region:account-id:execution:stateMachineName:executionId
+    // The executionId can contain colons, so we need to extract everything after the 7th colon
+    const arnParts = data.executionArn.split(':');
+    const executionId = arnParts.slice(7).join(':') || '';
+    console.log('Extracted execution id:', executionId, 'from ARN:', data.executionArn);
 
     return {
       statusCode: response.status,
       data,
-      executionName,
+      executionId: executionId,
     };
   } catch (error) {
     // console.error('Error calling webhook:', error);
@@ -120,8 +125,9 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
   }
 }
 
-export async function pollForResults(executionName: string, maxAttempts: number = 36, intervalMs: number = 5000) {
-  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/executions/${executionName}`;
+export async function pollForResults(executionId: string, maxAttempts: number = 36, intervalMs: number = 5000) {
+  const encodedExecutionId = encodeURIComponent(executionId);
+  const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/executions/${encodedExecutionId}`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -136,14 +142,32 @@ export async function pollForResults(executionName: string, maxAttempts: number 
 
       const data = await response.json();
 
-      console.log('Polling for results:', data);
+      console.log(`Polling for results (attempt ${attempt + 1}/${maxAttempts}) for execution: ${executionId}`, data);
 
       // Check if execution is complete
       if (data.status === 'completed') {
         if (data.result.executionResult === 'SUCCEEDED') {
+          // Check if the business logic actually succeeded by looking at the output
+          const output = data.output || data.result;
+          console.log('Execution succeeded, checking output:', output);
+
+          // If the output contains a rejection or error message, treat it as a failure
+          if (
+            output.workItemStatus &&
+            output.workItemStatus.comment &&
+            (output.workItemStatus.comment.toLowerCase().includes('reject') ||
+              output.workItemStatus.comment.toLowerCase().includes('error') ||
+              output.workItemStatus.comment.toLowerCase().includes('fail'))
+          ) {
+            return {
+              statusCode: 400,
+              body: output,
+            };
+          }
+
           return {
             statusCode: 200,
-            body: data.output || data.result,
+            body: output,
           };
         } else if (data.result.executionResult === 'FAILED') {
           return {
@@ -255,10 +279,10 @@ export function UserStoryForm() {
         setIsPolling(true);
         setPollingMessage('Request submitted successfully. Waiting for results...');
 
-        const executionName = initialResponse.executionName;
+        const executionId = initialResponse.executionId;
 
-        if (!executionName) {
-          throw new Error('No execution name received from API');
+        if (!executionId) {
+          throw new Error('No execution ID received from API');
         }
 
         // Step 3: Poll for results
@@ -267,16 +291,25 @@ export function UserStoryForm() {
 
         const pollResults = async () => {
           try {
-            const pollResponse = await pollForResults(executionName, maxAttempts, intervalMs);
+            const pollResponse = await pollForResults(executionId, maxAttempts, intervalMs);
             setResult(pollResponse);
 
             if (pollResponse.statusCode === 200) {
-              setTasks(pollResponse.body.tasks || []);
+              const tasks = pollResponse.body.tasks || [];
+              console.log('Setting tasks from poll response:', tasks);
+              setTasks(tasks);
 
-              toast.success('User Story is accepted', {
-                description: `User story accepted and ${pollResponse.body.tasks?.length || 0} tasks were generated`,
-              });
+              if (tasks.length > 0) {
+                toast.success('User Story is accepted', {
+                  description: `User story accepted and ${tasks.length} tasks were generated`,
+                });
+              } else {
+                toast.warning('User Story processed', {
+                  description: 'User story was processed but no tasks were generated',
+                });
+              }
             } else {
+              console.log('Poll response indicates failure:', pollResponse);
               toast.error('User Story is not accepted', {
                 description: 'Please see the reason for more details and correct the user story to try again',
               });

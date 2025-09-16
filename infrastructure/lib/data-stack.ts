@@ -95,7 +95,7 @@ export class DataStack extends Stack {
     const resultsTable = new Table(this, 'EvaluationResultsTable', {
       tableName: `${props.appName}-results-${props.envName}`,
       partitionKey: {
-        name: 'executionName',
+        name: 'executionId',
         type: AttributeType.STRING,
       },
       billingMode: BillingMode.PAY_PER_REQUEST,

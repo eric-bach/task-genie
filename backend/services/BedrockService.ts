@@ -92,20 +92,12 @@ export class BedrockService {
       const filters = this.buildTaskBreakdownFilters(workItem);
       const knowledgeContext = await this.retrieveKnowledgeContext(query, filters);
 
-      // Check if a custom override prompt exists
-      if (!params.prompt) {
-        this.logger.debug('Checking if a custom prompt override was defined for ADO project', {
-          areaPath: workItem.areaPath,
-          businessUnit: workItem.businessUnit,
-          system: workItem.system,
-        });
-
-        let prompt = await this.getCustomPrompt(workItem);
-        params = { prompt };
-      }
+      // Resolve the prompt to use (parameter override takes precedence over database config)
+      const resolvedPrompt = await this.resolvePrompt(workItem, params.prompt);
+      const enhancedParams = { ...params, prompt: resolvedPrompt };
 
       // Step 2: Generate tasks using the model
-      const tasks = await this.invokeModelForTaskGeneration(workItem, params, knowledgeContext);
+      const tasks = await this.invokeModelForTaskGeneration(workItem, enhancedParams, knowledgeContext);
 
       this.logger.info('Task generation completed', {
         workItemId: workItem.workItemId,
@@ -605,6 +597,41 @@ Images referenced:
   }
 
   /**
+   * Resolve the prompt to use for task generation.
+   * Priority: 1) Parameter override, 2) Database config, 3) Default (undefined)
+   */
+  private async resolvePrompt(workItem: WorkItem, parameterPrompt?: string): Promise<string | undefined> {
+    // If a prompt was passed as a parameter, use it (highest priority)
+    if (parameterPrompt) {
+      this.logger.info('⭐ Using prompt override for task generation', {
+        prompt: parameterPrompt,
+        source: 'parameter',
+      });
+      return parameterPrompt;
+    }
+
+    // Otherwise, check for a custom prompt in the database
+    this.logger.debug('Checking if a custom prompt override was defined for ADO project', {
+      areaPath: workItem.areaPath,
+      businessUnit: workItem.businessUnit,
+      system: workItem.system,
+    });
+
+    const databasePrompt = await this.getCustomPrompt(workItem);
+    if (databasePrompt) {
+      this.logger.info('⭐ Using prompt override for task generation', {
+        prompt: databasePrompt,
+        source: 'database',
+      });
+      return databasePrompt;
+    }
+
+    // No override found, will use default prompt in buildTaskGenerationPrompt
+    this.logger.debug('No prompt override found, using default prompt');
+    return undefined;
+  }
+
+  /**
    * Retrieve a custom prompt from the DynamoDB config table if available.
    */
   private async getCustomPrompt(workItem: WorkItem): Promise<string | undefined> {
@@ -629,7 +656,7 @@ Images referenced:
 
       if (response.Item) {
         const configItem = response.Item as any;
-        this.logger.info('⭐ Found custom prompt override. Using prompt override.', {
+        this.logger.debug('Found custom prompt override. Using prompt override.', {
           adoKey: adoKey,
           prompt: configItem.prompt?.S,
         });

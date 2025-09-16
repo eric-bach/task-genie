@@ -21,12 +21,12 @@ const lambdaHandler = async (event: any, context: Context) => {
     event = validateEvent(event);
 
     // Parse work item
-    const { executionName, workItem, tasks, workItemStatus } = parseEvent(event);
+    const { executionId: executionId, workItem, tasks, workItemStatus } = parseEvent(event);
 
     // Save response to DynamoDB
-    await saveResponseToDynamoDB(executionName, workItem, tasks, workItemStatus);
+    await saveResponseToDynamoDB(executionId, workItem, tasks, workItemStatus);
 
-    logger.info('✅ Completed execution workflow');
+    logger.info(`✅ Completed execution workflow for work item ${workItem.workItemId}`);
 
     return {
       statusCode: event.statusCode,
@@ -52,8 +52,8 @@ const lambdaHandler = async (event: any, context: Context) => {
 };
 
 const validateEvent = (event: any) => {
-  if (!event.executionName) {
-    throw Error('Invalid event payload: the execution name is missing or undefined.');
+  if (!event.executionArn) {
+    throw Error('Invalid event payload: the execution ARN is missing or undefined.');
   }
 
   if (!event.body) {
@@ -65,22 +65,26 @@ const validateEvent = (event: any) => {
 
 const parseEvent = (
   event: any
-): { executionName: string; workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockWorkItemEvaluationResponse } => {
+): { executionId: string; workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockWorkItemEvaluationResponse } => {
   const { workItem, tasks, workItemStatus } = event.body;
-  const executionName = event.executionName;
+
+  // Use executionId as the executionId for storage
+  logger.debug(`Received executionArn: ${event.executionArn}`);
+  const executionArn = event.executionArn.split(':');
+  const executionId = executionArn.slice(7).join(':') || '';
 
   logger.info('Parsed work item', {
-    executionName,
+    executionId,
     workItem,
     tasks,
     workItemStatus,
   });
 
-  return { executionName, workItem, tasks, workItemStatus };
+  return { executionId, workItem, tasks, workItemStatus };
 };
 
 const saveResponseToDynamoDB = async (
-  executionName: string,
+  executionId: string,
   workItem: WorkItem,
   tasks: Task[],
   workItemStatus: BedrockWorkItemEvaluationResponse
@@ -93,7 +97,7 @@ const saveResponseToDynamoDB = async (
 
   // Denormalize for reporting
   const item = {
-    executionName: executionName,
+    executionId,
     executionResult: workItemStatus.pass ? 'SUCCEEDED' : 'FAILED',
     timestamp: new Date().toISOString(),
     // ADO - only include if defined
