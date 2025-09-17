@@ -73,7 +73,7 @@ const parseEvent = (
   const executionArn = event.executionArn.split(':');
   const executionId = executionArn.slice(7).join(':') || '';
 
-  logger.info('Parsed work item', {
+  logger.info(`▶️ Received work item ${workItem.workItemId}`, {
     executionId,
     workItem,
     tasks,
@@ -129,7 +129,7 @@ const saveResponseToDynamoDB = async (
     Item: item,
   });
 
-  logger.debug('Saving response to DynamoDB', { tableName, item });
+  logger.debug('Saving result to DynamoDB', { tableName, item });
 
   try {
     await docClient.send(command);

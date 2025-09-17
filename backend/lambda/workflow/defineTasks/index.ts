@@ -114,7 +114,7 @@ const parseEventBody = (
 
   const { params = {}, workItem, workItemStatus } = body;
 
-  logger.info(`Processing work item ${workItem.workItemId}`, {
+  logger.info(`▶️ Starting processing of work item ${workItem.workItemId}`, {
     title: workItem.title,
     businessUnit: workItem.businessUnit,
     system: workItem.system,

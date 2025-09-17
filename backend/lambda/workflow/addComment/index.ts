@@ -88,7 +88,7 @@ const parseEvent = (
   let { workItem, tasks, documents, workItemStatus } = body;
   tasks = tasks ?? [];
 
-  logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
+  logger.info(`▶️ Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
     workItem,
     tasks,
     documents,

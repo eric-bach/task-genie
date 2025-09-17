@@ -51,7 +51,10 @@ const lambdaHandler = async (event: any, context: Context) => {
 
     // Check if work item has been updated already
     if (workItem.tags.includes('Task Genie')) {
-      logger.info(`Work item ${workItem.workItemId} has already been evaluated by Task Genie`);
+      logger.info(
+        `⏩ Work item ${workItem.workItemId} has already been evaluated by Task Genie. Skipping re-evaluation.`
+      );
+
       return {
         statusCode: 204,
         body: {
@@ -199,7 +202,6 @@ const extractImageUrls = (htmlContent: string, context: string): WorkItemImage[]
     }
   }
 
-  logger.debug(`Extracted ${images.length} images from ${context}`, { images });
   return images;
 };
 
@@ -241,7 +243,13 @@ const parseEvent = (event: any): WorkItemRequest => {
     images: uniqueImages.length > 0 ? uniqueImages : undefined,
   };
 
-  logger.info('Parsed work item', { workItem });
+  logger.info(`▶️ Starting evaluation of work item ${workItem.workItemId}`, {
+    title: workItem.title,
+    businessUnit: workItem.businessUnit,
+    system: workItem.system,
+    hasImages: !!(workItem.images && workItem.images.length > 0),
+    imagesCount: workItem.images?.length || 0,
+  });
 
   return { params: params ?? {}, workItem };
 };
