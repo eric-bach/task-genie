@@ -81,7 +81,7 @@ const parseEventBody = (
 ): { workItem: WorkItem; documents: BedrockKnowledgeDocument[]; tasks: Task[]; workItemStatus: BedrockResponse } => {
   const { workItem, tasks, documents, workItemStatus } = body;
 
-  logger.info(`Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
+  logger.info(`▶️ Creating ${tasks.length} tasks for work item ${workItem.workItemId}`, {
     workItem,
     tasks,
     documents,

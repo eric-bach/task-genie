@@ -76,7 +76,7 @@ export class AzureService {
       scope: scope,
     });
 
-    this.logger.debug('Fetching Azure AD token', { url, body: body.toString() });
+    // this.logger.debug('Fetching Azure AD token', { url, body: body.toString() });
 
     const response = await fetch(url, {
       method: 'POST',
@@ -100,7 +100,7 @@ export class AzureService {
       throw new Error('Failed to parse token response');
     }
 
-    this.logger.debug('Received Azure AD token');
+    // this.logger.debug('Received Azure AD token');
 
     return this.accessToken;
   }
@@ -172,7 +172,7 @@ export class AzureService {
   };
 
   async addComment(githubOrganization: string, workItem: WorkItem, comment: string) {
-    this.logger.info(`Adding comment to work item ${workItem.workItemId}`, { workItem, comment });
+    this.logger.info(`⚙️ Adding comment to work item ${workItem.workItemId}`, { workItem, comment });
 
     try {
       const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}/comments?api-version=7.1-preview.4`;
@@ -192,11 +192,9 @@ export class AzureService {
         body,
       });
 
-      this.logger.debug('Add comment response', { response: JSON.stringify(response) });
-
       if (response.ok) {
         const data = await response.json();
-        this.logger.info(`Added comment to work item ${data.id}`);
+        this.logger.info(`Added comment to work item ${data.id}`, { response: JSON.stringify(response) });
 
         return body;
       } else {
@@ -210,7 +208,7 @@ export class AzureService {
   }
 
   addTag = async (githubOrganization: string, workItem: WorkItem, tag: string): Promise<string> => {
-    this.logger.info(`Adding tag to work item ${workItem.workItemId}`, { workItem, tag });
+    this.logger.info(`⚙️ Adding tag to work item ${workItem.workItemId}`, { workItem, tag });
 
     const fields = [
       {
@@ -236,11 +234,9 @@ export class AzureService {
         body,
       });
 
-      this.logger.debug('Add tag response', { response: JSON.stringify(response) });
-
       if (response.ok) {
         const data = await response.json();
-        this.logger.info(`Added tag to work item ${data.id}`);
+        this.logger.info(`Added tag to work item ${data.id}`, { response: JSON.stringify(response) });
 
         return body;
       } else {
@@ -254,18 +250,20 @@ export class AzureService {
   };
 
   async createTasks(githubOrganization: string, workItem: WorkItem, tasks: Task[]) {
-    this.logger.info(`Creating ${tasks.length} total tasks`, { tasks: tasks });
+    this.logger.info(`⚙️ Creating ${tasks.length} total tasks`, { tasks: tasks });
 
     let taskId = 0;
     let i = 0;
     for (const task of tasks) {
+      this.logger.debug(`Creating task (${i}/${tasks.length})`, { task: task });
+
       taskId = await this.createTask(githubOrganization, workItem, task, ++i);
 
       // Set task Id
       task.taskId = taskId;
     }
 
-    this.logger.info(`All ${tasks.length} tasks created`);
+    this.logger.info(`All ${tasks.length} tasks successfully created`);
   }
 
   async createTask(githubOrganization: string, workItem: WorkItem, task: Task, i: number): Promise<number> {
@@ -302,8 +300,6 @@ export class AzureService {
         Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
-      this.logger.debug(`Creating task (${i})`, { task: task });
-
       const response = await fetch(url, {
         method: 'POST',
         headers,
@@ -317,6 +313,7 @@ export class AzureService {
       }
 
       const data = await response.json();
+
       this.logger.info(`Created task ${data.id}`);
 
       await this.linkTask(githubOrganization, workItem.teamProject, workItem.workItemId, data.id);
@@ -356,7 +353,7 @@ export class AzureService {
         Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
-      this.logger.debug(`Linking task ${taskId} to work item ${workItemId}`);
+      // this.logger.debug(`Linking task ${taskId} to work item ${workItemId}`);
 
       const response = await fetch(url, {
         method: 'PATCH',
@@ -368,7 +365,7 @@ export class AzureService {
 
       if (response.ok) {
         const data = await response.json();
-        this.logger.info(`Linked task ${data.id}`);
+        this.logger.info(`Linked task ${data.id} to work item ${workItemId}`);
 
         return;
       }

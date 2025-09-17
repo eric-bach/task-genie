@@ -54,7 +54,7 @@ export class BedrockService {
    */
   async evaluateWorkItem(workItem: WorkItem): Promise<BedrockWorkItemEvaluationResponse> {
     try {
-      this.logger.info('Starting work item evaluation', { workItemId: workItem.workItemId });
+      this.logger.info('⚙️ Starting work item evaluation', { workItemId: workItem.workItemId });
 
       // Step 1: Try to retrieve relevant documents from Knowledge Base
       const query = this.buildWorkItemEvaluationKnowledgeQuery(workItem);
@@ -85,7 +85,7 @@ export class BedrockService {
    */
   async generateTasks(workItem: WorkItem, params: BedrockInferenceParams = {}): Promise<BedrockTaskGenerationResponse> {
     try {
-      this.logger.info('Starting task generation', { workItemId: workItem.workItemId });
+      this.logger.info('⚙️ Starting task generation', { workItemId: workItem.workItemId });
 
       // Step 1: Retrieve relevant knowledge base context
       const query = this.buildTaskBreakdownKnowledgeQuery(workItem);
@@ -545,7 +545,7 @@ Images referenced:
       throw new Error('Invalid JSON response from model');
     }
 
-    this.logger.info('Successfully parsed model response', {
+    this.logger.info('Received Bedrock model response', {
       response: parsedResponse,
     });
 
@@ -568,7 +568,7 @@ Images referenced:
       throw new Error('Invalid JSON response from model');
     }
 
-    this.logger.info('Successfully parsed model response', {
+    this.logger.info('Received Bedrock model response', {
       tasks: parsedResponse.tasks,
       tasksCount: parsedResponse.tasks.length,
     });
