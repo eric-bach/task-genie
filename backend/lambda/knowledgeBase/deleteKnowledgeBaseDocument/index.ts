@@ -76,7 +76,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
       };
     }
 
-    logger.info('Deleting knowledge base document', { bucketName, key });
+    logger.info('▶️ Deleting knowledge base document', { bucketName, key });
 
     // Attempt to delete the primary object
     await s3Client.send(

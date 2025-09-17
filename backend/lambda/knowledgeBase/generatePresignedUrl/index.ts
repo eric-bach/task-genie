@@ -82,7 +82,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
     // Determine mode based on areaPath
     const mode = areaPath === 'agile-process' ? 'userStory' : 'taskGeneration';
 
-    logger.info('Generating presigned URL', { bucketName: bucketName, key: key, mode });
+    logger.info('▶️ Generating presigned URL', { bucketName: bucketName, key: key, mode });
 
     // Generate metadata file for Bedrock Knowledge Base
     const metadataFileName = `${fileName}.metadata.json`;

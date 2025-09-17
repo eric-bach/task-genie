@@ -18,6 +18,8 @@ export const lambdaHandler = async (event: any) => {
       ? JSON.parse(Buffer.from(event.queryStringParameters.nextToken, 'base64').toString('utf-8'))
       : undefined;
 
+    logger.info(`▶️ Listing configurations for ${tableName}`, { limit, exclusiveStartKey });
+
     const resp = await ddb.send(
       new ScanCommand({
         TableName: tableName,
@@ -42,7 +44,7 @@ export const lambdaHandler = async (event: any) => {
       ? Buffer.from(JSON.stringify(resp.LastEvaluatedKey), 'utf-8').toString('base64')
       : undefined;
 
-    logger.info(`✅ Found ${items.length} config items`);
+    logger.info(`✅ Found ${items.length} configuration items`);
 
     return {
       statusCode: 200,

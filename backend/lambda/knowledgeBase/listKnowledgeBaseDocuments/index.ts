@@ -64,12 +64,6 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
       };
     }
 
-    logger.info('Listing knowledge base documents', {
-      pageSize: normalizedPageSize,
-      pageNumber: normalizedPageNumber,
-      nextToken: queryParams.nextToken,
-    });
-
     const bucketName = process.env.S3_BUCKET_NAME;
     const knowledgeBaseId = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
     const knowledgeBaseDataSourceId = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID;
@@ -107,6 +101,15 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
         }),
       };
     }
+
+    logger.info('▶️ Listing knowledge base documents', {
+      bucketName,
+      knowledgeBaseId,
+      knowledgeBaseDataSourceId,
+      pageSize: normalizedPageSize,
+      pageNumber: normalizedPageNumber,
+      nextToken: queryParams.nextToken,
+    });
 
     // Get documents from Bedrock Knowledge Base
     let documents: KnowledgeDocument[] = [];

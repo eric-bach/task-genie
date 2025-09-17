@@ -611,13 +611,6 @@ Images referenced:
       return parameterPrompt;
     }
 
-    // Otherwise, check for a custom prompt in the database
-    this.logger.debug('Checking if a custom prompt override was defined for ADO project', {
-      areaPath: workItem.areaPath,
-      businessUnit: workItem.businessUnit,
-      system: workItem.system,
-    });
-
     const databasePrompt = await this.getCustomPrompt(workItem);
     if (databasePrompt) {
       this.logger.info('⭐ Using prompt override for task generation', {
