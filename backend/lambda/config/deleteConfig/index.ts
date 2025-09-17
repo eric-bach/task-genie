@@ -24,6 +24,8 @@ export const lambdaHandler = async (event: any) => {
       };
     }
 
+    logger.info(`▶️ Deleting config for work item ${adoKey}`, { table: tableName });
+
     await ddb.send(
       new DeleteItemCommand({
         TableName: tableName,

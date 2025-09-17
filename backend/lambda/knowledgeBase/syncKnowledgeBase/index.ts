@@ -18,7 +18,7 @@ export const lambdaHandler = async (event: S3Event, context: Context): Promise<L
     const bucketName = record.s3.bucket.name;
     const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, ' '));
 
-    logger.info('Processing S3 event', { filePath: `${bucketName}/${key}`, eventName: record.eventName });
+    logger.info('▶️ Syncing Knowledge Base', { filePath: `${bucketName}/${key}`, eventName: record.eventName });
 
     // Only process supported document files. For delete events, Key may still be present; use suffix check regardless.
     const lowerKey = key.toLowerCase();

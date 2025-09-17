@@ -69,11 +69,11 @@ const parseEvent = (
   const { workItem, tasks, workItemStatus } = event.body;
 
   // Use executionId as the executionId for storage
-  logger.debug(`Received executionArn: ${event.executionArn}`);
   const executionArn = event.executionArn.split(':');
   const executionId = executionArn.slice(7).join(':') || '';
 
   logger.info(`▶️ Received work item ${workItem.workItemId}`, {
+    executionArn,
     executionId,
     workItem,
     tasks,

@@ -15,8 +15,6 @@ interface UpsertRequestBody {
 }
 
 export const lambdaHandler = async (event: any) => {
-  logger.info('Received request', { event });
-
   try {
     const tableName = process.env.CONFIG_TABLE_NAME;
     if (!tableName) {
@@ -37,6 +35,8 @@ export const lambdaHandler = async (event: any) => {
     }
 
     const body: UpsertRequestBody = typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+
+    logger.info('▶️ Updating config item', { item: body });
 
     if (!body || !body.areaPath || !body.businessUnit || !body.system || !body.prompt || !body.username) {
       return {
