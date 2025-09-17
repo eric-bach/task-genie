@@ -337,7 +337,7 @@ export class BedrockService {
       accept: 'application/json',
     };
 
-    this.logger.debug('Invoking Bedrock model', {
+    this.logger.debug('🧠 Invoking Bedrock model', {
       modelId: this.config.modelId,
       contentCount: content.length - (workItem.images?.length || 0),
       contentLength: content.reduce((sum, item) => {
