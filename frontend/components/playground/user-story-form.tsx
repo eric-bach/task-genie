@@ -364,7 +364,12 @@ export function UserStoryForm() {
   }
 
   return (
-    <>
+    <div className='container mx-auto py-10 px-4 min-h-screen'>
+      <h1 className='text-2xl font-bold mb-2'>Test Playground</h1>
+      <p className='text-md text-muted-foreground mb-8'>
+        Use this playground to experiment with different AI prompts and inference parameters to test how Task Genie
+        generates tasks.
+      </p>
       <div className='flex w-full space-x-4'>
         <Card className='w-full h-full flex flex-col overflow-hidden'>
           <CardHeader className='flex-shrink-0'>
@@ -678,6 +683,6 @@ export function UserStoryForm() {
 
         <TasksDisplay isSubmitting={isSubmitting || isPolling} tasks={tasks} result={result} />
       </div>
-    </>
+    </div>
   );
 }
