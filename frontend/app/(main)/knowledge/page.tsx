@@ -393,462 +393,460 @@ export default function Knowledge() {
 
   return (
     <div className='container mx-auto py-10 px-4 min-h-screen'>
-      <div className='max-w-4xl xl:max-w-6xl mx-auto'>
-        <h1 className='text-2xl font-bold mb-2'>Manage Knowledge Base</h1>
-        <p className='text-md text-muted-foreground mb-8'>
-          Upload documents to enhance the knowledge base. Supported formats: PDF, Word, Text, and Markdown files.
-        </p>
+      <h1 className='text-2xl font-bold mb-2'>Manage Knowledge Base</h1>
+      <p className='text-md text-muted-foreground mb-8'>
+        Upload documents to enhance the knowledge base. Supported formats: PDF, Word, Text, and Markdown files.
+      </p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Upload Document</CardTitle>
-            <CardDescription>Add new documents to improve user story and task recommendations.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
-                <FormField
-                  control={form.control}
-                  name='mode'
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Upload Mode</FormLabel>
-                      <FormControl>
-                        <Tabs value={field.value} onValueChange={field.onChange} className='w-full'>
-                          <TabsList className='grid w-full grid-cols-2'>
-                            <TabsTrigger
-                              value='taskGeneration'
-                              className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground'
-                            >
-                              Project Scoped (Task Generation)
-                            </TabsTrigger>
-                            <TabsTrigger
-                              value='userStory'
-                              className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground'
-                            >
-                              Agile Guided (User Story Evaluation)
-                            </TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-                      </FormControl>
-                      <FormDescription>
-                        {currentMode === 'userStory'
-                          ? 'User story evaluation documents will be applied organization-wide for all user stories.'
-                          : 'Task generation documents are specific to each team and will only be used for individual Azure DevOps boards matching the Area Path, Business Unit, and System.'}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {currentMode === 'taskGeneration' && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name='areaPath'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Area Path</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder='Select an area path' />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {AREA_PATHS.map((areaPath) => (
-                                <SelectItem key={areaPath} value={areaPath}>
-                                  {areaPath}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name='businessUnit'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Business Unit</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder='Select a business unit' />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {BUSINESS_UNITS.map((unit) => (
-                                <SelectItem key={unit} value={unit}>
-                                  {unit}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name='system'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>System</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value || ''}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder='Select a system' />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {SYSTEMS.map((system) => (
-                                <SelectItem key={system} value={system}>
-                                  {system}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Document</CardTitle>
+          <CardDescription>Add new documents to improve user story and task recommendations.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
+              <FormField
+                control={form.control}
+                name='mode'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Upload Mode</FormLabel>
+                    <FormControl>
+                      <Tabs value={field.value} onValueChange={field.onChange} className='w-full'>
+                        <TabsList className='grid w-full grid-cols-2'>
+                          <TabsTrigger
+                            value='taskGeneration'
+                            className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground'
+                          >
+                            Project Scoped (Task Generation)
+                          </TabsTrigger>
+                          <TabsTrigger
+                            value='userStory'
+                            className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground'
+                          >
+                            Agile Guided (User Story Evaluation)
+                          </TabsTrigger>
+                        </TabsList>
+                      </Tabs>
+                    </FormControl>
+                    <FormDescription>
+                      {currentMode === 'userStory'
+                        ? 'User story evaluation documents will be applied organization-wide for all user stories.'
+                        : 'Task generation documents are specific to each team and will only be used for individual Azure DevOps boards matching the Area Path, Business Unit, and System.'}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
                 )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name='file'
-                  render={({ field: { onChange } }) => (
-                    <FormItem>
-                      <FormLabel>Document File</FormLabel>
-                      <FormControl>
-                        <div className='space-y-4'>
-                          <div className='border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors'>
-                            <input
-                              ref={fileInputRef}
-                              type='file'
-                              accept='.pdf,.doc,.docx,.txt,.md'
-                              onChange={(e) => onChange(e.target.files)}
-                              className='hidden'
-                              id='file-upload'
-                            />
-                            <label htmlFor='file-upload' className='cursor-pointer flex flex-col items-center gap-2'>
-                              <Upload className='h-8 w-8 text-muted-foreground' />
-                              <div className='text-sm'>
-                                <span className='font-medium text-primary'>Click to upload</span>
-                                <span className='text-muted-foreground'> or drag and drop</span>
-                              </div>
-                              <p className='text-xs text-muted-foreground'>
-                                PDF, Word, Text, or Markdown files (max 10MB)
-                              </p>
-                            </label>
-                          </div>
-
-                          {selectedFile && (
-                            <div className='flex items-center gap-3 p-3 bg-muted/50 rounded-lg'>
-                              <FileText className='h-5 w-5 text-muted-foreground flex-shrink-0' />
-                              <div className='flex-1 min-w-0'>
-                                <p className='text-sm font-medium truncate'>{selectedFile.name}</p>
-                                <p className='text-xs text-muted-foreground'>
-                                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                </p>
-                              </div>
-                              <Button
-                                type='button'
-                                variant='ghost'
-                                size='sm'
-                                onClick={() => {
-                                  onChange(null);
-                                  // Reset the actual file input element
-                                  if (fileInputRef.current) {
-                                    fileInputRef.current.value = '';
-                                  }
-                                }}
-                                className='flex-shrink-0'
-                              >
-                                <X className='h-4 w-4' />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      </FormControl>
-                      <FormDescription>Upload a document to add to the knowledge base.</FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {uploadStatus === 'success' && (
-                  <div className='flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700'>
-                    <Check className='h-5 w-5' />
-                    <span className='text-sm'>Document uploaded successfully!</span>
-                  </div>
-                )}
-
-                {uploadStatus === 'error' && (
-                  <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700'>
-                    <AlertCircle className='h-5 w-5' />
-                    <span className='text-sm'>Upload failed. Please try again.</span>
-                  </div>
-                )}
-
-                <div className='flex justify-end'>
-                  <Button type='submit' disabled={isUploading} className='min-w-[120px]'>
-                    {isUploading ? (
-                      <>
-                        <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent mr-2' />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className='h-4 w-4 mr-2' />
-                        Upload
-                      </>
+              {currentMode === 'taskGeneration' && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name='areaPath'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Area Path</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Select an area path' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {AREA_PATHS.map((areaPath) => (
+                              <SelectItem key={areaPath} value={areaPath}>
+                                {areaPath}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
                     )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                  />
 
-        {/* Knowledge Base Documents List */}
-        <Card className='mt-8'>
-          <CardHeader>
-            <div className='space-y-4'>
-              <div className='flex items-center justify-between'>
-                <div>
-                  <CardTitle>Knowledge Base Documents</CardTitle>
-                  <CardDescription className='pt-2'>
-                    All documents in the knowledge base. It may take several minutes for recent document changes to be
-                    indexed and reflected in the list.
-                  </CardDescription>
-                </div>
-                <Button
-                  variant='outline'
-                  size='sm'
-                  onClick={() => fetchDocuments(currentPage, pageSize, nextToken)}
-                  disabled={isLoadingDocuments}
-                  className='flex items-center gap-2'
-                >
-                  <RefreshCw className={`h-4 w-4 ${isLoadingDocuments ? 'animate-spin' : ''}`} />
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {documentsError && (
-              <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-4'>
-                <AlertCircle className='h-5 w-5' />
-                <span className='text-sm'>{documentsError}</span>
-              </div>
-            )}
+                  <FormField
+                    control={form.control}
+                    name='businessUnit'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Business Unit</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Select a business unit' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {BUSINESS_UNITS.map((unit) => (
+                              <SelectItem key={unit} value={unit}>
+                                {unit}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            {isLoadingDocuments ? (
-              <div className='space-y-3'>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className='flex items-center space-x-4'>
-                    <Skeleton className='h-4 w-1/3' />
-                    <Skeleton className='h-4 w-1/6' />
-                    <Skeleton className='h-4 w-1/6' />
-                    <Skeleton className='h-4 w-1/6' />
-                    <Skeleton className='h-4 w-1/6' />
-                  </div>
-                ))}
-              </div>
-            ) : documents.length === 0 ? (
-              <div className='text-center py-12'>
-                <FileText className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-                <h3 className='text-lg font-medium text-muted-foreground mb-2'>No documents found</h3>
-                <p className='text-sm text-muted-foreground'>
-                  If you recently uploaded a document it may still be indexing.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className='rounded-md border'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Document</TableHead>
-                        <TableHead className='whitespace-nowrap'>Size</TableHead>
-                        <TableHead className='whitespace-nowrap'>Uploaded By</TableHead>
-                        <TableHead className='whitespace-nowrap'>Uploaded At</TableHead>
-                        <TableHead className='whitespace-nowrap'>Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {documents.map((doc, index) => (
-                        <TableRow key={doc.key || index}>
-                          <TableCell>
-                            <div className='flex items-center gap-2'>
-                              <FileText className='h-4 w-4 text-muted-foreground' />
-                              <div className='max-w-x'>
-                                <p className='font-medium truncate'>{doc.fileName}</p>
-                                <p className='text-xs text-muted-foreground truncate'>
-                                  {doc.areaPath || '-'} / {doc.businessUnit || '-'} / {doc.system || '-'}
-                                </p>
-                              </div>
+                  <FormField
+                    control={form.control}
+                    name='system'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>System</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder='Select a system' />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {SYSTEMS.map((system) => (
+                              <SelectItem key={system} value={system}>
+                                {system}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
+              )}
+
+              <FormField
+                control={form.control}
+                name='file'
+                render={({ field: { onChange } }) => (
+                  <FormItem>
+                    <FormLabel>Document File</FormLabel>
+                    <FormControl>
+                      <div className='space-y-4'>
+                        <div className='border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors'>
+                          <input
+                            ref={fileInputRef}
+                            type='file'
+                            accept='.pdf,.doc,.docx,.txt,.md'
+                            onChange={(e) => onChange(e.target.files)}
+                            className='hidden'
+                            id='file-upload'
+                          />
+                          <label htmlFor='file-upload' className='cursor-pointer flex flex-col items-center gap-2'>
+                            <Upload className='h-8 w-8 text-muted-foreground' />
+                            <div className='text-sm'>
+                              <span className='font-medium text-primary'>Click to upload</span>
+                              <span className='text-muted-foreground'> or drag and drop</span>
                             </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            <div className='flex items-center gap-1 text-sm text-muted-foreground'>
-                              {doc.sizeFormatted}
+                            <p className='text-xs text-muted-foreground'>
+                              PDF, Word, Text, or Markdown files (max 10MB)
+                            </p>
+                          </label>
+                        </div>
+
+                        {selectedFile && (
+                          <div className='flex items-center gap-3 p-3 bg-muted/50 rounded-lg'>
+                            <FileText className='h-5 w-5 text-muted-foreground flex-shrink-0' />
+                            <div className='flex-1 min-w-0'>
+                              <p className='text-sm font-medium truncate'>{selectedFile.name}</p>
+                              <p className='text-xs text-muted-foreground'>
+                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
                             </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            <div className='flex items-center gap-1 text-xs text-muted-foreground'>
-                              {doc.username ? (
-                                <div className='flex flex-col'>
-                                  <span className='font-medium'>{doc.username}</span>
-                                </div>
-                              ) : (
-                                '-'
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
-                            <div className='flex items-center gap-1 text-xs text-muted-foreground'>
-                              {formatDate(doc.lastModified)}
-                            </div>
-                          </TableCell>
-                          <TableCell className='whitespace-nowrap'>
                             <Button
-                              variant='destructive'
+                              type='button'
+                              variant='ghost'
                               size='sm'
-                              onClick={() => confirmDelete(doc)}
-                              disabled={deletingKey === doc.key}
+                              onClick={() => {
+                                onChange(null);
+                                // Reset the actual file input element
+                                if (fileInputRef.current) {
+                                  fileInputRef.current.value = '';
+                                }
+                              }}
+                              className='flex-shrink-0'
                             >
-                              {deletingKey === doc.key ? (
-                                <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent' />
-                              ) : (
-                                <div className='flex items-center gap-1'>
-                                  <Trash2 className='h-4 w-4' />
-                                  Delete
-                                </div>
-                              )}
+                              <X className='h-4 w-4' />
                             </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormDescription>Upload a document to add to the knowledge base.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {uploadStatus === 'success' && (
+                <div className='flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700'>
+                  <Check className='h-5 w-5' />
+                  <span className='text-sm'>Document uploaded successfully!</span>
                 </div>
+              )}
 
-                {/* Pagination Controls */}
-                <div className='mt-6 flex items-center justify-between'>
-                  <div className='flex items-center gap-2'>
-                    <span className='text-sm text-muted-foreground'>Page size:</span>
-                    <Select value={pageSize.toString()} onValueChange={(value) => changePageSize(parseInt(value))}>
-                      <SelectTrigger className='w-20'>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value='1'>1</SelectItem>
-                        <SelectItem value='10'>10</SelectItem>
-                        <SelectItem value='25'>25</SelectItem>
-                        <SelectItem value='50'>50</SelectItem>
-                        <SelectItem value='100'>100</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className='flex items-center gap-2'>
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={goToPreviousPage}
-                      disabled={!hasPreviousPage || isLoadingDocuments}
-                    >
-                      Previous
-                    </Button>
-
-                    {/* Page number buttons removed for cursor-based pagination */}
-                    <div className='flex items-center gap-1' />
-
-                    <Button
-                      variant='outline'
-                      size='sm'
-                      onClick={goToNextPage}
-                      disabled={!hasNextPage || isLoadingDocuments}
-                    >
-                      Next
-                    </Button>
-                  </div>
+              {uploadStatus === 'error' && (
+                <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700'>
+                  <AlertCircle className='h-5 w-5' />
+                  <span className='text-sm'>Upload failed. Please try again.</span>
                 </div>
+              )}
 
-                <div className='mt-4 flex items-center justify-between text-sm text-muted-foreground'>
-                  <span>
-                    Showing {documents.length} document{documents.length !== 1 ? 's' : ''} (Page {currentPage})
-                  </span>
-                  <div className='flex items-center gap-2'>
-                    <HardDrive className='h-4 w-4' />
-                    <span>Total Size: {totalSizeFormatted}</span>
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && documentToDelete && (
-          <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
-            <div className='bg-background rounded-lg p-6 max-w-md w-full mx-4 shadow-lg'>
-              <div className='flex items-center gap-3 mb-4'>
-                <AlertCircle className='h-6 w-6 text-destructive' />
-                <h3 className='text-lg font-semibold'>Confirm Deletion</h3>
-              </div>
-              <p className='text-muted-foreground mb-4'>
-                Are you sure you want to delete{' '}
-                <span className='font-medium text-foreground'>{documentToDelete.fileName}</span>? This action cannot be
-                undone.
-              </p>
-
-              <div className='mb-6'>
-                <label htmlFor='delete-confirm' className='block text-sm font-medium text-foreground mb-2'>
-                  Type &quot;confirm&quot; to proceed with deletion:
-                </label>
-                <input
-                  id='delete-confirm'
-                  type='text'
-                  value={deleteConfirmationText}
-                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
-                  placeholder='confirm'
-                  className='w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
-                  disabled={deletingKey === documentToDelete.key}
-                />
-              </div>
-
-              <div className='flex gap-3 justify-end'>
-                <Button variant='outline' onClick={cancelDelete} disabled={deletingKey === documentToDelete.key}>
-                  Cancel
-                </Button>
-                <Button
-                  variant='destructive'
-                  onClick={deleteDocument}
-                  disabled={deletingKey === documentToDelete.key || deleteConfirmationText !== 'confirm'}
-                >
-                  {deletingKey === documentToDelete.key ? (
+              <div className='flex justify-end'>
+                <Button type='submit' disabled={isUploading} className='min-w-[120px]'>
+                  {isUploading ? (
                     <>
                       <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent mr-2' />
-                      Deleting...
+                      Uploading...
                     </>
                   ) : (
-                    'Delete'
+                    <>
+                      <Upload className='h-4 w-4 mr-2' />
+                      Upload
+                    </>
                   )}
                 </Button>
               </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      {/* Knowledge Base Documents List */}
+      <Card className='mt-8'>
+        <CardHeader>
+          <div className='space-y-4'>
+            <div className='flex items-center justify-between'>
+              <div>
+                <CardTitle>Knowledge Base Documents</CardTitle>
+                <CardDescription className='pt-2'>
+                  All documents in the knowledge base. It may take several minutes for recent document changes to be
+                  indexed and reflected in the list.
+                </CardDescription>
+              </div>
+              <Button
+                variant='outline'
+                size='sm'
+                onClick={() => fetchDocuments(currentPage, pageSize, nextToken)}
+                disabled={isLoadingDocuments}
+                className='flex items-center gap-2'
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoadingDocuments ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
             </div>
           </div>
-        )}
-      </div>
+        </CardHeader>
+        <CardContent>
+          {documentsError && (
+            <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 mb-4'>
+              <AlertCircle className='h-5 w-5' />
+              <span className='text-sm'>{documentsError}</span>
+            </div>
+          )}
+
+          {isLoadingDocuments ? (
+            <div className='space-y-3'>
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className='flex items-center space-x-4'>
+                  <Skeleton className='h-4 w-1/3' />
+                  <Skeleton className='h-4 w-1/6' />
+                  <Skeleton className='h-4 w-1/6' />
+                  <Skeleton className='h-4 w-1/6' />
+                  <Skeleton className='h-4 w-1/6' />
+                </div>
+              ))}
+            </div>
+          ) : documents.length === 0 ? (
+            <div className='text-center py-12'>
+              <FileText className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
+              <h3 className='text-lg font-medium text-muted-foreground mb-2'>No documents found</h3>
+              <p className='text-sm text-muted-foreground'>
+                If you recently uploaded a document it may still be indexing.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className='rounded-md border'>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Document</TableHead>
+                      <TableHead className='whitespace-nowrap'>Size</TableHead>
+                      <TableHead className='whitespace-nowrap'>Uploaded By</TableHead>
+                      <TableHead className='whitespace-nowrap'>Uploaded At</TableHead>
+                      <TableHead className='whitespace-nowrap'>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {documents.map((doc, index) => (
+                      <TableRow key={doc.key || index}>
+                        <TableCell>
+                          <div className='flex items-center gap-2'>
+                            <FileText className='h-4 w-4 text-muted-foreground' />
+                            <div className='max-w-x'>
+                              <p className='font-medium truncate'>{doc.fileName}</p>
+                              <p className='text-xs text-muted-foreground truncate'>
+                                {doc.areaPath || '-'} / {doc.businessUnit || '-'} / {doc.system || '-'}
+                              </p>
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className='whitespace-nowrap'>
+                          <div className='flex items-center gap-1 text-sm text-muted-foreground'>
+                            {doc.sizeFormatted}
+                          </div>
+                        </TableCell>
+                        <TableCell className='whitespace-nowrap'>
+                          <div className='flex items-center gap-1 text-xs text-muted-foreground'>
+                            {doc.username ? (
+                              <div className='flex flex-col'>
+                                <span className='font-medium'>{doc.username}</span>
+                              </div>
+                            ) : (
+                              '-'
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className='whitespace-nowrap'>
+                          <div className='flex items-center gap-1 text-xs text-muted-foreground'>
+                            {formatDate(doc.lastModified)}
+                          </div>
+                        </TableCell>
+                        <TableCell className='whitespace-nowrap'>
+                          <Button
+                            variant='destructive'
+                            size='sm'
+                            onClick={() => confirmDelete(doc)}
+                            disabled={deletingKey === doc.key}
+                          >
+                            {deletingKey === doc.key ? (
+                              <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent' />
+                            ) : (
+                              <div className='flex items-center gap-1'>
+                                <Trash2 className='h-4 w-4' />
+                                Delete
+                              </div>
+                            )}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination Controls */}
+              <div className='mt-6 flex items-center justify-between'>
+                <div className='flex items-center gap-2'>
+                  <span className='text-sm text-muted-foreground'>Page size:</span>
+                  <Select value={pageSize.toString()} onValueChange={(value) => changePageSize(parseInt(value))}>
+                    <SelectTrigger className='w-20'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='1'>1</SelectItem>
+                      <SelectItem value='10'>10</SelectItem>
+                      <SelectItem value='25'>25</SelectItem>
+                      <SelectItem value='50'>50</SelectItem>
+                      <SelectItem value='100'>100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className='flex items-center gap-2'>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={goToPreviousPage}
+                    disabled={!hasPreviousPage || isLoadingDocuments}
+                  >
+                    Previous
+                  </Button>
+
+                  {/* Page number buttons removed for cursor-based pagination */}
+                  <div className='flex items-center gap-1' />
+
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={goToNextPage}
+                    disabled={!hasNextPage || isLoadingDocuments}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+
+              <div className='mt-4 flex items-center justify-between text-sm text-muted-foreground'>
+                <span>
+                  Showing {documents.length} document{documents.length !== 1 ? 's' : ''} (Page {currentPage})
+                </span>
+                <div className='flex items-center gap-2'>
+                  <HardDrive className='h-4 w-4' />
+                  <span>Total Size: {totalSizeFormatted}</span>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && documentToDelete && (
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
+          <div className='bg-background rounded-lg p-6 max-w-md w-full mx-4 shadow-lg'>
+            <div className='flex items-center gap-3 mb-4'>
+              <AlertCircle className='h-6 w-6 text-destructive' />
+              <h3 className='text-lg font-semibold'>Confirm Deletion</h3>
+            </div>
+            <p className='text-muted-foreground mb-4'>
+              Are you sure you want to delete{' '}
+              <span className='font-medium text-foreground'>{documentToDelete.fileName}</span>? This action cannot be
+              undone.
+            </p>
+
+            <div className='mb-6'>
+              <label htmlFor='delete-confirm' className='block text-sm font-medium text-foreground mb-2'>
+                Type &quot;confirm&quot; to proceed with deletion:
+              </label>
+              <input
+                id='delete-confirm'
+                type='text'
+                value={deleteConfirmationText}
+                onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                placeholder='confirm'
+                className='w-full px-3 py-2 border border-input rounded-md bg-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
+                disabled={deletingKey === documentToDelete.key}
+              />
+            </div>
+
+            <div className='flex gap-3 justify-end'>
+              <Button variant='outline' onClick={cancelDelete} disabled={deletingKey === documentToDelete.key}>
+                Cancel
+              </Button>
+              <Button
+                variant='destructive'
+                onClick={deleteDocument}
+                disabled={deletingKey === documentToDelete.key || deleteConfirmationText !== 'confirm'}
+              >
+                {deletingKey === documentToDelete.key ? (
+                  <>
+                    <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent mr-2' />
+                    Deleting...
+                  </>
+                ) : (
+                  'Delete'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
