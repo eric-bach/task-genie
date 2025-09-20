@@ -1,0 +1,63 @@
+{
+  "manifestVersion": 1,
+  "id": "my-first-extension",
+  "publisher": "",
+  "version": "1.0.0",
+  "name": "My First Extension",
+  "description": "A sample Visual Studio Services extension",
+  "public": false,
+  "categories": ["Azure Boards"],
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "scopes": ["vso.work", "vso.work_write"],
+  "contributions": [
+    {
+      "id": "my-hub",
+      "type": "ms.vss-web.hub",
+      "targets": ["ms.vss-code-web.code-hub-group"],
+      "properties": {
+        "name": "My Hub",
+        "uri": "my-hub.html"
+      }
+    },
+    {
+      "id": "user-story-button",
+      "type": "ms.vss-work-web.work-item-form-control",
+      "targets": ["ms.vss-work-web.work-item-form"],
+      "properties": {
+        "name": "Task Genie Button",
+        "uri": "user-story-button.html",
+        "height": 50,
+        "inputs": [
+          {
+            "id": "WorkItemType",
+            "name": "Work Item Type",
+            "description": "The work item type this control applies to",
+            "type": "WorkItemType",
+            "properties": {
+              "workItemTypes": ["User Story"]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "my-hub.html",
+      "addressable": true
+    },
+    {
+      "path": "user-story-button.html",
+      "addressable": true
+    },
+    {
+      "path": "node_modules/azure-devops-extension-sdk",
+      "addressable": true,
+      "packagePath": "lib"
+    }
+  ]
+}
