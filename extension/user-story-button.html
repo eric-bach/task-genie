@@ -31,9 +31,11 @@
       }
 
       .status-message {
-        margin-left: 10px;
+        margin-top: 8px;
         font-size: 12px;
         color: #666;
+        min-height: 16px;
+        display: block;
       }
 
       .error-message {
@@ -48,7 +50,7 @@
   <body>
     <div>
       <button id="taskGenieButton" class="task-genie-button">Generate Tasks</button>
-      <span id="statusMessage" class="status-message"></span>
+      <div id="statusMessage" class="status-message"></div>
     </div>
 
     <script>
@@ -143,7 +145,7 @@
                     // Call your REST API here
                     await callTaskGenieAPI(workItemId, cleanedFields);
 
-                    statusMessage.textContent = 'Processing...';
+                    statusMessage.textContent = 'Generating tasks...';
                     statusMessage.className = 'status-message success-message';
                   } catch (error) {
                     console.error('Error generating tasks:', error);
@@ -152,10 +154,10 @@
                   } finally {
                     button.disabled = false;
 
-                    // Clear status message after 3 seconds
+                    // Clear status message after 5 seconds
                     setTimeout(() => {
                       statusMessage.textContent = '';
-                    }, 3000);
+                    }, 5000);
                   }
                 });
               }
