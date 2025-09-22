@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "task-genie",
   "publisher": "AMA",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "name": "Task Genie",
   "description": "Agile extension to generate tasks from user stories using AI.",
   "public": false,
@@ -16,6 +16,9 @@
   "branding": {
     "color": "#0078d4",
     "theme": "light"
+  },
+  "icons": {
+    "default": "logo.jpg"
   },
   "contributions": [
     {
@@ -49,6 +52,10 @@
   "files": [
     {
       "path": "user-story-button.html",
+      "addressable": true
+    },
+    {
+      "path": "logo.jpg",
       "addressable": true
     },
     {
