@@ -129,6 +129,7 @@
                       'System.WorkItemType',
                       'System.ChangedBy',
                       'Microsoft.VSTS.Common.AcceptanceCriteria',
+                      'System.Tags',
                       'System.TeamProject',
                       'System.AreaPath',
                       // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
@@ -145,7 +146,7 @@
                     // Call your REST API here
                     await callTaskGenieAPI(workItemId, cleanedFields);
 
-                    statusMessage.textContent = 'Generating tasks...';
+                    statusMessage.textContent = 'This will take a moment...';
                     statusMessage.className = 'status-message success-message';
                   } catch (error) {
                     console.error('Error generating tasks:', error);
@@ -221,6 +222,7 @@
                         'System.Description': fields['System.Description'],
                         'Microsoft.VSTS.Common.AcceptanceCriteria': fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
                         'System.TeamProject': fields['System.TeamProject'],
+                        'System.Tags': fields['System.Tags'],
                         'System.AreaPath': fields['System.AreaPath'],
                         // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
                         'Custom.BusinessUnit2': fields['Custom.BusinessUnit2'],

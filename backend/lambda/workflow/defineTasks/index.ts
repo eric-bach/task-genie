@@ -6,6 +6,7 @@ import middy from '@middy/core';
 import { WorkItem } from '../../../types/azureDevOps';
 import { BedrockInferenceParams, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 import { BedrockService, BedrockServiceConfig } from '../../../services/BedrockService';
+import { AzureService } from '../../../services/AzureService';
 
 /**
  * Lambda function to define tasks for Azure DevOps work items using AWS Bedrock
@@ -40,11 +41,16 @@ const CONFIG_TABLE_NAME = process.env.CONFIG_TABLE_NAME;
 if (!CONFIG_TABLE_NAME) {
   throw new Error('CONFIG_TABLE_NAME environment variable is required');
 }
+export const AZURE_DEVOPS_PROJECT = process.env.AZURE_DEVOPS_PROJECT;
+if (AZURE_DEVOPS_PROJECT === undefined) {
+  throw new Error('AZURE_DEVOPS_PROJECT environment variable is required');
+}
 
 // Clients and services
 const logger = new Logger({ serviceName: 'defineTasks' });
 
 // Cache for dependencies
+let azureService: AzureService | null = null;
 let bedrockService: BedrockService | null = null;
 
 const lambdaHandler = async (event: Record<string, any>, context: Context) => {
@@ -52,9 +58,12 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     // Parse event body
     const { workItem, params, workItemStatus } = parseEventBody(event.body);
 
+    const azureService = getAzureService();
+    const existingTasks = await azureService.getTasksForWorkItem(AZURE_DEVOPS_PROJECT, workItem);
+
     // Generate tasks
     const bedrock = getBedrockService();
-    const bedrockResponse = await bedrock.generateTasks(workItem, params);
+    const bedrockResponse = await bedrock.generateTasks(workItem, existingTasks, params);
 
     logger.info(`✅ Generated ${bedrockResponse.tasks.length} tasks for work item ${workItem.workItemId}`);
 
@@ -80,6 +89,17 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
       })}`
     );
   }
+};
+
+/**
+ * Initialize Azure service (singleton pattern for Lambda container reuse)
+ */
+const getAzureService = (): AzureService => {
+  if (!azureService) {
+    azureService = new AzureService();
+  }
+
+  return azureService;
 };
 
 /**

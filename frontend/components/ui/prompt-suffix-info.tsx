@@ -39,6 +39,9 @@ export function PromptSuffixInfo({ className = '' }: PromptSuffixInfoProps) {
   - Description: \${workItemDescription}
   - Acceptance Criteria: \${workItemAcceptanceCriteria}
 
+- Here are the tasks that have already been created for this work item (if any):
+  \${tasks}
+
 - Here are the images referenced (if any were included):
   \${images}
       
