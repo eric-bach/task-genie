@@ -367,6 +367,10 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 
    `start test-standalone.html`
 
+3. To manage the extension
+
+   - [https://marketplace.visualstudio.com/manage/publishers/ama](https://marketplace.visualstudio.com/manage/publishers/ama)
+
 ## 📚 References
 
 - [YouTube Demo](https://www.youtube.com/watch?v=POn5WYFw4xU)
