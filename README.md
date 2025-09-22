@@ -148,7 +148,7 @@ Estimated monthly costs (USD) for running in AWS:
    - Uncheck `Send email invites`
 
 <div align="center">
-  <img src="docs/service_principal.png" alt="Azure DevOps Service Principal" width="600">
+  <img src="docs/service_principal.png" alt="Azure DevOps Service Principal" width="480">
 </div>
 
 ## 🔧 Deployment
@@ -301,6 +301,25 @@ The frontend is deployed using **Vercel**.
 
 ### 🔗 Azure DevOps Configuration (One-time, per board)
 
+#### Option 1: Azure DevOps Extension
+
+1. Install the [Task Genie](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) extension to the Azure DevOps organization
+
+2. Add the extension to the Process template
+
+   - Go to the [Organization Settings](https://amaabca.visualstudio.com/_settings) in Azure DevOps and click [Process](https://amaabca.visualstudio.com/_settings/process)
+   - Click on the Process to edit
+   - Click on `User Story`
+   - Click `Add custom control` and select the ~Task Genie Button (AMA)`
+     ![](/docs/custom_control.png)
+   - Click `Options` and set the API URL and API Key to the values in the AWS environment
+     ![](/docs/custom_control_options.png)
+
+3. The `Generate Tasks` button should now appear on any User Stories using the Process
+   ![](/docs/azure_devops_user_story.png)
+
+#### Option 2: Azure DevOps Service Hooks
+
 The integration with Azure DevOps leverages **Service Hooks** and requires **4 Service Hooks** to be created for each Board:
 
 - Work item created
@@ -313,8 +332,6 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 </div>
 
 > ⚠️ **Important**: When the title, acceptance criteria, and description are updated simultaneously, it will trigger 3 times, resulting in 3x the number of tasks being generated. This is a limitation of Azure DevOps, not Task Genie.
-
-#### Configuration Steps
 
 1. **Access Project Settings**
 
@@ -339,6 +356,16 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
    | **Work item type**                | User Story                                                              |
    | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` |
    | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                      |
+
+## 💻 Azure DevOps Extension
+
+1. To publish a new version of the Azure DevOps Extension
+
+   `npx tfx-cli extension create --rev-version --output-path ./dist`
+
+2. To test the Azure DevOps Extension
+
+   `start test-standalone.html`
 
 ## 📚 References
 

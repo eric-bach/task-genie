@@ -85,22 +85,22 @@
 
                   // Called when work item field values change
                   onFieldChanged: function (fieldChangedArgs) {
-                    console.log('Field changed:', fieldChangedArgs);
+                    // console.log('Field changed:', fieldChangedArgs);
                   },
 
                   // Called before the work item is saved
                   onSaved: function (savedEventArgs) {
-                    console.log('Work item saved:', savedEventArgs);
+                    // console.log('Work item saved:', savedEventArgs);
                   },
 
                   // Called when the work item is reset/reverted
                   onReset: function (undoEventArgs) {
-                    console.log('Work item reset:', undoEventArgs);
+                    // console.log('Work item reset:', undoEventArgs);
                   },
 
                   // Called when the work item is refreshed
                   onRefreshed: function (refreshEventArgs) {
-                    console.log('Work item refreshed:', refreshEventArgs);
+                    // console.log('Work item refreshed:', refreshEventArgs);
                   },
                 };
               });
@@ -110,20 +110,17 @@
                 const statusMessage = document.getElementById('statusMessage');
 
                 button.addEventListener('click', async function () {
-                  console.log('Generate Tasks button clicked');
                   button.disabled = true;
                   statusMessage.textContent = 'Generating tasks...';
                   statusMessage.className = 'status-message';
 
                   try {
-                    console.log('Getting work item form service...');
+                    console.log('Generating tasks...');
+
                     // Get the current work item
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
-                    console.log('Work item form service obtained:', workItemFormService);
 
                     const workItemId = await workItemFormService.getId();
-                    console.log('Current work item ID:', workItemId);
-
                     const fields = await workItemFormService.getFieldValues([
                       'System.Title',
                       'System.Description',
@@ -137,16 +134,16 @@
                       // TODO Change this to Custom.System when moving to AMA-Ent
                       'Custom.System2',
                     ]);
-                    console.log('Work item fields (raw):', fields);
 
                     // Clean HTML tags from field values
                     const cleanedFields = cleanFieldValues(fields);
-                    console.log('Work item fields (cleaned):', cleanedFields);
+
+                    console.log('Work item:', workItemId, cleanedFields);
 
                     // Call your REST API here
                     await callTaskGenieAPI(workItemId, cleanedFields);
 
-                    statusMessage.textContent = 'Tasks generated successfully!';
+                    statusMessage.textContent = 'Processing...';
                     statusMessage.className = 'status-message success-message';
                   } catch (error) {
                     console.error('Error generating tasks:', error);
@@ -197,11 +194,6 @@
               }
 
               async function callTaskGenieAPI(workItemId, fields) {
-                console.log('Calling Task Genie API with data:', {
-                  workItemId: workItemId,
-                  fields,
-                });
-
                 // Get configuration values from extension inputs
                 const config = SDK.getConfiguration();
 
@@ -209,8 +201,12 @@
                 const apiUrl = config.witInputs['ApiUrl'] || '';
                 const apiKey = config.witInputs['ApiKey'] || '';
 
-                console.log('Using API URL:', apiUrl);
-                console.log('API Key configured:', apiKey ? 'Yes' : 'No');
+                console.log('Calling Task Genie API:', {
+                  workItemId: workItemId,
+                  fields,
+                  apiUrl,
+                  apiKey: apiKey.substring(0, 4) + '***' + apiKey.substring(apiKey.length - 4),
+                });
 
                 const requestBody = {
                   resource: {
@@ -247,7 +243,7 @@
                 }
 
                 const result = await response.json();
-                console.log('API response:', result);
+                console.log('Task Genie response:', result);
                 return result;
               }
             })
