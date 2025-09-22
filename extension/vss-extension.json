@@ -1,10 +1,10 @@
 {
   "manifestVersion": 1,
-  "id": "my-first-extension",
-  "publisher": "",
-  "version": "1.0.0",
-  "name": "My First Extension",
-  "description": "A sample Visual Studio Services extension",
+  "id": "task-genie",
+  "publisher": "AMA",
+  "version": "1.0.16",
+  "name": "Task Genie",
+  "description": "Agile extension to generate tasks from user stories using AI.",
   "public": false,
   "categories": ["Azure Boards"],
   "targets": [
@@ -13,16 +13,11 @@
     }
   ],
   "scopes": ["vso.work", "vso.work_write"],
+  "branding": {
+    "color": "#0078d4",
+    "theme": "light"
+  },
   "contributions": [
-    {
-      "id": "my-hub",
-      "type": "ms.vss-web.hub",
-      "targets": ["ms.vss-code-web.code-hub-group"],
-      "properties": {
-        "name": "My Hub",
-        "uri": "my-hub.html"
-      }
-    },
     {
       "id": "user-story-button",
       "type": "ms.vss-work-web.work-item-form-control",
@@ -30,15 +25,21 @@
       "properties": {
         "name": "Task Genie Button",
         "uri": "user-story-button.html",
-        "height": 50,
+        "height": 60,
         "inputs": [
           {
-            "id": "WorkItemType",
-            "name": "Work Item Type",
-            "description": "The work item type this control applies to",
-            "type": "WorkItemType",
+            "id": "ApiUrl",
+            "name": "API URL",
+            "description": "The Task Genie API endpoint URL",
+            "type": "String"
+          },
+          {
+            "id": "ApiKey",
+            "name": "API Key",
+            "description": "The API key for Task Genie service",
+            "type": "String",
             "properties": {
-              "workItemTypes": ["User Story"]
+              "isSecret": true
             }
           }
         ]
@@ -46,10 +47,6 @@
     }
   ],
   "files": [
-    {
-      "path": "my-hub.html",
-      "addressable": true
-    },
     {
       "path": "user-story-button.html",
       "addressable": true

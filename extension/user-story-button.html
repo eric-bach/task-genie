@@ -60,12 +60,15 @@
       });
 
       window.requirejs(['SDK'], function (SDK) {
+        console.log('RequireJS loaded SDK module:', typeof SDK);
+
         if (typeof SDK !== 'undefined') {
           console.log('SDK is defined. Initializing work item form control...');
+          console.log('Available SDK methods:', Object.keys(SDK));
 
           SDK.init()
             .then(() => {
-              console.log('SDK initialized');
+              console.log('SDK initialized successfully');
               return SDK.ready();
             })
             .then(() => {
@@ -107,21 +110,41 @@
                 const statusMessage = document.getElementById('statusMessage');
 
                 button.addEventListener('click', async function () {
+                  console.log('Generate Tasks button clicked');
                   button.disabled = true;
                   statusMessage.textContent = 'Generating tasks...';
                   statusMessage.className = 'status-message';
 
                   try {
+                    console.log('Getting work item form service...');
                     // Get the current work item
-                    const workItemFormService = await SDK.getService(SDK.getContributionId());
-                    const workItem = await workItemFormService.getWorkItemId();
-                    const fields = await workItemFormService.getFieldValues(['System.Title', 'System.Description', 'System.WorkItemType']);
+                    const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+                    console.log('Work item form service obtained:', workItemFormService);
 
-                    console.log('Current work item:', workItem);
-                    console.log('Work item fields:', fields);
+                    const workItemId = await workItemFormService.getId();
+                    console.log('Current work item ID:', workItemId);
+
+                    const fields = await workItemFormService.getFieldValues([
+                      'System.Title',
+                      'System.Description',
+                      'System.WorkItemType',
+                      'System.ChangedBy',
+                      'Microsoft.VSTS.Common.AcceptanceCriteria',
+                      'System.TeamProject',
+                      'System.AreaPath',
+                      // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+                      'Custom.BusinessUnit2',
+                      // TODO Change this to Custom.System when moving to AMA-Ent
+                      'Custom.System2',
+                    ]);
+                    console.log('Work item fields (raw):', fields);
+
+                    // Clean HTML tags from field values
+                    const cleanedFields = cleanFieldValues(fields);
+                    console.log('Work item fields (cleaned):', cleanedFields);
 
                     // Call your REST API here
-                    await callTaskGenieAPI(workItem, fields);
+                    await callTaskGenieAPI(workItemId, cleanedFields);
 
                     statusMessage.textContent = 'Tasks generated successfully!';
                     statusMessage.className = 'status-message success-message';
@@ -140,25 +163,81 @@
                 });
               }
 
+              // Function to strip HTML tags from field values
+              function stripHtmlTags(htmlString) {
+                if (!htmlString) return htmlString;
+
+                // Create a temporary div element to parse HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+
+                // Get the text content (automatically strips HTML tags)
+                let textContent = tempDiv.textContent || tempDiv.innerText || '';
+
+                // Clean up extra whitespace
+                textContent = textContent.trim();
+
+                return textContent;
+              }
+
+              // Function to clean field values by removing HTML tags
+              function cleanFieldValues(fields) {
+                const cleanedFields = { ...fields };
+
+                // Fields that commonly contain HTML
+                const htmlFields = ['System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria', 'System.History'];
+
+                htmlFields.forEach((fieldName) => {
+                  if (cleanedFields[fieldName]) {
+                    cleanedFields[fieldName] = stripHtmlTags(cleanedFields[fieldName]);
+                  }
+                });
+
+                return cleanedFields;
+              }
+
               async function callTaskGenieAPI(workItemId, fields) {
-                // Replace this URL with your actual REST API endpoint
-                const apiUrl = 'https://your-api-endpoint.com/generate-tasks';
+                console.log('Calling Task Genie API with data:', {
+                  workItemId: workItemId,
+                  fields,
+                });
+
+                // Get configuration values from extension inputs
+                const config = SDK.getConfiguration();
+
+                // Get API URL and API Key from configuration
+                const apiUrl = config.witInputs['ApiUrl'] || '';
+                const apiKey = config.witInputs['ApiKey'] || '';
+
+                console.log('Using API URL:', apiUrl);
+                console.log('API Key configured:', apiKey ? 'Yes' : 'No');
 
                 const requestBody = {
-                  workItemId: workItemId,
-                  title: fields['System.Title'],
-                  description: fields['System.Description'],
-                  workItemType: fields['System.WorkItemType'],
+                  resource: {
+                    workItemId: workItemId,
+                    rev: 1,
+                    revision: {
+                      fields: {
+                        'System.ChangedBy': fields['System.ChangedBy'],
+                        'System.Title': fields['System.Title'],
+                        'System.Description': fields['System.Description'],
+                        'Microsoft.VSTS.Common.AcceptanceCriteria': fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
+                        'System.TeamProject': fields['System.TeamProject'],
+                        'System.AreaPath': fields['System.AreaPath'],
+                        // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+                        'Custom.BusinessUnit2': fields['Custom.BusinessUnit2'],
+                        // TODO Change this to Custom.System when moving to AMA-Ent
+                        'Custom.System2': fields['Custom.System2'],
+                      },
+                    },
+                  },
                 };
-
-                console.log('Calling API with data:', requestBody);
 
                 const response = await fetch(apiUrl, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    // Add any authentication headers you need
-                    // 'Authorization': 'Bearer ' + token,
+                    'x-api-key': apiKey,
                   },
                   body: JSON.stringify(requestBody),
                 });
@@ -169,10 +248,6 @@
 
                 const result = await response.json();
                 console.log('API response:', result);
-
-                // You can process the API response here
-                // For example, create child work items, update fields, etc.
-
                 return result;
               }
             })
