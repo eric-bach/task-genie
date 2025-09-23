@@ -7,8 +7,9 @@
   "scripts": {
     "build": "tsc",
     "build-all": "find ./../backend -name 'package.json' -not -path '*/node_modules/*' -printf '🚧 Building in %h\n' -execdir npm run build \\;",
-    "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=stage",
-    "deploy-prod": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-prod --context envName=prod",
+    "build-docs": "cd ../docs && npm ci && npm run build",
+    "deploy": "npm run build-all && npm run build-docs && echo '🚀 Deploying all stacks' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=stage",
+    "deploy-prod": "npm run build-all && npm run build-docs && echo '🚀 Deploying all stacks' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-prod --context envName=prod",
     "install-all": "find ./../backend -name 'package.json' -not -path '*/node_modules/*' -printf '🛠️ Installing in %h\n' -execdir npm install \\;",
     "watch": "tsc -w",
     "test": "jest",
