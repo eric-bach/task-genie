@@ -1,0 +1,67 @@
+{
+  "manifestVersion": 1,
+  "id": "task-genie",
+  "publisher": "AMA",
+  "version": "1.0.22",
+  "name": "Task Genie",
+  "description": "Agile extension to generate tasks from user stories using AI.",
+  "public": false,
+  "categories": ["Azure Boards"],
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "scopes": ["vso.work", "vso.work_write"],
+  "branding": {
+    "color": "#0078d4",
+    "theme": "light"
+  },
+  "icons": {
+    "default": "logo.jpg"
+  },
+  "contributions": [
+    {
+      "id": "user-story-button",
+      "type": "ms.vss-work-web.work-item-form-control",
+      "targets": ["ms.vss-work-web.work-item-form"],
+      "properties": {
+        "name": "Task Genie Button",
+        "uri": "user-story-button.html",
+        "height": 80,
+        "inputs": [
+          {
+            "id": "ApiUrl",
+            "name": "API URL",
+            "description": "The Task Genie API endpoint URL",
+            "type": "String"
+          },
+          {
+            "id": "ApiKey",
+            "name": "API Key",
+            "description": "The API key for Task Genie service",
+            "type": "String",
+            "properties": {
+              "isSecret": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "user-story-button.html",
+      "addressable": true
+    },
+    {
+      "path": "logo.jpg",
+      "addressable": true
+    },
+    {
+      "path": "node_modules/azure-devops-extension-sdk",
+      "addressable": true,
+      "packagePath": "lib"
+    }
+  ]
+}

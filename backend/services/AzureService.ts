@@ -249,6 +249,83 @@ export class AzureService {
     }
   };
 
+  async getTasksForWorkItem(githubOrganization: string, workItem: WorkItem): Promise<Task[]> {
+    this.logger.info(`⚙️ Fetching tasks for work item ${workItem.workItemId}`);
+
+    try {
+      // Get work item details including relations
+      const workItemUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?$expand=relations&api-version=7.1`;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
+
+      const response = await fetch(workItemUrl, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get work item details');
+      }
+
+      const data = await response.json();
+
+      // Extract tasks ids from relations
+      const taskIds: number[] = [];
+      if (data.relations && Array.isArray(data.relations)) {
+        for (const relation of data.relations) {
+          if (relation.rel === 'System.LinkTypes.Hierarchy-Forward' && relation.url) {
+            // Extract task ID from the URL
+            const taskId = relation.url.split('/').pop();
+            taskIds.push(taskId);
+          }
+        }
+      }
+
+      // Get tasks
+      const tasks: Task[] = [];
+
+      const tasksUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitemsbatch?api-version=7.1`;
+
+      const body = JSON.stringify({
+        ids: taskIds,
+        fields: ['System.Id', 'System.Title', 'System.Description', 'System.WorkItemType', 'System.State'],
+      });
+
+      const tasksResponse = await fetch(tasksUrl, {
+        method: 'POST',
+        headers,
+        body,
+      });
+
+      if (!tasksResponse.ok) {
+        throw new Error('Failed to get tasks');
+      }
+
+      const tasksData = await tasksResponse.json();
+
+      if (tasksData.value && Array.isArray(tasksData.value)) {
+        for (const taskItem of tasksData.value) {
+          tasks.push({
+            taskId: taskItem.id,
+            title: taskItem.fields['System.Title'],
+            description: taskItem.fields['System.Description'],
+          });
+        }
+      }
+
+      this.logger.info(`📋 Found ${tasks.length} existing tasks for work item ${workItem.workItemId}`);
+
+      return tasks;
+    } catch (error: any) {
+      this.logger.error('An error occurred', { error: error });
+    }
+
+    return [];
+  }
+
   async createTasks(githubOrganization: string, workItem: WorkItem, tasks: Task[]) {
     this.logger.info(`⚙️ Creating ${tasks.length} total tasks`, { tasks: tasks });
 

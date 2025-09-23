@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 10px;
+        font-family: 'Segoe UI VSS (Regular)', '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      .task-genie-button {
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 14px;
+        font-family: inherit;
+        transition: background-color 0.2s;
+      }
+
+      .task-genie-button:hover {
+        background-color: #106ebe;
+      }
+
+      .task-genie-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .status-message {
+        margin-top: 8px;
+        font-size: 12px;
+        color: #666;
+        min-height: 16px;
+        display: block;
+      }
+
+      .error-message {
+        color: #d13438;
+      }
+
+      .success-message {
+        color: #107c10;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <button id="taskGenieButton" class="task-genie-button">Generate Tasks</button>
+      <div id="statusMessage" class="status-message"></div>
+    </div>
+
+    <script>
+      window.requirejs.config({
+        enforceDefine: true,
+        paths: {
+          SDK: './lib/SDK.min',
+        },
+      });
+
+      window.requirejs(['SDK'], function (SDK) {
+        console.log('RequireJS loaded SDK module:', typeof SDK);
+
+        if (typeof SDK !== 'undefined') {
+          console.log('SDK is defined. Initializing work item form control...');
+          console.log('Available SDK methods:', Object.keys(SDK));
+
+          SDK.init()
+            .then(() => {
+              console.log('SDK initialized successfully');
+              return SDK.ready();
+            })
+            .then(() => {
+              console.log('SDK is ready');
+
+              // Register the work item form service
+              SDK.register(SDK.getContributionId(), () => {
+                return {
+                  // Called when the work item is loaded
+                  onLoaded: function (workItemLoadedArgs) {
+                    console.log('Work item loaded:', workItemLoadedArgs);
+                    setupButton();
+                  },
+
+                  // Called when work item field values change
+                  onFieldChanged: function (fieldChangedArgs) {
+                    // console.log('Field changed:', fieldChangedArgs);
+                  },
+
+                  // Called before the work item is saved
+                  onSaved: function (savedEventArgs) {
+                    // console.log('Work item saved:', savedEventArgs);
+                  },
+
+                  // Called when the work item is reset/reverted
+                  onReset: function (undoEventArgs) {
+                    // console.log('Work item reset:', undoEventArgs);
+                  },
+
+                  // Called when the work item is refreshed
+                  onRefreshed: function (refreshEventArgs) {
+                    // console.log('Work item refreshed:', refreshEventArgs);
+                  },
+                };
+              });
+
+              function setupButton() {
+                const button = document.getElementById('taskGenieButton');
+                const statusMessage = document.getElementById('statusMessage');
+
+                button.addEventListener('click', async function () {
+                  button.disabled = true;
+                  statusMessage.textContent = 'Generating tasks...';
+                  statusMessage.className = 'status-message';
+
+                  try {
+                    console.log('Generating tasks...');
+
+                    // Get the current work item
+                    const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+
+                    const workItemId = await workItemFormService.getId();
+                    const fields = await workItemFormService.getFieldValues([
+                      'System.Title',
+                      'System.Description',
+                      'System.WorkItemType',
+                      'System.ChangedBy',
+                      'Microsoft.VSTS.Common.AcceptanceCriteria',
+                      'System.Tags',
+                      'System.TeamProject',
+                      'System.AreaPath',
+                      // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+                      'Custom.BusinessUnit2',
+                      // TODO Change this to Custom.System when moving to AMA-Ent
+                      'Custom.System2',
+                    ]);
+
+                    // Clean HTML tags from field values
+                    const cleanedFields = cleanFieldValues(fields);
+
+                    console.log('Work item:', workItemId, cleanedFields);
+
+                    // Call your REST API here
+                    await callTaskGenieAPI(workItemId, cleanedFields);
+
+                    statusMessage.textContent = 'This will take a moment...';
+                    statusMessage.className = 'status-message success-message';
+                  } catch (error) {
+                    console.error('Error generating tasks:', error);
+                    statusMessage.textContent = 'Error generating tasks. Please try again.';
+                    statusMessage.className = 'status-message error-message';
+                  } finally {
+                    button.disabled = false;
+
+                    // Clear status message after 5 seconds
+                    setTimeout(() => {
+                      statusMessage.textContent = '';
+                    }, 5000);
+                  }
+                });
+              }
+
+              // Function to strip HTML tags from field values
+              function stripHtmlTags(htmlString) {
+                if (!htmlString) return htmlString;
+
+                // Create a temporary div element to parse HTML
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = htmlString;
+
+                // Get the text content (automatically strips HTML tags)
+                let textContent = tempDiv.textContent || tempDiv.innerText || '';
+
+                // Clean up extra whitespace
+                textContent = textContent.trim();
+
+                return textContent;
+              }
+
+              // Function to clean field values by removing HTML tags
+              function cleanFieldValues(fields) {
+                const cleanedFields = { ...fields };
+
+                // Fields that commonly contain HTML
+                const htmlFields = ['System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria', 'System.History'];
+
+                htmlFields.forEach((fieldName) => {
+                  if (cleanedFields[fieldName]) {
+                    cleanedFields[fieldName] = stripHtmlTags(cleanedFields[fieldName]);
+                  }
+                });
+
+                return cleanedFields;
+              }
+
+              async function callTaskGenieAPI(workItemId, fields) {
+                // Get configuration values from extension inputs
+                const config = SDK.getConfiguration();
+
+                // Get API URL and API Key from configuration
+                const apiUrl = config.witInputs['ApiUrl'] || '';
+                const apiKey = config.witInputs['ApiKey'] || '';
+
+                console.log('Calling Task Genie API:', {
+                  workItemId: workItemId,
+                  fields,
+                  apiUrl,
+                  apiKey: apiKey.substring(0, 4) + '***' + apiKey.substring(apiKey.length - 4),
+                });
+
+                const requestBody = {
+                  resource: {
+                    workItemId: workItemId,
+                    rev: 1,
+                    revision: {
+                      fields: {
+                        'System.ChangedBy': fields['System.ChangedBy'],
+                        'System.Title': fields['System.Title'],
+                        'System.Description': fields['System.Description'],
+                        'Microsoft.VSTS.Common.AcceptanceCriteria': fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
+                        'System.TeamProject': fields['System.TeamProject'],
+                        'System.Tags': fields['System.Tags'],
+                        'System.AreaPath': fields['System.AreaPath'],
+                        // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+                        'Custom.BusinessUnit2': fields['Custom.BusinessUnit2'],
+                        // TODO Change this to Custom.System when moving to AMA-Ent
+                        'Custom.System2': fields['Custom.System2'],
+                      },
+                    },
+                  },
+                };
+
+                const response = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey,
+                  },
+                  body: JSON.stringify(requestBody),
+                });
+
+                if (!response.ok) {
+                  throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('Task Genie response:', result);
+                return result;
+              }
+            })
+            .catch((error) => {
+              console.error('Error initializing SDK:', error);
+            });
+        } else {
+          console.log('SDK is not defined');
+        }
+      });
+    </script>
+  </body>
+</html>

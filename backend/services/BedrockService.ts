@@ -83,7 +83,11 @@ export class BedrockService {
   /**
    * Main method to generate tasks
    */
-  async generateTasks(workItem: WorkItem, params: BedrockInferenceParams = {}): Promise<BedrockTaskGenerationResponse> {
+  async generateTasks(
+    workItem: WorkItem,
+    existingTasks: Task[],
+    params: BedrockInferenceParams = {}
+  ): Promise<BedrockTaskGenerationResponse> {
     try {
       this.logger.info('⚙️ Starting task generation', { workItemId: workItem.workItemId });
 
@@ -97,7 +101,7 @@ export class BedrockService {
       const enhancedParams = { ...params, prompt: resolvedPrompt };
 
       // Step 2: Generate tasks using the model
-      const tasks = await this.invokeModelForTaskGeneration(workItem, enhancedParams, knowledgeContext);
+      const tasks = await this.invokeModelForTaskGeneration(workItem, existingTasks, enhancedParams, knowledgeContext);
 
       this.logger.info('Task generation completed', {
         workItemId: workItem.workItemId,
@@ -316,10 +320,11 @@ export class BedrockService {
    */
   private async invokeModelForTaskGeneration(
     workItem: WorkItem,
+    existingTasks: Task[],
     params: BedrockInferenceParams,
     knowledgeContext: BedrockKnowledgeDocument[]
   ): Promise<Task[]> {
-    const prompt = await this.buildTaskGenerationPrompt(workItem, params, knowledgeContext);
+    const prompt = await this.buildTaskGenerationPrompt(workItem, existingTasks, params, knowledgeContext);
     const content = await this.buildModelContent(workItem, prompt);
 
     const payload = {
@@ -418,6 +423,7 @@ Images referenced:
    */
   private async buildTaskGenerationPrompt(
     workItem: WorkItem,
+    existingTasks: Task[],
     params: BedrockInferenceParams,
     knowledgeContext: BedrockKnowledgeDocument[]
   ): Promise<string> {
@@ -434,6 +440,7 @@ Images referenced:
 **Instructions**
 - Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
 - Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
+- If some tasks already exist, only generate the additional tasks that are missing so the set of tasks is complete without duplication.
 - Do NOT create any tasks for analyzing, investigating, testing, or deployment.`;
 
     const prompt = params.prompt || defaultPrompt;
@@ -444,6 +451,9 @@ Images referenced:
   - Title: ${workItem.title}
   - Description: ${workItem.description}
   - Acceptance Criteria: ${workItem.acceptanceCriteria}
+
+- Here are the tasks that have already been created for this work item (if any):
+  ${existingTasks.length > 0 ? existingTasks.map((t, i) => `${i + 1}. ${t.title}`).join('\n') : 'None'}
 
 - Here are the images referenced (if any were included):
   ${imagesSection}

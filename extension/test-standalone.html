@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <style>
+      body {
+        margin: 20px;
+        padding: 10px;
+        font-family: 'Segoe UI VSS (Regular)', '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        background: #f8f9fa;
+      }
+
+      .test-container {
+        background: white;
+        padding: 20px;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        max-width: 600px;
+      }
+
+      .task-genie-button {
+        background-color: #0078d4;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 2px;
+        cursor: pointer;
+        font-size: 14px;
+        font-family: inherit;
+        transition: background-color 0.2s;
+      }
+
+      .task-genie-button:hover {
+        background-color: #106ebe;
+      }
+
+      .task-genie-button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+
+      .status-message {
+        margin-left: 10px;
+        font-size: 12px;
+        color: #666;
+      }
+
+      .error-message {
+        color: #d13438;
+      }
+
+      .success-message {
+        color: #107c10;
+      }
+
+      .mock-data {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f0f8ff;
+        border-left: 4px solid #0078d4;
+      }
+
+      .log-output {
+        margin-top: 20px;
+        padding: 15px;
+        background: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-family: 'Consolas', 'Monaco', monospace;
+        font-size: 12px;
+        max-height: 300px;
+        overflow-y: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="test-container">
+      <h2>Task Genie Extension - Test Mode</h2>
+
+      <div class="mock-data">
+        <strong>Mock Work Item Data:</strong><br />
+        ID: 12345<br />
+        Title: "Implement user authentication system"<br />
+        Description: "As a user, I want to be able to log in securely so that I can access my personal data."<br />
+        Type: User Story
+      </div>
+
+      <div style="margin-top: 20px">
+        <button id="taskGenieButton" class="task-genie-button">Generate Tasks</button>
+        <span id="statusMessage" class="status-message"></span>
+      </div>
+
+      <div id="logOutput" class="log-output"></div>
+    </div>
+
+    <script>
+      // Mock SDK for testing
+      window.SDK = {
+        init: () => Promise.resolve(),
+        ready: () => Promise.resolve(),
+        getContributionId: () => 'test-contribution',
+        register: (id, callback) => {
+          console.log('SDK.register called with:', id);
+          const service = callback();
+          if (service.onLoaded) {
+            setTimeout(() => service.onLoaded({}), 100);
+          }
+        },
+        getService: (serviceId) => {
+          console.log('SDK.getService called with:', serviceId);
+          return Promise.resolve({
+            getId: () => Promise.resolve(12345),
+            getFieldValues: (fields) => {
+              console.log('getFieldValues called with:', fields);
+              return Promise.resolve({
+                'System.Title': 'Implement user authentication system',
+                'System.Description':
+                  '<div><p>As a user, I want to be able to log in securely so that I can access my personal data.</p><br><strong>Additional details:</strong> The system should support OAuth and MFA.</div>',
+                'Microsoft.VSTS.Common.AcceptanceCriteria':
+                  '<div><ul><li>User can log in with email/password</li><li>Support for Google OAuth</li><li>MFA via SMS or authenticator app</li></ul></div>',
+                'System.WorkItemType': 'User Story',
+              });
+            },
+          });
+        },
+      };
+
+      // Enhanced logging
+      const originalLog = console.log;
+      const logOutput = document.getElementById('logOutput');
+
+      console.log = function (...args) {
+        originalLog.apply(console, args);
+        const message = args
+          .map((arg) => (typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)))
+          .join(' ');
+        logOutput.innerHTML += '<div>' + new Date().toLocaleTimeString() + ': ' + message + '</div>';
+        logOutput.scrollTop = logOutput.scrollHeight;
+      };
+
+      // Your extension code here (copy from user-story-button.html)
+      console.log('Test environment initialized');
+
+      function setupButton() {
+        const button = document.getElementById('taskGenieButton');
+        const statusMessage = document.getElementById('statusMessage');
+
+        button.addEventListener('click', async function () {
+          console.log('Generate Tasks button clicked');
+          button.disabled = true;
+          statusMessage.textContent = 'Generating tasks...';
+          statusMessage.className = 'status-message';
+
+          try {
+            console.log('Getting work item form service...');
+            const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+            console.log('Work item form service obtained');
+
+            const workItemId = await workItemFormService.getId();
+            console.log('Current work item ID:', workItemId);
+
+            const fields = await workItemFormService.getFieldValues([
+              'System.Title',
+              'System.Description',
+              'System.WorkItemType',
+            ]);
+            console.log('Work item fields:', fields);
+
+            await callTaskGenieAPI(workItemId, fields);
+
+            statusMessage.textContent = 'Tasks generated successfully!';
+            statusMessage.className = 'status-message success-message';
+          } catch (error) {
+            console.error('Error generating tasks:', error);
+            statusMessage.textContent = 'Error generating tasks. Please try again.';
+            statusMessage.className = 'status-message error-message';
+          } finally {
+            button.disabled = false;
+            setTimeout(() => {
+              statusMessage.textContent = '';
+            }, 3000);
+          }
+        });
+      }
+
+      async function callTaskGenieAPI(workItemId, fields) {
+        console.log('Calling Task Genie API with data:', {
+          workItemId: workItemId,
+          title: fields['System.Title'],
+          description: fields['System.Description'],
+          workItemType: fields['System.WorkItemType'],
+        });
+
+        // Simulate API delay
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+
+        // Mock successful response
+        const mockResult = {
+          success: true,
+          tasks: [
+            { title: 'Task 1: Setup authentication database schema' },
+            { title: 'Task 2: Implement login API endpoint' },
+            { title: 'Task 3: Create password hashing utility' },
+            { title: 'Task 4: Build login UI component' },
+            { title: 'Task 5: Add session management' },
+            { title: 'Task 6: Write authentication tests' },
+          ],
+        };
+
+        console.log('Mock API response:', mockResult);
+        return mockResult;
+      }
+
+      // Initialize
+      SDK.init()
+        .then(() => SDK.ready())
+        .then(() => {
+          console.log('SDK initialized and ready');
+          SDK.register(SDK.getContributionId(), () => ({
+            onLoaded: function (workItemLoadedArgs) {
+              console.log('Work item loaded:', workItemLoadedArgs);
+              setupButton();
+            },
+          }));
+        })
+        .catch((error) => {
+          console.error('Error initializing SDK:', error);
+        });
+    </script>
+  </body>
+</html>
