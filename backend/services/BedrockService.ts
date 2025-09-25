@@ -284,8 +284,8 @@ export class BedrockService {
 
     this.logger.debug('🧠 Invoking Bedrock model', {
       modelId: this.config.modelId,
-      contentCount: content.length - (workItem.images?.length || 0),
-      contentLength: content.reduce((sum, item) => {
+      contextCount: content.length - (workItem.images?.length || 0),
+      contextLength: content.reduce((sum, item) => {
         return item.type === 'text' ? sum + (item.text?.length || 0) : sum;
       }, 0),
       knowledgeCount: knowledgeContext.length,
@@ -344,10 +344,11 @@ export class BedrockService {
 
     this.logger.debug('🧠 Invoking Bedrock model', {
       modelId: this.config.modelId,
-      contentCount: content.length - (workItem.images?.length || 0),
-      contentLength: content.reduce((sum, item) => {
+      contextCount: content.length - (workItem.images?.length || 0),
+      contextLength: content.reduce((sum, item) => {
         return item.type === 'text' ? sum + (item.text?.length || 0) : sum;
       }, 0),
+      tasksCount: existingTasks.length,
       knowledgeCount: knowledgeContext.length,
       knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
       imagesCount: workItem.images?.length || 0,
