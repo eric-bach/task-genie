@@ -231,10 +231,18 @@ const parseEvent = (event: any): WorkItemRequest => {
     workItemId: workItemId ?? 0,
     teamProject: sanitizeField(fields['System.TeamProject']),
     areaPath: sanitizeField(fields['System.AreaPath']),
-    // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
-    businessUnit: fields['Custom.BusinessUnit2'] ? sanitizeField(fields['Custom.BusinessUnit2']) : '',
-    // TODO Change this to Custom.System when moving to AMA-Ent
-    system: fields['Custom.System2'] ? sanitizeField(fields['Custom.System2']) : '',
+    // Handle both Custom.BusinessUnit and Custom.BusinessUnit2 field names
+    businessUnit: fields['Custom.BusinessUnit']
+      ? sanitizeField(fields['Custom.BusinessUnit'])
+      : fields['Custom.BusinessUnit2']
+      ? sanitizeField(fields['Custom.BusinessUnit2'])
+      : '',
+    // Handle both Custom.System and Custom.System2 field names
+    system: fields['Custom.System']
+      ? sanitizeField(fields['Custom.System'])
+      : fields['Custom.System2']
+      ? sanitizeField(fields['Custom.System2'])
+      : '',
     changedBy: sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim(),
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(rawDescription),

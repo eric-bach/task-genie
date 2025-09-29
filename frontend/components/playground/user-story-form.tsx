@@ -85,10 +85,8 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
             'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
             'System.TeamProject': 'test',
             'System.AreaPath': areaPath,
-            // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
-            'Custom.BusinessUnit2': businessUnit,
-            // TODO Change this to Custom.System when moving to AMA-Ent
-            'Custom.System2': system,
+            'Custom.BusinessUnit': businessUnit,
+            'Custom.System': system,
           },
         },
       },
