@@ -73,7 +73,12 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
     } = values;
 
     // Only send the active parameter based on parameterMode
-    const aiParams: any = {
+    const aiParams: {
+      prompt?: string;
+      maxTokens: number;
+      temperature?: number;
+      topP?: number;
+    } = {
       prompt,
       maxTokens,
     };
