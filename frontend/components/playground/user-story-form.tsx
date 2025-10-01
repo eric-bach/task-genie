@@ -248,6 +248,7 @@ export function UserStoryForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollingMessage, setPollingMessage] = useState('');
+  const [currentExecutionId, setCurrentExecutionId] = useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -274,10 +275,72 @@ export function UserStoryForm() {
     },
   });
 
+  async function executePoll(executionId: string) {
+    const maxAttempts = 36;
+    const intervalMs = 5000;
+
+    try {
+      const pollResponse = await pollForResults(executionId, maxAttempts, intervalMs);
+      setResult(pollResponse);
+
+      if (pollResponse.statusCode === 200) {
+        const tasks = pollResponse.body.tasks || [];
+        console.log('Setting tasks from poll response:', tasks);
+        setTasks(tasks);
+
+        if (tasks.length > 0) {
+          toast.success('User Story is accepted', {
+            description: `User story accepted and ${tasks.length} tasks were generated`,
+          });
+        } else {
+          toast.warning('User Story processed', {
+            description: 'User story was processed but no tasks were generated',
+          });
+        }
+      } else if (pollResponse.statusCode === 408) {
+        // Still timed out - result will show the timeout message with retry button
+        toast.warning('Request still processing', {
+          description: 'The request is still taking longer than expected. You can try again.',
+        });
+      } else {
+        console.log('Poll response indicates failure:', pollResponse);
+        toast.error('User Story is not accepted', {
+          description: 'Please see the reason for more details and correct the user story to try again',
+        });
+      }
+    } catch (error) {
+      setResult({
+        statusCode: 500,
+        body: {
+          workItemStatus: {
+            comment: error instanceof Error ? error.message : 'Unknown error occurred during polling',
+          },
+        },
+      });
+
+      toast.error('An error occurred while processing', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    } finally {
+      setIsPolling(false);
+      setPollingMessage('');
+    }
+  }
+
+  async function handleRetryPolling() {
+    if (!currentExecutionId) return;
+
+    setIsPolling(true);
+    setPollingMessage('Checking for results...');
+
+    await executePoll(currentExecutionId);
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     setIsPolling(false);
     setPollingMessage('');
+    setCurrentExecutionId('');
     setResult(undefined);
     setTasks([]);
 
@@ -303,56 +366,10 @@ export function UserStoryForm() {
           throw new Error('No execution ID received from API');
         }
 
+        setCurrentExecutionId(executionId);
+
         // Step 3: Poll for results
-        const maxAttempts = 30;
-        const intervalMs = 2000;
-
-        const pollResults = async () => {
-          try {
-            const pollResponse = await pollForResults(executionId, maxAttempts, intervalMs);
-            setResult(pollResponse);
-
-            if (pollResponse.statusCode === 200) {
-              const tasks = pollResponse.body.tasks || [];
-              console.log('Setting tasks from poll response:', tasks);
-              setTasks(tasks);
-
-              if (tasks.length > 0) {
-                toast.success('User Story is accepted', {
-                  description: `User story accepted and ${tasks.length} tasks were generated`,
-                });
-              } else {
-                toast.warning('User Story processed', {
-                  description: 'User story was processed but no tasks were generated',
-                });
-              }
-            } else {
-              console.log('Poll response indicates failure:', pollResponse);
-              toast.error('User Story is not accepted', {
-                description: 'Please see the reason for more details and correct the user story to try again',
-              });
-            }
-          } catch (error) {
-            setResult({
-              statusCode: 500,
-              body: {
-                workItemStatus: {
-                  comment: error instanceof Error ? error.message : 'Unknown error occurred during polling',
-                },
-              },
-            });
-
-            toast.error('An error occurred while processing', {
-              description: error instanceof Error ? error.message : 'Unknown error occurred',
-            });
-          } finally {
-            setIsPolling(false);
-            setPollingMessage('');
-          }
-        };
-
-        // Start polling
-        await pollResults();
+        await executePoll(executionId);
       } else {
         // Handle immediate response (if API changed behavior)
         setResult(initialResponse);
@@ -709,7 +726,7 @@ export function UserStoryForm() {
                   </div>
                 </ScrollArea>
 
-                <div className='pt-6 flex-shrink-0 flex justify-end space-x-4'>
+                <div className='pt-6 flex-shrink-0 flex justify-end items-center space-x-4'>
                   {isPolling && pollingMessage && (
                     <div className='flex items-center text-sm text-muted-foreground mr-4'>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -738,7 +755,13 @@ export function UserStoryForm() {
           <CardFooter className='flex justify-between pt-6 flex-shrink-0'></CardFooter>
         </Card>
 
-        <TasksDisplay isSubmitting={isSubmitting || isPolling} tasks={tasks} result={result} />
+        <TasksDisplay
+          isSubmitting={isSubmitting || isPolling}
+          tasks={tasks}
+          result={result}
+          onRetry={handleRetryPolling}
+          canRetry={!!currentExecutionId && !isPolling && !isSubmitting}
+        />
       </div>
     </div>
   );
