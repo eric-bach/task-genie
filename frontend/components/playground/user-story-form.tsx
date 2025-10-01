@@ -16,6 +16,8 @@ import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
@@ -44,6 +46,8 @@ const formSchema = z.object({
   // AI settings
   prompt: z.string().optional(),
   maxTokens: z.number().min(256).max(4096),
+  // Claude 4.5 Sonnet only supports temperatture or topP, not both
+  parameterMode: z.enum(['temperature', 'topP']),
   temperature: z.number().min(0).max(1),
   topP: z.number().min(0.1).max(1),
 });
@@ -63,17 +67,25 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
       system,
       prompt,
       maxTokens,
+      parameterMode,
       temperature,
       topP,
     } = values;
 
+    // Only send the active parameter based on parameterMode
+    const aiParams: any = {
+      prompt,
+      maxTokens,
+    };
+
+    if (parameterMode === 'temperature') {
+      aiParams.temperature = temperature;
+    } else {
+      aiParams.topP = topP;
+    }
+
     const body = {
-      params: {
-        prompt,
-        maxTokens,
-        temperature,
-        topP,
-      },
+      params: aiParams,
       resource: {
         workItemId: 0,
         rev: 1,
@@ -248,7 +260,8 @@ export function UserStoryForm() {
       businessUnit: '',
       system: '',
       prompt: undefined,
-      maxTokens: 4096,
+      maxTokens: 8192,
+      parameterMode: 'temperature' as const,
       temperature: 0.5,
       topP: 0.9,
     },
@@ -422,7 +435,15 @@ export function UserStoryForm() {
                                   )}
                                 />
 
-                                <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+                                <Alert className='mb-4'>
+                                  <Info className='h-4 w-4' />
+                                  <AlertDescription>
+                                    <strong>Claude 4.5 Sonnet</strong> only supports either Temperature or Top P, not
+                                    both.
+                                  </AlertDescription>
+                                </Alert>
+
+                                <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-6'>
                                   <FormField
                                     control={form.control}
                                     disabled={isSubmitting || isPolling}
@@ -453,6 +474,34 @@ export function UserStoryForm() {
                                   <FormField
                                     control={form.control}
                                     disabled={isSubmitting || isPolling}
+                                    name='parameterMode'
+                                    render={({ field }) => (
+                                      <FormItem className='space-y-2'>
+                                        <FormLabel className='text-base'>Inference Parameter</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                          <FormControl>
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            <SelectItem value='temperature'>Temperature</SelectItem>
+                                            <SelectItem value='topP'>Top P</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormDescription className='text-xs'>
+                                          Select which inference parameter to use
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+
+                                {form.watch('parameterMode') === 'temperature' && (
+                                  <FormField
+                                    control={form.control}
+                                    disabled={isSubmitting || isPolling}
                                     name='temperature'
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
@@ -472,13 +521,15 @@ export function UserStoryForm() {
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Controls randomness (0 = deterministic, 1 = creative)
+                                          Controls randomness: 0 = deterministic and focused, 1 = creative and diverse
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
                                     )}
                                   />
+                                )}
 
+                                {form.watch('parameterMode') === 'topP' && (
                                   <FormField
                                     control={form.control}
                                     disabled={isSubmitting || isPolling}
@@ -486,7 +537,7 @@ export function UserStoryForm() {
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
                                         <div className='flex items-center justify-between'>
-                                          <FormLabel className='text-base'>Top P</FormLabel>
+                                          <FormLabel className='text-base'>Top P (Nucleus Sampling)</FormLabel>
                                           <span className='text-sm text-muted-foreground'>
                                             {field.value.toFixed(1)}
                                           </span>
@@ -501,13 +552,14 @@ export function UserStoryForm() {
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Controls diversity of output (0.1-1.0)
+                                          Controls diversity: 0.1 = focused on most likely words, 1.0 = considers all
+                                          possibilities
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
                                     )}
                                   />
-                                </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>

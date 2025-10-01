@@ -70,11 +70,11 @@
 
           SDK.init()
             .then(() => {
-              console.log('SDK initialized successfully');
+              console.log('SDK initialized');
               return SDK.ready();
             })
             .then(() => {
-              console.log('SDK is ready');
+              console.log('SDK loaded');
 
               // Register the work item form service
               SDK.register(SDK.getContributionId(), () => {
@@ -113,12 +113,10 @@
 
                 button.addEventListener('click', async function () {
                   button.disabled = true;
-                  statusMessage.textContent = 'Generating tasks...';
+                  statusMessage.textContent = 'Submitting request...';
                   statusMessage.className = 'status-message';
 
                   try {
-                    console.log('Generating tasks...');
-
                     // Get the current work item
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
 
@@ -143,12 +141,10 @@
                     // Clean HTML tags from field values
                     const cleanedFields = cleanFieldValues(fields);
 
-                    console.log('Work item:', workItemId, cleanedFields);
-
                     // Call your REST API here
                     await callTaskGenieAPI(workItemId, cleanedFields);
 
-                    statusMessage.textContent = 'This will take a moment...';
+                    statusMessage.textContent = 'Task Genie is processing...';
                     statusMessage.className = 'status-message success-message';
                   } catch (error) {
                     console.error('Error generating tasks:', error);
@@ -208,7 +204,7 @@
 
                 // Fall back to the numbered field name (e.g., Custom.BusinessUnit2)
                 const numberedField = `Custom.${baseName}2`;
-                if (fields[numberedField] && fwields[numberedField].trim()) {
+                if (fields[numberedField] && fields[numberedField].trim()) {
                   return fields[numberedField];
                 }
 

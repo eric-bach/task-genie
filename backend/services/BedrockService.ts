@@ -5,7 +5,7 @@ import {
   BedrockAgentRuntimeClient,
   RetrievalFilter,
 } from '@aws-sdk/client-bedrock-agent-runtime';
-import { InvokeModelCommand, InvokeModelCommandInput, BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
+import { ConverseCommand, ConverseCommandInput, BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 
 import { AzureService } from './AzureService';
@@ -26,6 +26,8 @@ export interface BedrockServiceConfig {
   maxImages?: number;
   configTableName?: string; // Optional: for custom prompts
 }
+
+const MAX_OUTPUT_TOKENS = 10240;
 
 export class BedrockService {
   private readonly bedrockAgentClient: BedrockAgentRuntimeClient;
@@ -267,22 +269,21 @@ export class BedrockService {
     const prompt = this.buildWorkItemEvaluationPrompt(workItem, knowledgeContext);
     const content = await this.buildModelContent(workItem, prompt);
 
-    const payload = {
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: 2048,
-      temperature: 0.5,
-      top_p: 0.9,
-      messages: [{ role: 'user', content }],
-    };
-
-    const input: InvokeModelCommandInput = {
+    const input: ConverseCommandInput = {
       modelId: this.config.modelId,
-      body: JSON.stringify(payload),
-      contentType: 'application/json',
-      accept: 'application/json',
+      messages: [
+        {
+          role: 'user',
+          content,
+        },
+      ],
+      inferenceConfig: {
+        maxTokens: 2048,
+        temperature: 0.5,
+      },
     };
 
-    this.logger.debug('🧠 Invoking Bedrock model', {
+    this.logger.debug('🧠 Invoking Bedrock model for Work Item Evaluation', {
       modelId: this.config.modelId,
       contextCount: content.length - (workItem.images?.length || 0),
       contextLength: content.reduce((sum, item) => {
@@ -299,11 +300,17 @@ export class BedrockService {
           return sum;
         }, 0)
       ),
+      inferenceConfig: input.inferenceConfig,
     });
 
     try {
-      const command = new InvokeModelCommand(input);
+      const command = new ConverseCommand(input);
       const response = await this.bedrockRuntimeClient.send(command);
+
+      this.logger.info('Received response from Bedrock model', {
+        response,
+        responseStatus: response.$metadata?.httpStatusCode,
+      });
 
       return this.parseWorkItemEvaluation(response);
     } catch (error) {
@@ -327,44 +334,65 @@ export class BedrockService {
     const prompt = await this.buildTaskGenerationPrompt(workItem, existingTasks, params, knowledgeContext);
     const content = await this.buildModelContent(workItem, prompt);
 
-    const payload = {
-      anthropic_version: 'bedrock-2023-05-31',
-      max_tokens: params.maxTokens || 4096,
-      temperature: params.temperature || 0.5,
-      top_p: params.topP || 0.9,
-      messages: [{ role: 'user', content }],
+    const inferenceConfig: any = {
+      maxTokens: params.maxTokens || MAX_OUTPUT_TOKENS,
     };
 
-    const input: InvokeModelCommandInput = {
+    // Add inference parameter (temperature OR topP, not both)
+    if (params.temperature) {
+      inferenceConfig.temperature = params.temperature;
+    } else if (params.topP) {
+      inferenceConfig.topP = params.topP;
+    } else {
+      // Default to temperature if neither is specified
+      inferenceConfig.temperature = 0.5;
+    }
+
+    const input: ConverseCommandInput = {
       modelId: this.config.modelId,
-      body: JSON.stringify(payload),
-      contentType: 'application/json',
-      accept: 'application/json',
+      messages: [
+        {
+          role: 'user',
+          content,
+        },
+      ],
+      inferenceConfig,
     };
 
-    this.logger.debug('🧠 Invoking Bedrock model', {
+    const textLength = content.reduce((sum, item) => {
+      return item.text ? sum + item.text.length : sum;
+    }, 0);
+
+    const imageCount = content.filter((item) => item.image).length;
+    const imageSizeKB = Math.round(
+      content.reduce((sum, item) => {
+        if (item.image?.source?.bytes) {
+          return sum + item.image.source.bytes.length / 1024;
+        }
+        return sum;
+      }, 0)
+    );
+
+    this.logger.info('🧠 Invoking Bedrock model for Task Breakdown', {
       modelId: this.config.modelId,
-      contextCount: content.length - (workItem.images?.length || 0),
-      contextLength: content.reduce((sum, item) => {
-        return item.type === 'text' ? sum + (item.text?.length || 0) : sum;
-      }, 0),
+      contentItems: content.length,
+      textLength,
       tasksCount: existingTasks.length,
       knowledgeCount: knowledgeContext.length,
       knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
-      imagesCount: workItem.images?.length || 0,
-      imagesSizeKB: Math.round(
-        content.reduce((sum, item) => {
-          if (item.type === 'image' && item.source?.data) {
-            return sum + (item.source.data.length * 3) / 4 / 1024;
-          }
-          return sum;
-        }, 0)
-      ),
+      imagesCount: imageCount,
+      imageSizeKB,
+      inferenceConfig: input.inferenceConfig,
     });
 
     try {
-      const command = new InvokeModelCommand(input);
+      const command = new ConverseCommand(input);
       const response = await this.bedrockRuntimeClient.send(command);
+
+      this.logger.info('Received response from Bedrock model', {
+        response,
+        responseStatus: response.$metadata?.httpStatusCode,
+      });
 
       return this.parseTasks(response);
     } catch (error) {
@@ -489,12 +517,13 @@ Images referenced:
 
         const imageData = await azureService.fetchImage(image.url);
         if (imageData && this.isImageSizeValid(imageData)) {
+          // Converse API format for images - correct format
           content.push({
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/jpeg',
-              data: imageData,
+            image: {
+              format: 'jpeg',
+              source: {
+                bytes: new Uint8Array(Buffer.from(imageData, 'base64')),
+              },
             },
           });
 
@@ -543,10 +572,13 @@ Images referenced:
    * Parse the model response for work item evaluation
    */
   private parseWorkItemEvaluation(response: any): BedrockWorkItemEvaluationResponse {
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    const content = responseBody.content?.[0]?.text;
+    // Converse API returns response directly without needing to decode body
+    const content = response.output?.message?.content?.[0]?.text;
 
     if (!content) {
+      this.logger.error('No text content found in Converse API response', {
+        response: JSON.stringify(response, null, 2),
+      });
       throw new Error('No text content found in model response');
     }
 
@@ -556,7 +588,7 @@ Images referenced:
       throw new Error('Invalid JSON response from model');
     }
 
-    this.logger.info('Received Bedrock model response', {
+    this.logger.info('Parsed Bedrock model response', {
       response: parsedResponse,
     });
 
@@ -567,16 +599,28 @@ Images referenced:
    * Parse the model response and extract tasks
    */
   private parseTasks(response: any): Task[] {
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
-    const content = responseBody.content?.[0]?.text;
+    // Converse API returns response directly without needing to decode body
+    const content = response.output?.message?.content?.[0]?.text;
+    const outputTokens = response.usage.outputTokens;
 
     if (!content) {
-      throw new Error('No text content found in model response');
+      this.logger.error('No text content found in Converse API response', {
+        response: JSON.stringify(response, null, 2),
+      });
+      throw new Error('🛑 No text content found in model response');
+    }
+
+    if (outputTokens >= MAX_OUTPUT_TOKENS) {
+      this.logger.error('🛑 Output token limit exceeded', {
+        outputTokens,
+        maxTokens: MAX_OUTPUT_TOKENS,
+      });
+      throw new Error('Model response exceeds maximum token limit');
     }
 
     const parsedResponse = this.safeJsonParse(content);
     if (!parsedResponse || !parsedResponse.tasks) {
-      throw new Error('Invalid JSON response from model');
+      throw new Error('🛑 Invalid JSON response from model');
     }
 
     this.logger.info('Received Bedrock model response', {
