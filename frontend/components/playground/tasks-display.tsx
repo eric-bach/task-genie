@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 type Task = {
   id: string;
@@ -23,9 +25,11 @@ type TasksDisplayProps = {
       };
     };
   };
+  onRetry?: () => void;
+  canRetry?: boolean;
 };
 
-export function TasksDisplay({ isSubmitting, tasks, result }: TasksDisplayProps) {
+export function TasksDisplay({ isSubmitting, tasks, result, onRetry, canRetry }: TasksDisplayProps) {
   return (
     <Card className='w-full h-full flex flex-col overflow-hidden'>
       <CardHeader className='flex-shrink-0'>
@@ -41,8 +45,18 @@ export function TasksDisplay({ isSubmitting, tasks, result }: TasksDisplayProps)
         ) : result && result.statusCode !== 200 ? (
           <div className='flex flex-col items-center justify-center h-full space-y-4'>
             <div className='bg-red-100 text-red-800 border border-red-300 rounded-lg p-4 w-full'>
-              <h3 className='font-semibold mb-2'>User story not accepted</h3>
+              <h3 className='font-semibold mb-2'>
+                {result.statusCode === 408 ? 'Request timed out' : 'User story not accepted'}
+              </h3>
               <div dangerouslySetInnerHTML={{ __html: result.body?.workItemStatus?.comment || 'An error occurred' }} />
+              {result.statusCode === 408 && onRetry && canRetry && (
+                <div className='mt-4'>
+                  <Button onClick={onRetry} variant='outline' size='sm' disabled={isSubmitting}>
+                    <RefreshCw className='mr-2 h-4 w-4' />
+                    Try Again
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         ) : tasks.length === 0 ? (

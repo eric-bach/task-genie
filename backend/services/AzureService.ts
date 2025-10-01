@@ -253,6 +253,14 @@ export class AzureService {
     this.logger.info(`⚙️ Fetching tasks for work item ${workItem.workItemId}`);
 
     try {
+      // Get tasks
+      const tasks: Task[] = [];
+
+      if (workItem.workItemId <= 0) {
+        this.logger.info(`No existing tasks for work item ${workItem.workItemId}`);
+        return tasks;
+      }
+
       // Get work item details including relations
       const workItemUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?$expand=relations&api-version=7.1`;
 
@@ -283,9 +291,6 @@ export class AzureService {
           }
         }
       }
-
-      // Get tasks
-      const tasks: Task[] = [];
 
       // If there are no task IDs, return empty array early
       if (taskIds.length === 0) {

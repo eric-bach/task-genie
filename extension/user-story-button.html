@@ -138,11 +138,8 @@
                       'Custom.System2',
                     ]);
 
-                    // Clean HTML tags from field values
-                    const cleanedFields = cleanFieldValues(fields);
-
                     // Call your REST API here
-                    await callTaskGenieAPI(workItemId, cleanedFields);
+                    await callTaskGenieAPI(workItemId, fields);
 
                     statusMessage.textContent = 'Task Genie is processing...';
                     statusMessage.className = 'status-message success-message';
@@ -159,39 +156,6 @@
                     }, 5000);
                   }
                 });
-              }
-
-              // Function to strip HTML tags from field values
-              function stripHtmlTags(htmlString) {
-                if (!htmlString) return htmlString;
-
-                // Create a temporary div element to parse HTML
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlString;
-
-                // Get the text content (automatically strips HTML tags)
-                let textContent = tempDiv.textContent || tempDiv.innerText || '';
-
-                // Clean up extra whitespace
-                textContent = textContent.trim();
-
-                return textContent;
-              }
-
-              // Function to clean field values by removing HTML tags
-              function cleanFieldValues(fields) {
-                const cleanedFields = { ...fields };
-
-                // Fields that commonly contain HTML
-                const htmlFields = ['System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria', 'System.History'];
-
-                htmlFields.forEach((fieldName) => {
-                  if (cleanedFields[fieldName]) {
-                    cleanedFields[fieldName] = stripHtmlTags(cleanedFields[fieldName]);
-                  }
-                });
-
-                return cleanedFields;
               }
 
               // Function to get the correct field value, handling both possible field names
