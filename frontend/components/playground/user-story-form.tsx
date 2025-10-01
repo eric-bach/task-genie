@@ -23,6 +23,8 @@ import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
 import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
 
+const MAX_OUTPUT_TOKENS = 10240;
+
 const formSchema = z.object({
   title: z.string().min(5, {
     message: 'Title must be at least 5 characters.',
@@ -45,8 +47,8 @@ const formSchema = z.object({
   }),
   // AI settings
   prompt: z.string().optional(),
-  maxTokens: z.number().min(256).max(4096),
-  // Claude 4.5 Sonnet only supports temperatture or topP, not both
+  maxTokens: z.number().min(256).max(MAX_OUTPUT_TOKENS),
+  // Claude 4.5 Sonnet only supports temperature or topP, not both
   parameterMode: z.enum(['temperature', 'topP']),
   temperature: z.number().min(0).max(1),
   topP: z.number().min(0.1).max(1),
@@ -462,14 +464,14 @@ export function UserStoryForm() {
                                         <FormControl>
                                           <Slider
                                             min={256}
-                                            max={4096}
+                                            max={MAX_OUTPUT_TOKENS}
                                             step={128}
                                             value={[field.value]}
                                             onValueChange={(value) => field.onChange(value[0])}
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Maximum length of generated content (256-4096)
+                                          Maximum length of generated content (256-${MAX_OUTPUT_TOKENS} tokens)
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
