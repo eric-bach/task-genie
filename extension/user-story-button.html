@@ -107,9 +107,37 @@
                 };
               });
 
-              function setupButton() {
+              // function setupButton() {
+              async function setupButton() {
                 const button = document.getElementById('taskGenieButton');
                 const statusMessage = document.getElementById('statusMessage');
+
+                // TEMP (PILOT ONLY) - Check if current work item is in the allowed area path
+                try {
+                  const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+                  const fields = await workItemFormService.getFieldValues(['System.AreaPath']);
+                  const areaPath = fields['System.AreaPath'];
+
+                  console.log('Current area path:', areaPath);
+
+                  // Check if the area path matches any of the allowed pilot teams
+                  const allowedAreaPaths = ['eric-test', 'AMA-Ent\\Software Development\\Orange Team'];
+
+                  if (!allowedAreaPaths.includes(areaPath)) {
+                    // Disable button and show pilot message for non-pilot teams
+                    button.disabled = true;
+                    statusMessage.textContent = 'Currently only enabled for pilot team';
+                    statusMessage.className = 'status-message';
+                    return;
+                  }
+                } catch (error) {
+                  console.error('Error checking area path:', error);
+                  button.disabled = true;
+                  statusMessage.textContent = 'Currently only enabled for pilot team';
+                  statusMessage.className = 'status-message';
+                  return;
+                }
+                // TEMP (PILOT ONLY) - End
 
                 button.addEventListener('click', async function () {
                   button.disabled = true;

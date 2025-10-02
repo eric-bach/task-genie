@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "task-genie",
   "publisher": "AMA",
-  "version": "1.0.27",
+  "version": "1.0.29",
   "name": "Task Genie",
   "description": "Agile extension to generate tasks from user stories using AI.",
   "public": false,
