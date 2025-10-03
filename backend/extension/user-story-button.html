@@ -70,11 +70,11 @@
 
           SDK.init()
             .then(() => {
-              console.log('SDK initialized successfully');
+              console.log('SDK initialized');
               return SDK.ready();
             })
             .then(() => {
-              console.log('SDK is ready');
+              console.log('SDK loaded');
 
               // Register the work item form service
               SDK.register(SDK.getContributionId(), () => {
@@ -107,18 +107,44 @@
                 };
               });
 
-              function setupButton() {
+              // function setupButton() {
+              async function setupButton() {
                 const button = document.getElementById('taskGenieButton');
                 const statusMessage = document.getElementById('statusMessage');
 
+                // TEMP (PILOT ONLY) - Check if current work item is in the allowed area path
+                try {
+                  const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+                  const fields = await workItemFormService.getFieldValues(['System.AreaPath']);
+                  const areaPath = fields['System.AreaPath'];
+
+                  console.log('Current area path:', areaPath);
+
+                  // Check if the area path matches any of the allowed pilot teams
+                  const allowedAreaPaths = ['eric-test', 'AMA-Ent\\Software Development\\Orange Team'];
+
+                  if (!allowedAreaPaths.includes(areaPath)) {
+                    // Disable button and show pilot message for non-pilot teams
+                    button.disabled = true;
+                    statusMessage.textContent = 'Currently only enabled for pilot team';
+                    statusMessage.className = 'status-message';
+                    return;
+                  }
+                } catch (error) {
+                  console.error('Error checking area path:', error);
+                  button.disabled = true;
+                  statusMessage.textContent = 'Currently only enabled for pilot team';
+                  statusMessage.className = 'status-message';
+                  return;
+                }
+                // TEMP (PILOT ONLY) - End
+
                 button.addEventListener('click', async function () {
                   button.disabled = true;
-                  statusMessage.textContent = 'Generating tasks...';
+                  statusMessage.textContent = 'Submitting request...';
                   statusMessage.className = 'status-message';
 
                   try {
-                    console.log('Generating tasks...');
-
                     // Get the current work item
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
 
@@ -132,21 +158,18 @@
                       'System.Tags',
                       'System.TeamProject',
                       'System.AreaPath',
-                      // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
+                      // Fetch both possible field names for Business Unit
+                      'Custom.BusinessUnit',
                       'Custom.BusinessUnit2',
-                      // TODO Change this to Custom.System when moving to AMA-Ent
+                      // Fetch both possible field names for System
+                      'Custom.System',
                       'Custom.System2',
                     ]);
 
-                    // Clean HTML tags from field values
-                    const cleanedFields = cleanFieldValues(fields);
-
-                    console.log('Work item:', workItemId, cleanedFields);
-
                     // Call your REST API here
-                    await callTaskGenieAPI(workItemId, cleanedFields);
+                    await callTaskGenieAPI(workItemId, fields);
 
-                    statusMessage.textContent = 'This will take a moment...';
+                    statusMessage.textContent = 'Task Genie is processing...';
                     statusMessage.className = 'status-message success-message';
                   } catch (error) {
                     console.error('Error generating tasks:', error);
@@ -163,37 +186,22 @@
                 });
               }
 
-              // Function to strip HTML tags from field values
-              function stripHtmlTags(htmlString) {
-                if (!htmlString) return htmlString;
+              // Function to get the correct field value, handling both possible field names
+              function getCustomFieldValue(fields, baseName) {
+                // Try the standard field name first (e.g., Custom.BusinessUnit)
+                const standardField = `Custom.${baseName}`;
+                if (fields[standardField] && fields[standardField].trim()) {
+                  return fields[standardField];
+                }
 
-                // Create a temporary div element to parse HTML
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = htmlString;
+                // Fall back to the numbered field name (e.g., Custom.BusinessUnit2)
+                const numberedField = `Custom.${baseName}2`;
+                if (fields[numberedField] && fields[numberedField].trim()) {
+                  return fields[numberedField];
+                }
 
-                // Get the text content (automatically strips HTML tags)
-                let textContent = tempDiv.textContent || tempDiv.innerText || '';
-
-                // Clean up extra whitespace
-                textContent = textContent.trim();
-
-                return textContent;
-              }
-
-              // Function to clean field values by removing HTML tags
-              function cleanFieldValues(fields) {
-                const cleanedFields = { ...fields };
-
-                // Fields that commonly contain HTML
-                const htmlFields = ['System.Description', 'Microsoft.VSTS.Common.AcceptanceCriteria', 'System.History'];
-
-                htmlFields.forEach((fieldName) => {
-                  if (cleanedFields[fieldName]) {
-                    cleanedFields[fieldName] = stripHtmlTags(cleanedFields[fieldName]);
-                  }
-                });
-
-                return cleanedFields;
+                // Return empty string if neither exists
+                return '';
               }
 
               async function callTaskGenieAPI(workItemId, fields) {
@@ -224,10 +232,10 @@
                         'System.TeamProject': fields['System.TeamProject'],
                         'System.Tags': fields['System.Tags'],
                         'System.AreaPath': fields['System.AreaPath'],
-                        // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
-                        'Custom.BusinessUnit2': fields['Custom.BusinessUnit2'],
-                        // TODO Change this to Custom.System when moving to AMA-Ent
-                        'Custom.System2': fields['Custom.System2'],
+                        // Handle both Custom.BusinessUnit and Custom.BusinessUnit2 field names
+                        'Custom.BusinessUnit': getCustomFieldValue(fields, 'BusinessUnit'),
+                        // Handle both Custom.System and Custom.System2 field names
+                        'Custom.System': getCustomFieldValue(fields, 'System'),
                       },
                     },
                   },

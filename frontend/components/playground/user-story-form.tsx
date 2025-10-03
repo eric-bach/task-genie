@@ -16,10 +16,14 @@ import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Info } from 'lucide-react';
 import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 import { TasksDisplay } from './tasks-display';
 import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
+
+const MAX_OUTPUT_TOKENS = 10240;
 
 const formSchema = z.object({
   title: z.string().min(5, {
@@ -43,7 +47,9 @@ const formSchema = z.object({
   }),
   // AI settings
   prompt: z.string().optional(),
-  maxTokens: z.number().min(256).max(4096),
+  maxTokens: z.number().min(256).max(MAX_OUTPUT_TOKENS),
+  // Claude 4.5 Sonnet only supports temperature or topP, not both
+  parameterMode: z.enum(['temperature', 'topP']),
   temperature: z.number().min(0).max(1),
   topP: z.number().min(0.1).max(1),
 });
@@ -63,17 +69,30 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
       system,
       prompt,
       maxTokens,
+      parameterMode,
       temperature,
       topP,
     } = values;
 
+    // Only send the active parameter based on parameterMode
+    const aiParams: {
+      prompt?: string;
+      maxTokens: number;
+      temperature?: number;
+      topP?: number;
+    } = {
+      prompt,
+      maxTokens,
+    };
+
+    if (parameterMode === 'temperature') {
+      aiParams.temperature = temperature;
+    } else {
+      aiParams.topP = topP;
+    }
+
     const body = {
-      params: {
-        prompt,
-        maxTokens,
-        temperature,
-        topP,
-      },
+      params: aiParams,
       resource: {
         workItemId: 0,
         rev: 1,
@@ -85,10 +104,8 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
             'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
             'System.TeamProject': 'test',
             'System.AreaPath': areaPath,
-            // TODO Change this to Custom.BusinessUnit when moving to AMA-Ent
-            'Custom.BusinessUnit2': businessUnit,
-            // TODO Change this to Custom.System when moving to AMA-Ent
-            'Custom.System2': system,
+            'Custom.BusinessUnit': businessUnit,
+            'Custom.System': system,
           },
         },
       },
@@ -231,6 +248,7 @@ export function UserStoryForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [pollingMessage, setPollingMessage] = useState('');
+  const [currentExecutionId, setCurrentExecutionId] = useState<string>('');
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isAccordionOpen, setIsAccordionOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -250,16 +268,79 @@ export function UserStoryForm() {
       businessUnit: '',
       system: '',
       prompt: undefined,
-      maxTokens: 4096,
+      maxTokens: 8192,
+      parameterMode: 'temperature' as const,
       temperature: 0.5,
       topP: 0.9,
     },
   });
 
+  async function executePoll(executionId: string) {
+    const maxAttempts = 36;
+    const intervalMs = 5000;
+
+    try {
+      const pollResponse = await pollForResults(executionId, maxAttempts, intervalMs);
+      setResult(pollResponse);
+
+      if (pollResponse.statusCode === 200) {
+        const tasks = pollResponse.body.tasks || [];
+        console.log('Setting tasks from poll response:', tasks);
+        setTasks(tasks);
+
+        if (tasks.length > 0) {
+          toast.success('User Story is accepted', {
+            description: `User story accepted and ${tasks.length} tasks were generated`,
+          });
+        } else {
+          toast.warning('User Story processed', {
+            description: 'User story was processed but no tasks were generated',
+          });
+        }
+      } else if (pollResponse.statusCode === 408) {
+        // Still timed out - result will show the timeout message with retry button
+        toast.warning('Request still processing', {
+          description: 'The request is still taking longer than expected. You can try again.',
+        });
+      } else {
+        console.log('Poll response indicates failure:', pollResponse);
+        toast.error('User Story is not accepted', {
+          description: 'Please see the reason for more details and correct the user story to try again',
+        });
+      }
+    } catch (error) {
+      setResult({
+        statusCode: 500,
+        body: {
+          workItemStatus: {
+            comment: error instanceof Error ? error.message : 'Unknown error occurred during polling',
+          },
+        },
+      });
+
+      toast.error('An error occurred while processing', {
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
+      });
+    } finally {
+      setIsPolling(false);
+      setPollingMessage('');
+    }
+  }
+
+  async function handleRetryPolling() {
+    if (!currentExecutionId) return;
+
+    setIsPolling(true);
+    setPollingMessage('Checking for results...');
+
+    await executePoll(currentExecutionId);
+  }
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsSubmitting(true);
     setIsPolling(false);
     setPollingMessage('');
+    setCurrentExecutionId('');
     setResult(undefined);
     setTasks([]);
 
@@ -285,56 +366,10 @@ export function UserStoryForm() {
           throw new Error('No execution ID received from API');
         }
 
+        setCurrentExecutionId(executionId);
+
         // Step 3: Poll for results
-        const maxAttempts = 30;
-        const intervalMs = 2000;
-
-        const pollResults = async () => {
-          try {
-            const pollResponse = await pollForResults(executionId, maxAttempts, intervalMs);
-            setResult(pollResponse);
-
-            if (pollResponse.statusCode === 200) {
-              const tasks = pollResponse.body.tasks || [];
-              console.log('Setting tasks from poll response:', tasks);
-              setTasks(tasks);
-
-              if (tasks.length > 0) {
-                toast.success('User Story is accepted', {
-                  description: `User story accepted and ${tasks.length} tasks were generated`,
-                });
-              } else {
-                toast.warning('User Story processed', {
-                  description: 'User story was processed but no tasks were generated',
-                });
-              }
-            } else {
-              console.log('Poll response indicates failure:', pollResponse);
-              toast.error('User Story is not accepted', {
-                description: 'Please see the reason for more details and correct the user story to try again',
-              });
-            }
-          } catch (error) {
-            setResult({
-              statusCode: 500,
-              body: {
-                workItemStatus: {
-                  comment: error instanceof Error ? error.message : 'Unknown error occurred during polling',
-                },
-              },
-            });
-
-            toast.error('An error occurred while processing', {
-              description: error instanceof Error ? error.message : 'Unknown error occurred',
-            });
-          } finally {
-            setIsPolling(false);
-            setPollingMessage('');
-          }
-        };
-
-        // Start polling
-        await pollResults();
+        await executePoll(executionId);
       } else {
         // Handle immediate response (if API changed behavior)
         setResult(initialResponse);
@@ -424,7 +459,15 @@ export function UserStoryForm() {
                                   )}
                                 />
 
-                                <div className='grid grid-cols-1 md:grid-cols-3 gap-6'>
+                                <Alert className='mb-4'>
+                                  <Info className='h-4 w-4' />
+                                  <AlertDescription>
+                                    <strong>Claude 4.5 Sonnet</strong> only supports either Temperature or Top P, not
+                                    both.
+                                  </AlertDescription>
+                                </Alert>
+
+                                <div className='grid grid-cols-1 md:grid-cols-2 gap-6 mb-6'>
                                   <FormField
                                     control={form.control}
                                     disabled={isSubmitting || isPolling}
@@ -438,20 +481,48 @@ export function UserStoryForm() {
                                         <FormControl>
                                           <Slider
                                             min={256}
-                                            max={4096}
+                                            max={MAX_OUTPUT_TOKENS}
                                             step={128}
                                             value={[field.value]}
                                             onValueChange={(value) => field.onChange(value[0])}
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Maximum length of generated content (256-4096)
+                                          Maximum length of generated content (256-${MAX_OUTPUT_TOKENS} tokens)
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
                                     )}
                                   />
 
+                                  <FormField
+                                    control={form.control}
+                                    disabled={isSubmitting || isPolling}
+                                    name='parameterMode'
+                                    render={({ field }) => (
+                                      <FormItem className='space-y-2'>
+                                        <FormLabel className='text-base'>Inference Parameter</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                          <FormControl>
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                          </FormControl>
+                                          <SelectContent>
+                                            <SelectItem value='temperature'>Temperature</SelectItem>
+                                            <SelectItem value='topP'>Top P</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                        <FormDescription className='text-xs'>
+                                          Select which inference parameter to use
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                </div>
+
+                                {form.watch('parameterMode') === 'temperature' && (
                                   <FormField
                                     control={form.control}
                                     disabled={isSubmitting || isPolling}
@@ -474,13 +545,15 @@ export function UserStoryForm() {
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Controls randomness (0 = deterministic, 1 = creative)
+                                          Controls randomness: 0 = deterministic and focused, 1 = creative and diverse
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
                                     )}
                                   />
+                                )}
 
+                                {form.watch('parameterMode') === 'topP' && (
                                   <FormField
                                     control={form.control}
                                     disabled={isSubmitting || isPolling}
@@ -488,7 +561,7 @@ export function UserStoryForm() {
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
                                         <div className='flex items-center justify-between'>
-                                          <FormLabel className='text-base'>Top P</FormLabel>
+                                          <FormLabel className='text-base'>Top P (Nucleus Sampling)</FormLabel>
                                           <span className='text-sm text-muted-foreground'>
                                             {field.value.toFixed(1)}
                                           </span>
@@ -503,13 +576,14 @@ export function UserStoryForm() {
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Controls diversity of output (0.1-1.0)
+                                          Controls diversity: 0.1 = focused on most likely words, 1.0 = considers all
+                                          possibilities
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
                                     )}
                                   />
-                                </div>
+                                )}
                               </div>
                             </CardContent>
                           </Card>
@@ -652,7 +726,7 @@ export function UserStoryForm() {
                   </div>
                 </ScrollArea>
 
-                <div className='pt-6 flex-shrink-0 flex justify-end space-x-4'>
+                <div className='pt-6 flex-shrink-0 flex justify-end items-center space-x-4'>
                   {isPolling && pollingMessage && (
                     <div className='flex items-center text-sm text-muted-foreground mr-4'>
                       <Loader2 className='mr-2 h-4 w-4 animate-spin' />
@@ -681,7 +755,13 @@ export function UserStoryForm() {
           <CardFooter className='flex justify-between pt-6 flex-shrink-0'></CardFooter>
         </Card>
 
-        <TasksDisplay isSubmitting={isSubmitting || isPolling} tasks={tasks} result={result} />
+        <TasksDisplay
+          isSubmitting={isSubmitting || isPolling}
+          tasks={tasks}
+          result={result}
+          onRetry={handleRetryPolling}
+          canRetry={!!currentExecutionId && !isPolling && !isSubmitting}
+        />
       </div>
     </div>
   );

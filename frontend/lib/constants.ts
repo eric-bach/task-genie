@@ -1,4 +1,4 @@
-// Azure DevOps dropdown options
-export const AREA_PATHS = ['eric-test'];
-export const BUSINESS_UNITS = ['Membership', 'Registries', 'Rewards'];
-export const SYSTEMS = ['ARAR', 'Gift Card System', 'iMIS', 'L2', 'VRAR'];
+// TODO: Update the Azure DevOps dropdown options
+export const AREA_PATHS = ['eric-test', 'AMA-Ent\\Software Development\\Orange Team'];
+export const BUSINESS_UNITS = ['Membership', 'Registries'];
+export const SYSTEMS = ['iMIS', 'Omni-Admin – Service Queuing'];

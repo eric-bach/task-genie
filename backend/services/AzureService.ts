@@ -253,6 +253,14 @@ export class AzureService {
     this.logger.info(`⚙️ Fetching tasks for work item ${workItem.workItemId}`);
 
     try {
+      // Get tasks
+      const tasks: Task[] = [];
+
+      if (workItem.workItemId <= 0) {
+        this.logger.info(`No existing tasks for work item ${workItem.workItemId}`);
+        return tasks;
+      }
+
       // Get work item details including relations
       const workItemUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?$expand=relations&api-version=7.1`;
 
@@ -284,8 +292,11 @@ export class AzureService {
         }
       }
 
-      // Get tasks
-      const tasks: Task[] = [];
+      // If there are no task IDs, return empty array early
+      if (taskIds.length === 0) {
+        this.logger.info(`No existing tasks for work item ${workItem.workItemId}`);
+        return tasks;
+      }
 
       const tasksUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitemsbatch?api-version=7.1`;
 
@@ -320,10 +331,13 @@ export class AzureService {
 
       return tasks;
     } catch (error: any) {
-      this.logger.error('An error occurred', { error: error });
+      this.logger.error('Failed to fetch tasks for work item', {
+        workItemId: workItem.workItemId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
     }
-
-    return [];
   }
 
   async createTasks(githubOrganization: string, workItem: WorkItem, tasks: Task[]) {
