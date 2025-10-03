@@ -359,6 +359,8 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 
 ## 💻 Azure DevOps Extension
 
+### Building the extension
+
 1. To publish a new version of the Azure DevOps Extension
 
    `npx tfx-cli extension create --rev-version --output-path ./dist`
@@ -367,9 +369,19 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 
    `start test-standalone.html`
 
-3. To manage the extension
+### Publishing the extension
 
-   - [https://marketplace.visualstudio.com/manage/publishers/ama](https://marketplace.visualstudio.com/manage/publishers/ama)
+1. Log on to the Azure DevOps Marketplace
+   https://marketplace.visualstudio.com/
+
+2. Create a publisher (one-time)
+   https://marketplace.visualstudio.com/manage/createpublisher
+
+3. Click `New Extension` -> `Azure DevOps` (one-time)
+
+4. Upload the published extension
+
+5. Click the 3 dots and then `Share` to share with the applicable ADO Organizations
 
 ## 📚 References
 
