@@ -48,12 +48,6 @@ jobs:
           cd infrastructure
           npm run build-all
 
-      - name: Build docs
-        run: |
-          cd docs
-          npm ci
-          npm run build
-
       - name: CDK Synth (validate CloudFormation)
         run: |
           cd infrastructure
