@@ -6,6 +6,8 @@ Transform your Azure DevOps workflow with intelligent user story validation and 
 
 Task Genie is a powerful Azure DevOps extension that integrates AI capabilities directly into your Boards interface, helping teams create better user stories and automatically break them down into actionable tasks.
 
+![Task Genie Extension](azure_devops_extension.png)
+
 ## ✨ Key Features
 
 ### 🔍 **Smart User Story Validation**
