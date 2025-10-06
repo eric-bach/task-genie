@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "task-genie",
   "publisher": "AMA",
-  "version": "1.0.29",
+  "version": "1.0.32",
   "name": "Task Genie",
   "description": "Agile extension to generate tasks from user stories using AI.",
   "public": false,
@@ -19,6 +19,11 @@
   },
   "icons": {
     "default": "logo.jpg"
+  },
+  "content": {
+    "details": {
+      "path": "overview.md"
+    }
   },
   "contributions": [
     {
@@ -56,6 +61,14 @@
     },
     {
       "path": "logo.jpg",
+      "addressable": true
+    },
+    {
+      "path": "azure_devops_extension.png",
+      "addressable": true
+    },
+    {
+      "path": "overview.md",
       "addressable": true
     },
     {
