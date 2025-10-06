@@ -23,11 +23,7 @@ function HomepageHeader() {
           <Link className='button button--secondary button--lg' to='/docs/intro'>
             Get Started 🚀
           </Link>
-          <Link
-            className='button button--outline button--primary button--lg'
-            to='/docs/api'
-            style={{ marginLeft: '1rem' }}
-          >
+          <Link className='button button--secondary button--lg' to='/docs/api' style={{ marginLeft: '1rem' }}>
             View API Docs 📖
           </Link>
         </div>
@@ -40,7 +36,7 @@ export default function Home(): ReactNode {
   const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
-      title={`${siteConfig.title} - AI-Powered Task Generation`}
+      title={`${siteConfig.title} - Agile Made Effortless`}
       description='Transform Azure DevOps user stories into detailed technical tasks using AI. Streamline your agile development workflow with intelligent task generation powered by Amazon Bedrock.'
     >
       <HomepageHeader />

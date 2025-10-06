@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Introduction
 
-Welcome to **Task Genie** - your AI-powered assistant that revolutionizes how teams work with Azure DevOps Boards. Task Genie seamlessly integrates with your existing Azure DevOps workflow to ensure user story completeness and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
+Welcome to **Task Genie** - your AI-powered assistant that streamlines how teams work with Azure DevOps Boards. Task Genie seamlessly integrates with your existing Azure DevOps workflow to ensure user story completeness and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
 
 ## What is Task Genie?
 
@@ -30,17 +30,7 @@ Without proper insights into story quality and task generation patterns, teams s
 
 ## How Task Genie Works
 
-Task Genie operates through a sophisticated serverless architecture deployed on AWS, orchestrated by Step Functions to ensure reliable and scalable AI processing:
-
-```mermaid
-graph LR
-    A[Azure DevOps Board] --> B[Service Hook Trigger]
-    B --> C[AWS Step Function]
-    C --> D[Story Validation]
-    D --> E[AI Task Generation]
-    E --> F[Azure DevOps Integration]
-    F --> G[Updated Work Items]
-```
+Task Genie operates through a serverless architecture deployed on AWS, orchestrated by Step Functions to ensure reliable and scalable AI processing:
 
 ### 🔍 **Story Validation Process**
 

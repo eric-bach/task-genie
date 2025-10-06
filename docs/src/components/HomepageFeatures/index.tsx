@@ -36,8 +36,8 @@ const FeatureList: FeatureItem[] = [
     icon: '🔗',
     description: (
       <>
-        Deploy via Service Hooks for automatic task generation or use the browser extension for on-demand task creation.
-        Works with your existing Azure DevOps workflows and project structures.
+        Deploy via Service Hooks for automatic task generation or use the Azure DevOps extension for on-demand task
+        creation. Works with your existing Azure DevOps workflows and project structures.
       </>
     ),
   },
