@@ -100,7 +100,10 @@ export class AzureService {
       throw new Error('Failed to parse token response');
     }
 
-    // this.logger.debug('Received Azure AD token');
+    this.logger.debug('Refreshing new Azure AD token', {
+      accessToken: this.accessToken.substring(0, 4) + '...' + this.accessToken.slice(-4),
+      expiresIn: tokenResponse.expires_in,
+    });
 
     return this.accessToken;
   }
@@ -346,9 +349,9 @@ export class AzureService {
     let taskId = 0;
     let i = 0;
     for (const task of tasks) {
-      this.logger.debug(`Creating task (${i}/${tasks.length})`, { task: task });
+      this.logger.debug(`Creating task (${++i}/${tasks.length})`, { task: task });
 
-      taskId = await this.createTask(githubOrganization, workItem, task, ++i);
+      taskId = await this.createTask(githubOrganization, workItem, task, i);
 
       // Set task Id
       task.taskId = taskId;
@@ -371,7 +374,7 @@ export class AzureService {
       },
       {
         op: 'add',
-        path: '/fields/System.IterationPath',
+        path: '/fields/System.AreaPath',
         value: workItem.areaPath,
       },
       {
@@ -396,8 +399,6 @@ export class AzureService {
         headers,
         body,
       });
-
-      // logger.debug('Create task response', { response: JSON.stringify(response) });
 
       if (!response.ok) {
         throw new Error('Failed to create task');
