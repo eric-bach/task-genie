@@ -4,19 +4,7 @@ sidebar_position: 2
 
 # Prompt Overrides
 
-Task Genie's prompt override system allows you to customize how the AI generates tasks by replacing the default prompt with team-specific instructions. This powerful feature enables you to tailor task generation to your organization's development practices, coding standards, and domain-specific requirements.
-
-## Overview
-
-The prompt override system operates on a hierarchical priority system that ensures the most relevant prompt is always used for task generation:
-
-| Priority                      | Source                    | Scope                 | Use Case                                         |
-| ----------------------------- | ------------------------- | --------------------- | ------------------------------------------------ |
-| **1. Parameter Override**     | API request/Web interface | Per-request           | Testing, experimentation, one-off customizations |
-| **2. Database Configuration** | Stored team configuration | Team/Project specific | Persistent team customizations                   |
-| **3. Default Prompt**         | Built-in system prompt    | Global fallback       | Standard task generation when no overrides exist |
-
----
+**Task Genie** comes default with a standard built-in `software development` prompt. **Prompt Overrides** allows customization on how the AI generates tasks by replacing the default prompt with specific instructions. This powerful feature enables teams to fine-tune the default prompt and/or tailor task generation to team specific development practices, coding standards, and domain-specific requirements.
 
 ## How Prompt Overrides Work
 
@@ -28,47 +16,20 @@ When Task Genie generates tasks, it follows this resolution hierarchy:
 graph TD
     A[Task Generation Request] --> B{Parameter Prompt Provided?}
     B -->|Yes| C[Use Parameter Prompt]
-    B -->|No| D{Database Config Exists?}
+    B -->|No|  D{Database Config Exists?}
     D -->|Yes| E[Use Stored Team Prompt]
-    D -->|No| F[Use Default System Prompt]
+    D -->|No|  F[Use Default System Prompt]
 
     C --> G[Generate Tasks with Custom Instructions]
     E --> G
     F --> H[Generate Tasks with Standard Instructions]
 ```
 
-### Key Components
-
-#### **1. Parameter-Based Overrides**
-
-- Provided directly in API requests or web interface
-- Highest priority - always takes precedence
-- Perfect for testing and experimentation
-- Not persisted between requests
-
-#### **2. Database-Stored Configurations**
-
-- Persistent team-specific prompts stored in DynamoDB
-- Automatically applied based on work item metadata
-- Managed through the web interface
-- Ideal for established team practices
-
-#### **3. Automatic Prompt Enhancement**
-
-All custom prompts are automatically enhanced with:
-
-- Work item context (title, description, acceptance criteria)
-- Existing task information to avoid duplication
-- Knowledge base content for domain context
-- System instructions for proper JSON formatting
-
----
-
-## Database-Stored Prompt Configurations
+## Configuration
 
 ### Configuration Structure
 
-Each stored prompt configuration includes:
+Each prompt override configuration contains:
 
 ```javascript
 {
@@ -86,7 +47,7 @@ Each stored prompt configuration includes:
 
 ### Lookup Mechanism
 
-Task Genie automatically retrieves the appropriate prompt using a composite key:
+Task Genie automatically retrieves the appropriate prompt using a composite key made up of the **Area Path**, **Business Unit**, and **System**:
 
 ```
 adoKey = "{areaPath}#{businessUnit}#{system}"
@@ -157,66 +118,6 @@ adoKey = "{areaPath}#{businessUnit}#{system}"
    - Review which work items will be affected
    - Consider the number of stories in your backlog matching the configuration
    - Coordinate with team members before deletion
-
----
-
-## Parameter-Based Overrides
-
-### API Integration
-
-Parameter overrides are provided in API requests:
-
-```javascript
-// Example API request with prompt override
-{
-  "params": {
-    "prompt": "Custom instructions for this specific request...",
-    "maxTokens": 4000,
-    "temperature": 0.7,
-    "topP": 0.9
-  },
-  "resource": {
-    "workItemId": 12345,
-    "revision": {
-      "fields": {
-        "System.Title": "User story title...",
-        "System.Description": "Story description...",
-        // ... other fields
-      }
-    }
-  }
-}
-```
-
-### Web Interface Usage
-
-#### **Playground Interface**
-
-1. **Access Advanced Settings**
-
-   - Navigate to the Playground in Task Genie web interface
-   - Expand "AI Prompt Customization" section
-   - Enter custom prompt in the text area
-
-2. **Testing Custom Prompts**
-
-   - Fill in user story details (title, description, acceptance criteria)
-   - Enter custom prompt instructions
-   - Generate tasks to see immediate results
-   - Iterate and refine prompt based on output quality
-
-3. **Prompt Development Workflow**
-   ```
-   1. Start with default prompt structure
-   2. Add team-specific instructions
-   3. Test with representative user stories
-   4. Refine based on task quality
-   5. Deploy as database configuration
-   ```
-
-### Azure DevOps Extension Integration
-
-The Azure DevOps Extension can be configured to use custom prompts through the work item context, though direct prompt override isn't currently supported in the extension interface. The extension relies on database-stored configurations.
 
 ---
 
@@ -497,44 +398,6 @@ Enhanced with knowledge base:
 
 ---
 
-## Monitoring and Analytics
-
-### Usage Tracking
-
-#### **Prompt Override Metrics**
-
-Monitor the effectiveness of your custom prompts:
-
-1. **Usage Frequency**
-
-   - Track how often each configuration is used
-   - Identify most/least active prompt overrides
-   - Monitor adoption across different teams
-
-2. **Task Quality Assessment**
-
-   - Compare task completion rates between default and custom prompts
-   - Measure developer satisfaction with generated tasks
-   - Track time from task creation to completion
-
-3. **Performance Impact**
-   - Monitor generation time with custom vs. default prompts
-   - Track API response times and error rates
-   - Assess impact on overall system performance
-
-#### **Optimization Opportunities**
-
-1. **Underutilized Configurations**
-
-   - Identify prompt overrides that are rarely triggered
-   - Review targeting criteria (area path, business unit, system)
-   - Consider consolidation or removal of unused configurations
-
-2. **Quality Improvement Areas**
-   - Gather feedback on task quality and relevance
-   - Identify common issues or missing task types
-   - Iterate on prompt design based on usage data
-
 ### Troubleshooting Common Issues
 
 #### **Prompt Override Not Applied**
@@ -729,77 +592,6 @@ Test different prompt approaches:
    - Update prompts when adopting new technologies
    - Reflect changes in coding standards and practices
    - Maintain alignment with organizational goals
-
----
-
-## Migration and Maintenance
-
-### Upgrading from Default Prompts
-
-#### **Migration Strategy**
-
-1. **Assessment Phase**
-
-   - Analyze current task generation quality with default prompts
-   - Identify specific gaps and improvement opportunities
-   - Define success criteria for custom prompts
-
-2. **Pilot Implementation**
-
-   - Start with one team or project area
-   - Create initial custom prompt based on team practices
-   - Test with representative user stories
-
-3. **Iterative Improvement**
-
-   - Gather feedback and refine prompt
-   - Expand to additional teams gradually
-   - Document lessons learned and best practices
-
-4. **Organization-Wide Rollout**
-   - Deploy successful patterns across teams
-   - Provide training on prompt customization
-   - Establish governance and maintenance processes
-
-### Maintenance Best Practices
-
-#### **Regular Review Cycle**
-
-1. **Quarterly Assessments**
-
-   - Review prompt usage and effectiveness metrics
-   - Gather team feedback on task quality
-   - Update prompts to reflect process changes
-
-2. **Version Control**
-
-   - Maintain history of prompt changes
-   - Document rationale for modifications
-   - Enable rollback if needed
-
-3. **Cross-Team Collaboration**
-   - Share successful prompt patterns
-   - Coordinate changes that affect multiple teams
-   - Maintain consistency in organizational practices
-
-#### **Governance Framework**
-
-1. **Ownership Model**
-
-   - Designate prompt owners for each team/project
-   - Establish approval process for changes
-   - Define escalation path for conflicts
-
-2. **Quality Standards**
-
-   - Set minimum requirements for custom prompts
-   - Regular review and certification process
-   - Training for team members managing prompts
-
-3. **Change Management**
-   - Impact assessment for prompt modifications
-   - Communication process for changes
-   - Rollback procedures for problematic updates
 
 ---
 

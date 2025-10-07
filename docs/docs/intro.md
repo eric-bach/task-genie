@@ -4,21 +4,23 @@ sidebar_position: 1
 
 # Introduction
 
-Welcome to **Task Genie** - your AI-powered assistant that streamlines how teams work with Azure DevOps Boards. Task Genie seamlessly integrates with your existing Azure DevOps workflow to ensure user story completeness and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
+Welcome to **Task Genie** - an AI-powered assistant that combines the power of AI with Azure DevOps integration to solve common challenges in sprint planning and story management.
 
 ## What is Task Genie?
 
-Task Genie is an intelligent Agile enhancement tool that combines the power of AI with Azure DevOps integration to solve common challenges in sprint planning and story management. By leveraging advanced language models and Retrieval-Augmented Generation (RAG), Task Genie ensures your user stories are complete, well-structured, and automatically decomposed into manageable development tasks.
+**Task Genie** integrates with **Azure DevOps Boards** and uses the most advanced foundation models to ensure user stories are well-defined and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
+
+By leveraging Retrieval-Augmented Generation (RAG) and providing prompt customization, **Task Genie** can be tailored to any Agile use case. See the **Configuration** section for more details.
 
 ## Key Problems Task Genie Solves
 
 ### 🎯 **Incomplete User Stories**
 
-Many user stories lack essential components like clear acceptance criteria, proper context, or technical details. Task Genie validates your stories against Agile best practices and identifies missing elements.
+Many user stories lack essential components like clear acceptance criteria, proper context, or technical details. **Task Genie** validates your stories against Agile best practices and identifies missing elements.
 
 ### 📋 **Manual Task Breakdown**
 
-Breaking down user stories into actionable tasks is time-consuming and often inconsistent. Task Genie automates this process while maintaining alignment with Agile methodologies.
+Breaking down user stories into actionable tasks is time-consuming and often inconsistent. **Task Genie** automates this process while maintaining alignment with Agile methodologies.
 
 ### 🔄 **Context Loss**
 
@@ -30,16 +32,16 @@ Without proper insights into story quality and task generation patterns, teams s
 
 ## How Task Genie Works
 
-Task Genie operates through a serverless architecture deployed on AWS, orchestrated by Step Functions to ensure reliable and scalable AI processing:
+**Task Genie** operates through a serverless architecture on AWS, orchestrated by Step Functions, and with Amazon Bedrock for reliable and scalable AI processing:
 
-### 🔍 **Story Validation Process**
+### 🔍 **User Story Evalutation Agent**
 
 1. **Automated Analysis**: When a user story is created or updated in Azure DevOps, Task Genie automatically analyzes its completeness
 2. **Best Practice Validation**: Checks for essential components like user personas, acceptance criteria, and clear descriptions
 3. **Contextual Enhancement**: Uses organizational knowledge base to identify missing technical or domain-specific details
 4. **Improvement Suggestions**: Provides actionable recommendations to enhance story quality
 
-### 🤖 **AI-Powered Task Generation**
+### 🤖 **Task Generation Agent**
 
 1. **Intelligent Decomposition**: Breaks down validated user stories into smaller, actionable development tasks
 2. **Context-Aware**: Incorporates technical requirements, architectural patterns, and team conventions
@@ -52,9 +54,11 @@ Task Genie is built on a modern, serverless architecture that ensures scalabilit
 
 ### **Cloud Infrastructure**
 
-- **AWS Serverless**: Built entirely on AWS Lambda, Step Functions, and managed services
+![Architecture](../static/img/architecture_v2.png)
+
+- **AWS Serverless**: Built entirely on AWS Lambda, Step Functions, S3, DynamoDB, and managed services
 - **Auto-scaling**: Automatically handles varying workloads without manual intervention
-- **Cost-Optimized**: Pay-per-use model with estimated monthly costs around $24
+- **Cost-Optimized**: Pay-per-use model with estimated monthly costs around $6 (infrastructure) plus Bedrock foundation model costs (typically $20)
 
 ### **Integration Layer**
 
@@ -64,25 +68,26 @@ Task Genie is built on a modern, serverless architecture that ensures scalabilit
 
 ### **AI & Knowledge Management**
 
-- **Amazon Bedrock**: Leverages state-of-the-art language models (Claude, etc.)
+- **Amazon Bedrock**: Leverages the most advanced foundation model (Claude 4.5 Sonnet)
 - **RAG Implementation**: Combines AI with your organizational knowledge base
 - **Vector Search**: Efficient retrieval of relevant context and documentation
+- **Prompt Overrides**: Allows customization of the use case for the Task Generation agent
 
 ## Getting Started
 
-Task Genie can be deployed and integrated with your Azure DevOps environment in several ways:
+**Task Genie** can be integrated with your Azure DevOps environment in several ways:
 
 ### **Option 1: Azure DevOps Extension**
 
-Install the Task Genie extension directly from the Azure DevOps marketplace for immediate access to AI-powered task generation within your work item forms.
+Install the [Task Genie extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) directly from the Azure DevOps marketplace to include a button on you User Story forms to trigger **Task Genie**
+
+![Extension](../static/img/azure_devops_user_story.png)
 
 ### **Option 2: Service Hook Integration**
 
 Configure Azure DevOps Service Hooks to automatically trigger Task Genie when work items are created or updated.
 
-### **Option 3: Web Dashboard**
-
-Access the full-featured web dashboard for advanced analytics, bulk operations, and administrative functions.
+![Service Hooks](../static/img/service_hooks.png)
 
 ## Technology Stack
 
@@ -105,4 +110,4 @@ Ready to transform your Agile workflow? Here's what you can explore:
 - **[API Reference](/docs/api)**: Integrate Task Genie with custom applications
 - **[Best Practices](./guides/best-practices.md)**: Optimize your user stories and workflow
 
-Join thousands of teams already using Task Genie to streamline their Agile processes and boost productivity! 🚀
+Join teams already using Task Genie to boost productivity and make Agile effortless! 🚀
