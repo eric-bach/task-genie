@@ -117,7 +117,7 @@ export class AzureService {
   fetchImage = async (imageUrl: string): Promise<string | null> => {
     try {
       // For Azure DevOps attachment URLs, add required query parameters and auth
-      if (imageUrl.includes('visualstudio.com')) {
+      if (imageUrl.includes('visualstudio.com') || imageUrl.includes('azure.com')) {
         const url = `${imageUrl}&download=true&api-version=7.1`;
 
         const headers = { Authorization: `Bearer ${await this.getAccessToken()}` };
@@ -136,9 +136,9 @@ export class AzureService {
         const arrayBuffer = await response.arrayBuffer();
         const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-        this.logger.debug(`Successfully fetched image`, {
+        this.logger.debug('Successfully fetched image', {
           url: url,
-          sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
+          sizeKB: Math.round((base64.length * 3) / 4 / 1024),
         });
 
         return base64;
@@ -159,9 +159,9 @@ export class AzureService {
       const arrayBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-      this.logger.debug(`Successfully fetched image`, {
+      this.logger.debug('Successfully fetched image', {
         url: imageUrl,
-        sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
+        sizeKB: Math.round((base64.length * 3) / 4 / 1024),
       });
 
       return base64;

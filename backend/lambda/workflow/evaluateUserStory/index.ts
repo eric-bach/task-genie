@@ -171,7 +171,7 @@ const validateWorkItem = (resource: any) => {
 };
 
 /**
- * Extracts image URLs and alt text from HTML content containing <img> tags
+ * Extracts image URLs and alt text from HTML and Markdown content
  * @param htmlContent The HTML content to parse
  * @param context The context in which the HTML content is used (e.g., 'Description', 'AcceptanceCriteria')
  * @returns Array of WorkItemImage objects with URLs and alt text found in the content
@@ -181,13 +181,14 @@ const extractImageUrls = (htmlContent: string, context: string): WorkItemImage[]
     return [];
   }
 
-  // Regular expression to match <img> tags
-  const imgRegex = /<img[^>]*>/gi;
   const images: WorkItemImage[] = [];
-  let match;
 
-  while ((match = imgRegex.exec(htmlContent)) !== null) {
-    const imgTag = match[0];
+  // Extract images from HTML tags: <img>
+  const imgRegex = /<img[^>]*>/gi;
+  let htmlMatch;
+
+  while ((htmlMatch = imgRegex.exec(htmlContent)) !== null) {
+    const imgTag = htmlMatch[0];
 
     // Extract src attribute
     const srcMatch = imgTag.match(/\ssrc\s*=\s*["']?([^"'\s>]+)["']?/i);
@@ -198,6 +199,22 @@ const extractImageUrls = (htmlContent: string, context: string): WorkItemImage[]
       images.push({
         url: srcMatch[1].trim(),
         alt: altMatch && altMatch[1] && altMatch[1].trim() ? altMatch[1].trim() : undefined,
+      });
+    }
+  }
+
+  // Extract images from Markdown image syntax: ![alt](url)
+  const markdownImgRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let markdownMatch;
+
+  while ((markdownMatch = markdownImgRegex.exec(htmlContent)) !== null) {
+    const alt = markdownMatch[1].trim();
+    const url = markdownMatch[2].trim();
+
+    if (url) {
+      images.push({
+        url: url,
+        alt: alt || undefined,
       });
     }
   }
