@@ -283,6 +283,16 @@ export class BedrockService {
       },
     };
 
+    const imagesCount = content.filter((item) => item.image).length;
+    const imagesSizeKB = Math.round(
+      content.reduce((sum, item) => {
+        if (item.image?.source?.bytes) {
+          return sum + item.image.source.bytes.length / 1024;
+        }
+        return sum;
+      }, 0)
+    );
+
     this.logger.debug('🧠 Invoking Bedrock model for Work Item Evaluation', {
       modelId: this.config.modelId,
       contextCount: content.length - (workItem.images?.length || 0),
@@ -291,15 +301,8 @@ export class BedrockService {
       }, 0),
       knowledgeCount: knowledgeContext.length,
       knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
-      imagesCount: workItem.images?.length || 0,
-      imagesSizeKB: Math.round(
-        content.reduce((sum, item) => {
-          if (item.type === 'image' && item.source?.data) {
-            return sum + (item.source.data.length * 3) / 4 / 1024;
-          }
-          return sum;
-        }, 0)
-      ),
+      imagesCount,
+      imagesSizeKB,
       inferenceConfig: input.inferenceConfig,
     });
 
@@ -310,13 +313,24 @@ export class BedrockService {
       this.logger.info('Received response from Bedrock model', {
         response,
         responseStatus: response.$metadata?.httpStatusCode,
+        contentLength: response.output?.message?.content?.length,
+        inputTokens: response.usage?.inputTokens,
+        outputTokens: response.usage?.outputTokens,
       });
 
       return this.parseWorkItemEvaluation(response);
     } catch (error) {
       this.logger.error('Model invocation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : 'No stack trace',
         modelId: this.config.modelId,
+        inputStructure: {
+          modelId: input.modelId,
+          messagesCount: input.messages?.length,
+          hasInferenceConfig: !!input.inferenceConfig,
+          contentItems: content.length,
+          contentTypes: content.map((item) => item.type || (item.image ? 'image' : 'unknown')),
+        },
       });
       throw new Error(`Bedrock model invocation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -363,8 +377,8 @@ export class BedrockService {
       return item.text ? sum + item.text.length : sum;
     }, 0);
 
-    const imageCount = content.filter((item) => item.image).length;
-    const imageSizeKB = Math.round(
+    const imagesCount = content.filter((item) => item.image).length;
+    const imagesSizeKB = Math.round(
       content.reduce((sum, item) => {
         if (item.image?.source?.bytes) {
           return sum + item.image.source.bytes.length / 1024;
@@ -380,8 +394,8 @@ export class BedrockService {
       tasksCount: existingTasks.length,
       knowledgeCount: knowledgeContext.length,
       knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
-      imagesCount: imageCount,
-      imageSizeKB,
+      imagesCount,
+      imagesSizeKB,
       inferenceConfig: input.inferenceConfig,
     });
 
@@ -390,15 +404,25 @@ export class BedrockService {
       const response = await this.bedrockRuntimeClient.send(command);
 
       this.logger.info('Received response from Bedrock model', {
-        response,
         responseStatus: response.$metadata?.httpStatusCode,
+        contentLength: response.output?.message?.content?.length,
+        inputTokens: response.usage?.inputTokens,
+        outputTokens: response.usage?.outputTokens,
       });
 
       return this.parseTasks(response);
     } catch (error) {
       this.logger.error('Model invocation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : 'No stack trace',
         modelId: this.config.modelId,
+        inputStructure: {
+          modelId: input.modelId,
+          messagesCount: input.messages?.length,
+          hasInferenceConfig: !!input.inferenceConfig,
+          contentItems: content.length,
+          contentTypes: content.map((item) => item.type || (item.image ? 'image' : 'unknown')),
+        },
       });
       throw new Error(`Bedrock model invocation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -502,7 +526,12 @@ Images referenced:
    * Build the content array for multi-modal input (text + images)
    */
   private async buildModelContent(workItem: WorkItem, textPrompt: string): Promise<any[]> {
-    const content: any[] = [{ type: 'text', text: textPrompt }];
+    const content: any[] = [
+      {
+        type: 'text',
+        text: textPrompt,
+      },
+    ];
 
     if (!workItem.images || workItem.images.length === 0) {
       return content;
@@ -512,23 +541,28 @@ Images referenced:
 
     let i = 0;
     for (const image of imagesToProcess) {
+      ++i;
+
       try {
         const azureService = new AzureService();
 
         const imageData = await azureService.fetchImage(image.url);
         if (imageData && this.isImageSizeValid(imageData)) {
-          // Converse API format for images - correct format
+          const imageBytes = Buffer.from(imageData, 'base64');
+          const format = this.detectImageFormat(imageBytes);
+
           content.push({
             image: {
-              format: 'jpeg',
+              format: format,
               source: {
-                bytes: new Uint8Array(Buffer.from(imageData, 'base64')),
+                bytes: imageBytes,
               },
             },
           });
 
-          this.logger.debug(`📷 Added image (${++i}/${imagesToProcess.length}) to model input`, {
+          this.logger.debug(`📷 Added image (${i} of ${imagesToProcess.length}) to model input`, {
             url: image.url,
+            format: format,
             sizeKB: Math.round((imageData.length * 3) / 4 / 1024),
           });
         }
@@ -569,14 +603,75 @@ Images referenced:
   }
 
   /**
+   * Detect image format from binary data
+   */
+  private detectImageFormat(buffer: Buffer): string {
+    // Check file signatures (magic numbers)
+    if (buffer.length >= 4) {
+      // JPEG: FF D8 FF
+      if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+        return 'jpeg';
+      }
+      // PNG: 89 50 4E 47
+      if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+        return 'png';
+      }
+      // WebP: 52 49 46 46 ... 57 45 42 50
+      if (
+        buffer[0] === 0x52 &&
+        buffer[1] === 0x49 &&
+        buffer[2] === 0x46 &&
+        buffer[3] === 0x46 &&
+        buffer.length >= 12 &&
+        buffer[8] === 0x57 &&
+        buffer[9] === 0x45 &&
+        buffer[10] === 0x42 &&
+        buffer[11] === 0x50
+      ) {
+        return 'webp';
+      }
+      // GIF: 47 49 46 38
+      if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) {
+        return 'gif';
+      }
+    }
+
+    // Default to jpeg if we can't detect the format
+    this.logger.warn('Could not detect image format, defaulting to jpeg', {
+      firstFourBytes:
+        buffer.length >= 4
+          ? Array.from(buffer.slice(0, 4))
+              .map((b) => b.toString(16))
+              .join(' ')
+          : 'insufficient data',
+    });
+    return 'jpeg';
+  }
+
+  /**
    * Parse the model response for work item evaluation
    */
   private parseWorkItemEvaluation(response: any): BedrockWorkItemEvaluationResponse {
     // Converse API returns response directly without needing to decode body
-    const content = response.output?.message?.content?.[0]?.text;
+    const messageContent = response.output?.message?.content;
+
+    if (!messageContent || !Array.isArray(messageContent) || messageContent.length === 0) {
+      this.logger.error('Invalid message content structure in Converse API response', {
+        hasOutput: !!response.output,
+        hasMessage: !!response.output?.message,
+        hasContent: !!response.output?.message?.content,
+        contentType: typeof response.output?.message?.content,
+        contentLength: Array.isArray(messageContent) ? messageContent.length : 'not array',
+        response: JSON.stringify(response, null, 2),
+      });
+      throw new Error('Invalid message content structure in model response');
+    }
+
+    const content = messageContent[0]?.text;
 
     if (!content) {
-      this.logger.error('No text content found in Converse API response', {
+      this.logger.error('No text content found in first message content item', {
+        firstItem: messageContent[0],
         response: JSON.stringify(response, null, 2),
       });
       throw new Error('No text content found in model response');
@@ -585,6 +680,9 @@ Images referenced:
     const parsedResponse = this.safeJsonParse(content);
 
     if (!parsedResponse) {
+      this.logger.error('Failed to parse JSON from model response', {
+        rawContent: content,
+      });
       throw new Error('Invalid JSON response from model');
     }
 
@@ -599,18 +697,42 @@ Images referenced:
    * Parse the model response and extract tasks
    */
   private parseTasks(response: any): Task[] {
+    // Log the full response structure for debugging
+    this.logger.debug('Full Bedrock response structure for task parsing', {
+      hasOutput: !!response.output,
+      hasMessage: !!response.output?.message,
+      hasContent: !!response.output?.message?.content,
+      contentLength: response.output?.message?.content?.length,
+      hasUsage: !!response.usage,
+    });
+
     // Converse API returns response directly without needing to decode body
-    const content = response.output?.message?.content?.[0]?.text;
-    const outputTokens = response.usage.outputTokens;
+    const messageContent = response.output?.message?.content;
+
+    if (!messageContent || !Array.isArray(messageContent) || messageContent.length === 0) {
+      this.logger.error('Invalid message content structure in Converse API response', {
+        hasOutput: !!response.output,
+        hasMessage: !!response.output?.message,
+        hasContent: !!response.output?.message?.content,
+        contentType: typeof response.output?.message?.content,
+        contentLength: Array.isArray(messageContent) ? messageContent.length : 'not array',
+        response: JSON.stringify(response, null, 2),
+      });
+      throw new Error('🛑 Invalid message content structure in model response');
+    }
+
+    const content = messageContent[0]?.text;
+    const outputTokens = response.usage?.outputTokens;
 
     if (!content) {
-      this.logger.error('No text content found in Converse API response', {
+      this.logger.error('No text content found in first message content item', {
+        firstItem: messageContent[0],
         response: JSON.stringify(response, null, 2),
       });
       throw new Error('🛑 No text content found in model response');
     }
 
-    if (outputTokens >= MAX_OUTPUT_TOKENS) {
+    if (outputTokens && outputTokens >= MAX_OUTPUT_TOKENS) {
       this.logger.error('🛑 Output token limit exceeded', {
         outputTokens,
         maxTokens: MAX_OUTPUT_TOKENS,
@@ -620,6 +742,10 @@ Images referenced:
 
     const parsedResponse = this.safeJsonParse(content);
     if (!parsedResponse || !parsedResponse.tasks) {
+      this.logger.error('Failed to parse tasks from model response', {
+        rawContent: content,
+        parsedResponse,
+      });
       throw new Error('🛑 Invalid JSON response from model');
     }
 
