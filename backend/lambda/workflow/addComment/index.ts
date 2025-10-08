@@ -101,13 +101,14 @@ const parseEvent = (
 const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKnowledgeDocument[]): string => {
   const comment = `Generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
 
-  if (documents.length > 1) {
+  if (documents.length > 0) {
     const sources = documents
       .map((doc) => {
         const fileName = doc.source.split('/').pop();
         return fileName || doc.source;
       })
       .join('<br />');
+
     return `${comment} from ${documents.length} knowledge base documents.<br /><br />Sources:<br />${sources}`;
   }
 

@@ -18,7 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { RefreshCw, Plus, Pencil, Trash2, AlertCircle } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { RefreshCw, Plus, Pencil, Trash2, AlertCircle, MoreHorizontal } from 'lucide-react';
 import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
 
 interface ConfigItem {
@@ -261,14 +267,24 @@ export default function ConfigPage() {
                       <TableCell className='whitespace-nowrap'>{it.updatedAt || '-'}</TableCell>
                       <TableCell className='whitespace-nowrap'>{it.updatedBy || '-'}</TableCell>
                       <TableCell className='whitespace-nowrap'>
-                        <div className='flex items-center gap-2'>
-                          <Button variant='outline' size='sm' onClick={() => openEdit(it)}>
-                            <Pencil className='h-4 w-4 mr-1' /> Edit
-                          </Button>
-                          <Button variant='destructive' size='sm' onClick={() => confirmDelete(it)}>
-                            <Trash2 className='h-4 w-4 mr-1' /> Delete
-                          </Button>
-                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant='ghost' size='sm' className='h-8 w-8 p-0'>
+                              <MoreHorizontal className='h-4 w-4' />
+                              <span className='sr-only'>Open menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align='end'>
+                            <DropdownMenuItem onClick={() => openEdit(it)}>
+                              <Pencil className='h-4 w-4 mr-2' />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => confirmDelete(it)}>
+                              <Trash2 className='h-4 w-4 mr-2' />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </TableCell>
                     </TableRow>
                   ))
@@ -307,7 +323,7 @@ export default function ConfigPage() {
       </Card>
 
       <Dialog open={showSheet} onOpenChange={setShowSheet}>
-        <DialogContent className='sm:max-w-2xl max-h-[90vh] flex flex-col'>
+        <DialogContent className='sm:max-w-6xl max-h-[90vh] flex flex-col animate-in fade-in-0 duration-250'>
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Prompt Override' : 'New Prompt Override'}</DialogTitle>
             <DialogDescription>
@@ -392,8 +408,8 @@ export default function ConfigPage() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && itemToDelete && (
-        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50'>
-          <div className='bg-background rounded-lg p-6 max-w-md w-full mx-4 shadow-lg'>
+        <div className='fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in-0 duration-250'>
+          <div className='bg-background rounded-lg p-6 max-w-md w-full mx-4 shadow-lg animate-in fade-in-0 zoom-in-95 duration-250'>
             <div className='flex items-center gap-3 mb-4'>
               <AlertCircle className='h-6 w-6 text-destructive' />
               <h3 className='text-lg font-semibold'>Confirm Deletion</h3>
