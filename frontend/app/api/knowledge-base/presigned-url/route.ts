@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
   try {
-    console.log('Presigned URL API route called');
+    console.log('▶️ Presigned URL API route called');
 
     // Get the file name from query parameters
     const { searchParams } = new URL(request.url);
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'fileName parameter is required' }, { status: 400 });
     }
 
-    console.log('File name:', fileName);
+    console.log('File details:', { fileName, areaPath, businessUnit, system, username });
 
     // Get the API Gateway URL from environment variable
     const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL;

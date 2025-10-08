@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Upload, FileText, X, Check, AlertCircle, RefreshCw, HardDrive, Trash2 } from 'lucide-react';
+import { Upload, FileText, X, Check, AlertCircle, RefreshCw, HardDrive, Trash2, MoreHorizontal } from 'lucide-react';
 import { useAuthenticator } from '@aws-amplify/ui-react';
 
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,12 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
@@ -306,6 +312,7 @@ export default function Knowledge() {
 
       // Add user information
       queryParams.append('username', user.signInDetails?.loginId || user.username);
+      console.log('👉 Query Params', queryParams.toString());
 
       const presignedResponse = await fetch(`/api/knowledge-base/presigned-url?${queryParams.toString()}`, {
         method: 'GET',
@@ -319,6 +326,13 @@ export default function Knowledge() {
       const { presignedurl, key, bucket } = await presignedResponse.json();
 
       // Step 2: Upload file directly to S3 using presigned URL
+      console.log('⭐ Presigned URL details:', {
+        presignedurl: presignedurl.substring(0, 200) + '...', // Truncate for security
+        key,
+        bucket,
+        fileName: file.name,
+        fileType: file.type,
+      });
       const uploadResponse = await fetch(presignedurl, {
         method: 'PUT',
         body: file,
@@ -326,9 +340,20 @@ export default function Knowledge() {
           'Content-Type': file.type,
         },
       });
+      console.log('💣 S3 upload response:', {
+        status: uploadResponse.status,
+        statusText: uploadResponse.statusText,
+        ok: uploadResponse.ok,
+        headers: Object.fromEntries(uploadResponse.headers.entries()),
+      });
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload file to S3');
+        // Get the error response body for more details
+        const errorText = await uploadResponse.text();
+        console.error('S3 upload error details:', errorText);
+        throw new Error(
+          `Failed to upload file to S3: ${uploadResponse.status} ${uploadResponse.statusText} - ${errorText}`
+        );
       }
 
       // Step 3: Create metadata payload for backend processing
@@ -718,21 +743,29 @@ export default function Knowledge() {
                           </div>
                         </TableCell>
                         <TableCell className='whitespace-nowrap'>
-                          <Button
-                            variant='destructive'
-                            size='sm'
-                            onClick={() => confirmDelete(doc)}
-                            disabled={deletingKey === doc.key}
-                          >
-                            {deletingKey === doc.key ? (
-                              <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent' />
-                            ) : (
-                              <div className='flex items-center gap-1'>
-                                <Trash2 className='h-4 w-4' />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant='ghost'
+                                size='sm'
+                                className='h-8 w-8 p-0'
+                                disabled={deletingKey === doc.key}
+                              >
+                                {deletingKey === doc.key ? (
+                                  <div className='animate-spin rounded-full h-4 w-4 border-2 border-foreground border-t-transparent' />
+                                ) : (
+                                  <MoreHorizontal className='h-4 w-4' />
+                                )}
+                                <span className='sr-only'>Open menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align='end'>
+                              <DropdownMenuItem onClick={() => confirmDelete(doc)} disabled={deletingKey === doc.key}>
+                                <Trash2 className='h-4 w-4 mr-2' />
                                 Delete
-                              </div>
-                            )}
-                          </Button>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
