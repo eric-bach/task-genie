@@ -142,15 +142,23 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
       logger.info('Created Bedrock metadata file', { metadataKey });
 
       // Generate presigned URL for main file only after metadata is uploaded
+      // Sanitize tag values for S3 compatibility (no backslashes, spaces, etc.)
+      const sanitizeTagValue = (value: string): string => {
+        return value
+          .replace(/\\/g, '/') // Replace backslashes with forward slashes
+          .replace(/\s+/g, '-') // Replace spaces with hyphens
+          .replace(/[^a-zA-Z0-9\-_./]/g, '-'); // Replace other special chars with hyphens
+      };
+
       const command = new PutObjectCommand({
         Bucket: bucketName,
         Key: key,
         ContentType: 'application/octet-stream', // Generic content type, will be overridden by the client
         Tagging: [
-          `areaPath=${encodeURIComponent(areaPath)}`,
+          `areaPath=${encodeURIComponent(sanitizeTagValue(areaPath))}`,
           `mode=${encodeURIComponent(mode)}`,
-          businessUnit ? `businessUnit=${encodeURIComponent(businessUnit)}` : '',
-          system ? `system=${encodeURIComponent(system)}` : '',
+          businessUnit ? `businessUnit=${encodeURIComponent(sanitizeTagValue(businessUnit))}` : '',
+          system ? `system=${encodeURIComponent(sanitizeTagValue(system))}` : '',
           username ? `username=${encodeURIComponent(username)}` : '',
         ]
           .filter(Boolean)

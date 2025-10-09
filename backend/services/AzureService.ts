@@ -100,7 +100,10 @@ export class AzureService {
       throw new Error('Failed to parse token response');
     }
 
-    // this.logger.debug('Received Azure AD token');
+    this.logger.debug('Refreshing new Azure AD token', {
+      accessToken: this.accessToken.substring(0, 4) + '...' + this.accessToken.slice(-4),
+      expiresIn: tokenResponse.expires_in,
+    });
 
     return this.accessToken;
   }
@@ -114,7 +117,7 @@ export class AzureService {
   fetchImage = async (imageUrl: string): Promise<string | null> => {
     try {
       // For Azure DevOps attachment URLs, add required query parameters and auth
-      if (imageUrl.includes('visualstudio.com')) {
+      if (imageUrl.includes('visualstudio.com') || imageUrl.includes('azure.com')) {
         const url = `${imageUrl}&download=true&api-version=7.1`;
 
         const headers = { Authorization: `Bearer ${await this.getAccessToken()}` };
@@ -133,9 +136,9 @@ export class AzureService {
         const arrayBuffer = await response.arrayBuffer();
         const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-        this.logger.debug(`Successfully fetched image`, {
+        this.logger.debug('Successfully fetched image', {
           url: url,
-          sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
+          sizeKB: Math.round((base64.length * 3) / 4 / 1024),
         });
 
         return base64;
@@ -156,9 +159,9 @@ export class AzureService {
       const arrayBuffer = await response.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString('base64');
 
-      this.logger.debug(`Successfully fetched image`, {
+      this.logger.debug('Successfully fetched image', {
         url: imageUrl,
-        sizeKB: Math.round((arrayBuffer.byteLength * 3) / 4 / 1024),
+        sizeKB: Math.round((base64.length * 3) / 4 / 1024),
       });
 
       return base64;
@@ -346,9 +349,9 @@ export class AzureService {
     let taskId = 0;
     let i = 0;
     for (const task of tasks) {
-      this.logger.debug(`Creating task (${i}/${tasks.length})`, { task: task });
+      this.logger.debug(`Creating task (${++i}/${tasks.length})`, { task: task });
 
-      taskId = await this.createTask(githubOrganization, workItem, task, ++i);
+      taskId = await this.createTask(githubOrganization, workItem, task, i);
 
       // Set task Id
       task.taskId = taskId;
@@ -371,7 +374,7 @@ export class AzureService {
       },
       {
         op: 'add',
-        path: '/fields/System.IterationPath',
+        path: '/fields/System.AreaPath',
         value: workItem.areaPath,
       },
       {
@@ -396,8 +399,6 @@ export class AzureService {
         headers,
         body,
       });
-
-      // logger.debug('Create task response', { response: JSON.stringify(response) });
 
       if (!response.ok) {
         throw new Error('Failed to create task');
