@@ -6,7 +6,7 @@ sidebar_position: 1
 
 # API Reference
 
-Task Genie provides a REST API for managing AI-powered task generation, configuration settings, and knowledge base documents. The API is built on AWS API Gateway and provides endpoints for workflow execution, configuration management, and knowledge base operations.
+**Task Genie** provides a REST API for managing AI-powered task generation, configuration settings, and knowledge base documents. The API is built on AWS API Gateway and provides endpoints for workflow execution, configuration management, and knowledge base operations.
 
 ## Base URL
 
@@ -18,10 +18,10 @@ https://{api-id}.execute-api.{region}.amazonaws.com/{stage}/
 
 ## Authentication
 
-Task Genie uses two types of authentication depending on the endpoint:
+**Task Genie** uses two types of authentication depending on the endpoint:
 
 - **API Key Required**: Workflow execution endpoints (`/executions`) require an API key in the `X-API-Key` header
-- **No Authentication**: Configuration and knowledge base endpoints are open for internal use
+- **No Authentication**: Configuration and knowledge base endpoints require a authenticated user session via OAuth
 
 ### API Key Usage
 
@@ -484,94 +484,6 @@ curl -X DELETE "https://api-url/knowledge-base/documents?key=project-scoped%2FMy
 | 429         | Too Many Requests     | Rate limit exceeded                                |
 | 500         | Internal Server Error | Server-side error, check logs                      |
 
-## SDK Examples
-
-### JavaScript/TypeScript
-
-```typescript
-class TaskGenieAPI {
-  constructor(private baseUrl: string, private apiKey?: string) {}
-
-  async startExecution(workItem: any): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/executions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': this.apiKey!,
-      },
-      body: JSON.stringify(workItem),
-    });
-
-    return response.json();
-  }
-
-  async pollExecution(executionId: string): Promise<any> {
-    const encodedId = encodeURIComponent(executionId);
-    const response = await fetch(`${this.baseUrl}/executions/${encodedId}`, {
-      headers: { 'X-API-Key': this.apiKey! },
-    });
-
-    return response.json();
-  }
-
-  async updateConfig(config: ConfigRequest): Promise<any> {
-    const response = await fetch(`${this.baseUrl}/config`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
-    });
-
-    return response.json();
-  }
-}
-```
-
-### Python
-
-```python
-import requests
-import json
-from urllib.parse import quote
-
-class TaskGenieAPI:
-    def __init__(self, base_url, api_key=None):
-        self.base_url = base_url
-        self.api_key = api_key
-
-    def start_execution(self, work_item):
-        headers = {
-            'Content-Type': 'application/json',
-            'X-API-Key': self.api_key
-        }
-
-        response = requests.post(
-            f"{self.base_url}/executions",
-            headers=headers,
-            json=work_item
-        )
-
-        return response.json()
-
-    def poll_execution(self, execution_id):
-        encoded_id = quote(execution_id, safe='')
-        headers = {'X-API-Key': self.api_key}
-
-        response = requests.get(
-            f"{self.base_url}/executions/{encoded_id}",
-            headers=headers
-        )
-
-        return response.json()
-
-    def update_config(self, config):
-        response = requests.put(
-            f"{self.base_url}/config",
-            json=config
-        )
-
-        return response.json()
-```
-
 ## Webhook Integration
 
 For Azure DevOps Service Hooks integration, configure your webhook to POST to the `/executions` endpoint:
@@ -586,57 +498,3 @@ X-API-Key: your-api-key
 ```
 
 **Payload**: Azure DevOps automatically sends work item data in the correct format.
-
-## Best Practices
-
-### Error Handling
-
-- Always check HTTP status codes before processing responses
-- Implement exponential backoff for rate-limited requests
-- Handle network timeouts gracefully
-
-### Polling Pattern
-
-- Use the `/executions/{id}` endpoint to poll execution status
-- Implement reasonable polling intervals (5-10 seconds)
-- Stop polling when status is "completed" or after reasonable timeout
-
-### Security
-
-- Store API keys securely (environment variables, key management services)
-- Use HTTPS for all requests
-- Implement request/response logging for debugging
-
-### Performance
-
-- Use pagination for large result sets
-- Cache configuration data when appropriate
-- Monitor API usage against rate limits
-
-## Troubleshooting
-
-### Common Issues
-
-**API Key Not Working**:
-
-- Verify the API key is correct
-- Ensure the key is included in the `X-API-Key` header
-- Check that the usage plan allows requests
-
-**Rate Limiting**:
-
-- Implement exponential backoff
-- Monitor request frequency
-- Contact administrator to adjust usage plan if needed
-
-**Execution Polling**:
-
-- Ensure execution ID is properly URL-encoded
-- Check that the execution actually started successfully
-- Verify API key permissions for polling endpoint
-
-**File Upload Issues**:
-
-- Verify presigned URL hasn't expired
-- Check file size limits
-- Ensure proper content type headers

@@ -106,8 +106,8 @@ Task Genie leverages modern technologies to deliver a robust and scalable soluti
 
 Ready to transform your Agile workflow? Here's what you can explore:
 
-- **[Quick Start Guide](./docs/getting-started/installation.md)**: Set up Task Genie in under 10 minutes
-- **[API Reference](/docs/api)**: Integrate Task Genie with custom applications
+- **[Quick Start Guide](./getting-started/prerequisites.md)**: Set up Task Genie in under 10 minutes
+- **[API Reference](/api/index)**: Integrate Task Genie with custom applications
 - **[Best Practices](./guides/best-practices.md)**: Optimize your user stories and workflow
 
 Join teams already using Task Genie to boost productivity and make Agile effortless! 🚀
