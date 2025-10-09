@@ -1,0 +1,96 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ */
+
+/* Task Genie Brand Colors - Based on logo color #44a59e */
+:root {
+  /* Primary brand colors - Teal theme from logo */
+  --ifm-color-primary: #44a59e;
+  --ifm-color-primary-dark: #3e958e;
+  --ifm-color-primary-darker: #398d86;
+  --ifm-color-primary-darkest: #2f746f;
+  --ifm-color-primary-light: #52b5ae;
+  --ifm-color-primary-lighter: #5bbdb6;
+  --ifm-color-primary-lightest: #73d5ce;
+
+  /* Task Genie accent colors - Complementary to teal */
+  --ifm-color-secondary: #7b68ee;
+  --ifm-color-success: #52c41a;
+  --ifm-color-info: #1890ff;
+  --ifm-color-warning: #faad14;
+  --ifm-color-danger: #ff4d4f;
+
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(68, 165, 158, 0.1);
+}
+
+/* Dark mode colors - Teal theme optimized for dark backgrounds */
+[data-theme='dark'] {
+  --ifm-color-primary: #5bbdb6;
+  --ifm-color-primary-dark: #4fb5ad;
+  --ifm-color-primary-darker: #4aaba4;
+  --ifm-color-primary-darkest: #3d8e88;
+  --ifm-color-primary-light: #67c5bf;
+  --ifm-color-primary-lighter: #73d5ce;
+  --ifm-color-primary-lightest: #8ee5df;
+
+  /* Dark mode accent colors */
+  --ifm-color-secondary: #9c88ff;
+  --ifm-color-success: #73d13d;
+  --ifm-color-info: #40a9ff;
+  --ifm-color-warning: #ffd666;
+  --ifm-color-danger: #ff7875;
+
+  --docusaurus-highlighted-code-line-bg: rgba(91, 189, 182, 0.2);
+}
+
+/* Custom Task Genie styling - Teal theme */
+.hero__title {
+  background: linear-gradient(135deg, #44a59e, #ffffff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.navbar__brand {
+  font-weight: 600;
+}
+
+/* Custom button styling */
+.button--primary {
+  background: linear-gradient(135deg, #44a59e, #5bbdb6);
+  border: none;
+  transition: all 0.3s ease;
+}
+
+.button--primary:hover {
+  background: linear-gradient(135deg, #398d86, #4fb5ad);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(68, 165, 158, 0.3);
+}
+
+/* Feature cards styling */
+.card {
+  border: 1px solid rgba(68, 165, 158, 0.1);
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  border-color: var(--ifm-color-primary);
+  box-shadow: 0 8px 25px rgba(68, 165, 158, 0.15);
+  transform: translateY(-4px);
+}
+
+/* Code block enhancements */
+.theme-code-block {
+  border-left: 4px solid var(--ifm-color-primary);
+}
+
+/* Custom badges for AI/productivity features */
+.badge--ai {
+  background: linear-gradient(135deg, #44a59e, #ffffff);
+  color: white;
+  font-weight: 600;
+}

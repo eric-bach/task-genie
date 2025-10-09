@@ -1,10 +1,15 @@
 #!/usr/bin/env node
+import * as dotenv from 'dotenv';
 import { App, StackProps } from 'aws-cdk-lib';
 import { AppStack } from '../lib/app-stack';
 import { DataStack } from '../lib/data-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { GitHubActionsStack } from '../lib/github-actions-stack';
+import { DocsStack } from '../lib/docs-stack';
 // import { IVpc } from 'aws-cdk-lib/aws-ec2';
+
+// Load environment variables
+dotenv.config();
 
 export interface BaseStackProps extends StackProps {
   appName: string;
@@ -91,5 +96,14 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
     sendResponseFunctionArn: appProps.sendResponseFunctionArn,
     apiGwAccessLogGroupArn: appProps.apiGwAccessLogGroupArn,
     apiName: appProps.apiName,
+  },
+});
+
+// Documentation Stack
+new DocsStack(app, `${APP_NAME}-docs-${ENV_NAME}`, {
+  ...baseProps,
+  params: {
+    domainName: process.env.DOCS_DOMAIN_NAME || app.node.tryGetContext('domainName'),
+    certificateArn: process.env.AWS_CERTIFICATE_ARN || app.node.tryGetContext('certificateArn'),
   },
 });
