@@ -197,7 +197,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
 
    **Required Secrets:**
 
-   - `AZURE_DEVOPS_PROJECT`: Your Azure DevOps project name
+   - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
    - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
    - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
    - `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
@@ -218,7 +218,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
    Update the `/infrastructure/.env` file with your parameters:
 
    ```env
-   AZURE_DEVOPS_PROJECT=
+   AZURE_DEVOPS_ORGANIZATION=
    AZURE_DEVOPS_TENANT_ID=
    AZURE_DEVOPS_CLIENT_ID=
    AZURE_DEVOPS_CLIENT_SECRET=

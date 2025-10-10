@@ -63,7 +63,7 @@ const lambdaHandler = async (event: any, context: Context) => {
           workItemStatus: {
             pass: false,
             comment:
-              'Work Item has already been previously evaluated by Task Genie. Please remove the `Task Genie` tag to re-evaluate this work item.',
+              '<br />⚠️ Work Item has already been previously evaluated by Task Genie. Please remove the `Task Genie` tag to re-evaluate this work item.',
           },
         },
       };

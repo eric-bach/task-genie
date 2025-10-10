@@ -57,7 +57,7 @@ jobs:
           npm run cdk deploy -- --all --require-approval=never --context envName=stage
         env:
           # Environment variables for your application
-          AZURE_DEVOPS_PROJECT: ${{ secrets.AZURE_DEVOPS_PROJECT }}
+          AZURE_DEVOPS_ORGANIZATION: ${{ secrets.AZURE_DEVOPS_ORGANIZATION }}
           AZURE_DEVOPS_TENANT_ID: ${{ secrets.AZURE_DEVOPS_TENANT_ID }}
           AZURE_DEVOPS_CLIENT_ID: ${{ secrets.AZURE_DEVOPS_CLIENT_ID }}
           AZURE_DEVOPS_CLIENT_SECRET: ${{ secrets.AZURE_DEVOPS_CLIENT_SECRET }}
