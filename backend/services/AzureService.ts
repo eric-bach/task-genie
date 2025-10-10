@@ -18,11 +18,15 @@ export class AzureService {
   private accessToken: string | null = null;
   private tokenExpiresAt: number = 0;
 
-  constructor(azureDevOpsOrganization: string) {
-    this.azureDevOpsOrganization = azureDevOpsOrganization;
+  constructor() {
     this.logger = new Logger({ serviceName: 'AzureService' });
 
-    this.logger.info(`AzureService initialized for organization: ${process.env.AZURE_DEVOPS_ORGANIZATION}`);
+    if (!process.env.AZURE_DEVOPS_ORGANIZATION) {
+      this.logger.warn('AZURE_DEVOPS_ORGANIZATION');
+      throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
+    }
+
+    this.azureDevOpsOrganization = process.env.AZURE_DEVOPS_ORGANIZATION;
   }
 
   /**

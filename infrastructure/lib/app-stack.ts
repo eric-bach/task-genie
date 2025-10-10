@@ -1,6 +1,15 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { Choice, Condition, LogLevel, StateMachine, StateMachineType, TaskInput } from 'aws-cdk-lib/aws-stepfunctions';
+import {
+  Choice,
+  Condition,
+  LogLevel,
+  StateMachine,
+  StateMachineType,
+  TaskInput,
+  Errors,
+  Pass,
+} from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import {
@@ -37,6 +46,7 @@ export class AppStack extends Stack {
   public createTasksFunctionArn: string;
   public addCommentFunctionArn: string;
   public sendResponseFunctionArn: string;
+  public handleErrorFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
   public apiName: string;
 
@@ -181,6 +191,20 @@ export class AppStack extends Stack {
       },
     });
     resultsTable.grantWriteData(sendResponseFunction);
+
+    // Error Handling Lambda
+    const handleErrorFunction = new TaskGenieLambda(this, 'HandleError', {
+      functionName: `${props.appName}-handle-error-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/handleError/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(30),
+      environment: {
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+    azureDevOpsCredentialsSecret.grantRead(handleErrorFunction);
 
     const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
       functionName: `${props.appName}-poll-execution-${props.envName}`,
@@ -388,8 +412,114 @@ export class AppStack extends Stack {
       outputPath: '$.Payload',
     });
 
-    // State Machine Definition
-    const definition = evaluateUserStoryTask.next(
+    // Create separate error handling tasks for each catch block
+    const evaluateUserStoryErrorTask = new LambdaInvoke(this, 'EvaluateUserStoryErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'resource.$': '$.resource',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    const defineTasksErrorTask = new LambdaInvoke(this, 'DefineTasksErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    const createTasksErrorTask = new LambdaInvoke(this, 'CreateTasksErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    const addCommentErrorTask = new LambdaInvoke(this, 'AddCommentErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    // Add error handling to tasks with catch blocks
+    const evaluateUserStoryTaskWithCatch = evaluateUserStoryTask.addCatch(
+      new Pass(this, 'SetEvaluateUserStoryError', {
+        parameters: {
+          errorStep: 'Evaluate User Story',
+          'resource.$': '$.resource',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(evaluateUserStoryErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    const defineTasksTaskWithCatch = defineTasksTask.addCatch(
+      new Pass(this, 'SetDefineTasksError', {
+        parameters: {
+          errorStep: 'Define Tasks',
+          'body.$': '$.body',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(defineTasksErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    const createTasksTaskWithCatch = createTasksTask.addCatch(
+      new Pass(this, 'SetCreateTasksError', {
+        parameters: {
+          errorStep: 'Create Tasks',
+          'body.$': '$.body',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(createTasksErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    const addCommentTaskWithCatch = addCommentTask.addCatch(
+      new Pass(this, 'SetAddCommentError', {
+        parameters: {
+          errorStep: 'Add Comment',
+          'body.$': '$.body',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(addCommentErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    // State Machine Definition with error handling
+    const definition = evaluateUserStoryTaskWithCatch.next(
       new Choice(this, 'User story is defined?')
         .when(
           Condition.or(Condition.numberEquals('$.statusCode', 400), Condition.numberEquals('$.statusCode', 500)),
@@ -398,14 +528,20 @@ export class AppStack extends Stack {
         .when(
           Condition.or(Condition.numberEquals('$.statusCode', 204), Condition.numberEquals('$.statusCode', 412)),
           new Choice(this, 'Add comment?')
-            .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), addCommentTask.next(sendResponseTask))
+            .when(
+              Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
+              addCommentTaskWithCatch.next(sendResponseTask)
+            )
             .otherwise(sendResponseTask)
         )
         .otherwise(
-          defineTasksTask.next(
+          defineTasksTaskWithCatch.next(
             new Choice(this, 'Create task?')
               .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
-              .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), createTasksTask.next(addCommentTask))
+              .when(
+                Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
+                createTasksTaskWithCatch.next(addCommentTaskWithCatch)
+              )
               .otherwise(sendResponseTask)
           )
         )
@@ -695,6 +831,7 @@ export class AppStack extends Stack {
     this.createTasksFunctionArn = createTasksFunction.functionArn;
     this.addCommentFunctionArn = addCommentFunction.functionArn;
     this.sendResponseFunctionArn = sendResponseFunction.functionArn;
+    this.handleErrorFunctionArn = handleErrorFunction.functionArn;
     this.apiGwAccessLogGroupArn = apiGwAccessLogGroup.logGroupArn;
     this.apiName = api.restApiName;
   }

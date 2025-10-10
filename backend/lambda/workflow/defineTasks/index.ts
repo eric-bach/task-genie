@@ -96,7 +96,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
  */
 const getAzureService = (): AzureService => {
   if (!azureService) {
-    azureService = new AzureService(AZURE_DEVOPS_ORGANIZATION);
+    azureService = new AzureService();
   }
 
   return azureService;

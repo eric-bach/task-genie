@@ -63,7 +63,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
  */
 const getAzureService = (): AzureService => {
   if (!azureService) {
-    azureService = new AzureService(AZURE_DEVOPS_ORGANIZATION);
+    azureService = new AzureService();
   }
 
   return azureService;
@@ -99,7 +99,7 @@ const parseEvent = (
 };
 
 const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKnowledgeDocument[]): string => {
-  const comment = `Generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
+  const comment = `<br />✅ Successfully generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
 
   if (documents.length > 0) {
     const sources = documents
@@ -109,10 +109,14 @@ const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKn
       })
       .join('<br />');
 
-    return `${comment} from ${documents.length} knowledge base documents.<br /><br />Sources:<br />${sources}`;
+    return `${comment} from ${documents.length} knowledge base documents.<br /><br />
+<b>Sources:</b><br />
+${sources}<br /><br />
+<i>This is an automated message from Task Genie.</i>`;
   }
 
-  return comment;
+  return `${comment}.<br /><br />
+<i>This is an automated message from Task Genie.</i>`;
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

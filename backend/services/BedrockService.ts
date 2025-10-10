@@ -585,13 +585,7 @@ Images referenced:
       ++i;
 
       try {
-        const azureOrganization = process.env.AZURE_DEVOPS_ORGANIZATION;
-        if (!azureOrganization) {
-          this.logger.warn('AZURE_DEVOPS_ORGANIZATION not set, skipping image processing');
-          continue;
-        }
-
-        const azureService = new AzureService(azureOrganization);
+        const azureService = new AzureService();
 
         const imageData = await azureService.fetchImage(image.url);
         if (imageData && this.isImageSizeValid(imageData)) {
