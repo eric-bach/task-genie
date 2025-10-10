@@ -12,15 +12,23 @@ interface AzureDevOpsCredentials {
 }
 
 export class AzureService {
+  private readonly azureDevOpsOrganization: string;
   private readonly logger: Logger;
   private azureDevOpsCredentials: AzureDevOpsCredentials | null = null;
   private accessToken: string | null = null;
   private tokenExpiresAt: number = 0;
 
-  constructor() {
+  constructor(azureDevOpsOrganization: string) {
+    this.azureDevOpsOrganization = azureDevOpsOrganization;
     this.logger = new Logger({ serviceName: 'AzureService' });
+
+    this.logger.info(`AzureService initialized for organization: ${process.env.AZURE_DEVOPS_ORGANIZATION}`);
   }
 
+  /**
+   * Retrieves Azure DevOps credentials from AWS Secrets Manager
+   * @returns The Azure DevOps credentials including tenant ID, client ID, client secret, and scope
+   */
   private async getAzureDevOpsCredentials(): Promise<AzureDevOpsCredentials> {
     const azureDevOpsSecretName = process.env.AZURE_DEVOPS_CREDENTIALS_SECRET_NAME;
     if (!azureDevOpsSecretName) {
@@ -57,6 +65,10 @@ export class AzureService {
     }
   }
 
+  /**
+   * Retrieves and caches an Azure AD access token for API authentication
+   * @returns A valid access token for Azure DevOps API calls
+   */
   private async getAccessToken(): Promise<string> {
     const now = Date.now();
 
@@ -111,10 +123,9 @@ export class AzureService {
   /**
    * Fetches an image from a URL and converts it to base64
    * @param imageUrl The URL of the image to fetch
-   * @param logger Logger instance for debugging
    * @returns Object with base64 string and raw data, or null if failed
    */
-  fetchImage = async (imageUrl: string): Promise<string | null> => {
+  public async fetchImage(imageUrl: string): Promise<string | null> {
     try {
       // For Azure DevOps attachment URLs, add required query parameters and auth
       if (imageUrl.includes('visualstudio.com') || imageUrl.includes('azure.com')) {
@@ -172,13 +183,19 @@ export class AzureService {
       });
       return null;
     }
-  };
+  }
 
-  async addComment(githubOrganization: string, workItem: WorkItem, comment: string) {
+  /**
+   * Adds a comment to an Azure DevOps work item
+   * @param workItem The work item to add the comment to
+   * @param comment The comment text to add
+   * @returns The response body or error message
+   */
+  public async addComment(workItem: WorkItem, comment: string): Promise<string> {
     this.logger.info(`⚙️ Adding comment to work item ${workItem.workItemId}`, { workItem, comment });
 
     try {
-      const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}/comments?api-version=7.1-preview.4`;
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}/comments?api-version=7.1-preview.4`;
 
       const headers = {
         'Content-Type': 'application/json',
@@ -210,8 +227,15 @@ export class AzureService {
     }
   }
 
-  addTag = async (githubOrganization: string, workItem: WorkItem, tag: string): Promise<string> => {
-    this.logger.info(`⚙️ Adding tag to work item ${workItem.workItemId}`, { workItem, tag });
+  /**
+   * Adds a tag to an Azure DevOps work item
+   * @param teamProject The team project name
+   * @param workItemId The ID of the work item
+   * @param tag The tag to add
+   * @returns The response body or error message
+   */
+  public async addTag(teamProject: string, workItemId: number, tag: string): Promise<string> {
+    this.logger.info(`⚙️ Adding tag to work item ${workItemId}`, { teamProject, workItemId, tag });
 
     const fields = [
       {
@@ -222,7 +246,7 @@ export class AzureService {
     ];
 
     try {
-      const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?api-version=7.1`;
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${teamProject}/_apis/wit/workItems/${workItemId}?api-version=7.1`;
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
@@ -250,9 +274,14 @@ export class AzureService {
 
       return error.message;
     }
-  };
+  }
 
-  async getTasksForWorkItem(githubOrganization: string, workItem: WorkItem): Promise<Task[]> {
+  /**
+   * Retrieves all tasks associated with a specific work item
+   * @param workItem The work item to fetch tasks for
+   * @returns Array of tasks associated with the work item
+   */
+  public async getTasksForWorkItem(workItem: WorkItem): Promise<Task[]> {
     this.logger.info(`⚙️ Fetching tasks for work item ${workItem.workItemId}`);
 
     try {
@@ -265,7 +294,7 @@ export class AzureService {
       }
 
       // Get work item details including relations
-      const workItemUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?$expand=relations&api-version=7.1`;
+      const workItemUrl = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}?$expand=relations&api-version=7.1`;
 
       const headers = {
         'Content-Type': 'application/json',
@@ -301,7 +330,7 @@ export class AzureService {
         return tasks;
       }
 
-      const tasksUrl = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitemsbatch?api-version=7.1`;
+      const tasksUrl = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitemsbatch?api-version=7.1`;
 
       const body = JSON.stringify({
         ids: taskIds,
@@ -343,7 +372,12 @@ export class AzureService {
     }
   }
 
-  async createTasks(githubOrganization: string, workItem: WorkItem, tasks: Task[]) {
+  /**
+   * Creates multiple tasks for a work item in Azure DevOps
+   * @param workItem The parent work item to create tasks for
+   * @param tasks Array of tasks to create
+   */
+  public async createTasks(workItem: WorkItem, tasks: Task[]): Promise<void> {
     this.logger.info(`⚙️ Creating ${tasks.length} total tasks`, { tasks: tasks });
 
     let taskId = 0;
@@ -351,7 +385,10 @@ export class AzureService {
     for (const task of tasks) {
       this.logger.debug(`Creating task (${++i}/${tasks.length})`, { task: task });
 
-      taskId = await this.createTask(githubOrganization, workItem, task, i);
+      taskId = await this.createTask(workItem, task, i);
+
+      // Add Task Genie tag to task
+      await this.addTag(workItem.teamProject, taskId, 'Task Genie');
 
       // Set task Id
       task.taskId = taskId;
@@ -360,7 +397,14 @@ export class AzureService {
     this.logger.info(`All ${tasks.length} tasks successfully created`);
   }
 
-  async createTask(githubOrganization: string, workItem: WorkItem, task: Task, i: number): Promise<number> {
+  /**
+   * Creates a single task in Azure DevOps and links it to the parent work item
+   * @param workItem The parent work item
+   * @param task The task to create
+   * @param i The task index (for logging purposes)
+   * @returns The ID of the created task
+   */
+  public async createTask(workItem: WorkItem, task: Task, i: number): Promise<number> {
     const taskFields = [
       {
         op: 'add',
@@ -385,7 +429,7 @@ export class AzureService {
     ];
 
     try {
-      const url = `https://${githubOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$task?api-version=7.1`;
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$task?api-version=7.1`;
 
       const body = JSON.stringify(taskFields);
 
@@ -408,7 +452,7 @@ export class AzureService {
 
       this.logger.info(`Created task ${data.id}`);
 
-      await this.linkTask(githubOrganization, workItem.teamProject, workItem.workItemId, data.id);
+      await this.linkTask(workItem.teamProject, workItem.workItemId, data.id);
 
       return data.id;
     } catch (error) {
@@ -417,14 +461,15 @@ export class AzureService {
     }
   }
 
-  linkTask = async (
-    githubOrganization: string,
-    teamProject: string,
-    workItemId: number,
-    taskId: string
-  ): Promise<void> => {
+  /**
+   * Links a task to its parent work item in Azure DevOps
+   * @param teamProject The team project name
+   * @param workItemId The ID of the parent work item
+   * @param taskId The ID of the task to link
+   */
+  public async linkTask(teamProject: string, workItemId: number, taskId: string): Promise<void> {
     try {
-      const url = `https://${githubOrganization}.visualstudio.com/${teamProject}/_apis/wit/workitems/${workItemId}?api-version=7.1`;
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${teamProject}/_apis/wit/workitems/${workItemId}?api-version=7.1`;
 
       const body = `[
         {
@@ -432,7 +477,7 @@ export class AzureService {
           "path": "/relations/-",
           "value": {
             "rel": "System.LinkTypes.Hierarchy-Forward",
-            "url": "https://${githubOrganization}.visualstudio.com/${teamProject}/_apis/wit/workItems/${taskId}",
+            "url": "https://${this.azureDevOpsOrganization}.visualstudio.com/${teamProject}/_apis/wit/workItems/${taskId}",
             "attributes": {
               "comment": "Linking dependency"
             }
@@ -466,5 +511,5 @@ export class AzureService {
     } catch (error) {
       this.logger.error('Error linking task', { error: error });
     }
-  };
+  }
 }

@@ -114,7 +114,7 @@ export class AppStack extends Stack {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
@@ -141,7 +141,7 @@ export class AppStack extends Stack {
       // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       policyStatements: [
@@ -162,7 +162,7 @@ export class AppStack extends Stack {
       // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       // interfaceEndpoints: removed since not using private VPC

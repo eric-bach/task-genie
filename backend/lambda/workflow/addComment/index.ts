@@ -6,9 +6,9 @@ import { WorkItem, Task } from '../../../types/azureDevOps';
 import { AzureService } from '../../../services/AzureService';
 import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
-export const AZURE_DEVOPS_PROJECT = process.env.AZURE_DEVOPS_PROJECT;
-if (AZURE_DEVOPS_PROJECT === undefined) {
-  throw new Error('AZURE_DEVOPS_PROJECT environment variable is required');
+export const AZURE_DEVOPS_ORGANIZATION = process.env.AZURE_DEVOPS_ORGANIZATION;
+if (AZURE_DEVOPS_ORGANIZATION === undefined) {
+  throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
 }
 
 export const logger = new Logger({ serviceName: 'addComment' });
@@ -29,11 +29,11 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 
     // Add comment
     const azureService = getAzureService();
-    await azureService.addComment(AZURE_DEVOPS_PROJECT, workItem, comment);
+    await azureService.addComment(workItem, comment);
 
     // Add tag
     if (workItemStatus.pass) {
-      await azureService.addTag(AZURE_DEVOPS_PROJECT, workItem, 'Task Genie');
+      await azureService.addTag(workItem.teamProject, workItem.workItemId, 'Task Genie');
     }
 
     logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
@@ -63,7 +63,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
  */
 const getAzureService = (): AzureService => {
   if (!azureService) {
-    azureService = new AzureService();
+    azureService = new AzureService(AZURE_DEVOPS_ORGANIZATION);
   }
 
   return azureService;
