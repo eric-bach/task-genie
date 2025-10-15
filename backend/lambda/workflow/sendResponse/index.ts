@@ -102,6 +102,7 @@ const saveResponseToDynamoDB = async (
     timestamp: new Date().toISOString(),
     // ADO - only include if defined
     ...(workItem.areaPath && { areaPath: workItem.areaPath }),
+    ...(workItem.iterationPath && { iterationPath: workItem.iterationPath }),
     ...(workItem.businessUnit && { businessUnit: workItem.businessUnit }),
     ...(workItem.system && { system: workItem.system }),
     // Work Item

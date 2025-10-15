@@ -6,9 +6,9 @@ import { WorkItem, Task } from '../../../types/azureDevOps';
 import { AzureService } from '../../../services/AzureService';
 import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
-export const AZURE_DEVOPS_PROJECT = process.env.AZURE_DEVOPS_PROJECT;
-if (AZURE_DEVOPS_PROJECT === undefined) {
-  throw new Error('AZURE_DEVOPS_PROJECT environment variable is required');
+export const AZURE_DEVOPS_ORGANIZATION = process.env.AZURE_DEVOPS_ORGANIZATION;
+if (AZURE_DEVOPS_ORGANIZATION === undefined) {
+  throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
 }
 
 export const logger = new Logger({ serviceName: 'addComment' });
@@ -29,11 +29,11 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
 
     // Add comment
     const azureService = getAzureService();
-    await azureService.addComment(AZURE_DEVOPS_PROJECT, workItem, comment);
+    await azureService.addComment(workItem, comment);
 
     // Add tag
     if (workItemStatus.pass) {
-      await azureService.addTag(AZURE_DEVOPS_PROJECT, workItem, 'Task Genie');
+      await azureService.addTag(workItem.teamProject, workItem.workItemId, 'Task Genie');
     }
 
     logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
@@ -99,7 +99,7 @@ const parseEvent = (
 };
 
 const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKnowledgeDocument[]): string => {
-  const comment = `Generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
+  const comment = `<br />✅ Successfully generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
 
   if (documents.length > 0) {
     const sources = documents
@@ -109,10 +109,14 @@ const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKn
       })
       .join('<br />');
 
-    return `${comment} from ${documents.length} knowledge base documents.<br /><br />Sources:<br />${sources}`;
+    return `${comment} from ${documents.length} knowledge base documents.<br /><br />
+<b>Sources:</b><br />
+${sources}<br /><br />
+<i>This is an automated message from Task Genie.</i>`;
   }
 
-  return comment;
+  return `${comment}.<br /><br />
+<i>This is an automated message from Task Genie.</i>`;
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

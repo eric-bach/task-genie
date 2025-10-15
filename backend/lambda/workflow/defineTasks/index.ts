@@ -41,9 +41,9 @@ const CONFIG_TABLE_NAME = process.env.CONFIG_TABLE_NAME;
 if (!CONFIG_TABLE_NAME) {
   throw new Error('CONFIG_TABLE_NAME environment variable is required');
 }
-export const AZURE_DEVOPS_PROJECT = process.env.AZURE_DEVOPS_PROJECT;
-if (AZURE_DEVOPS_PROJECT === undefined) {
-  throw new Error('AZURE_DEVOPS_PROJECT environment variable is required');
+export const AZURE_DEVOPS_ORGANIZATION = process.env.AZURE_DEVOPS_ORGANIZATION;
+if (AZURE_DEVOPS_ORGANIZATION === undefined) {
+  throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
 }
 
 // Clients and services
@@ -59,7 +59,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const { workItem, params, workItemStatus } = parseEventBody(event.body);
 
     const azureService = getAzureService();
-    const existingTasks = await azureService.getTasksForWorkItem(AZURE_DEVOPS_PROJECT, workItem);
+    const existingTasks = await azureService.getTasksForWorkItem(workItem);
 
     // Generate tasks
     const bedrock = getBedrockService();
@@ -136,6 +136,8 @@ const parseEventBody = (
 
   logger.info(`▶️ Starting processing of work item ${workItem.workItemId}`, {
     title: workItem.title,
+    areaPath: workItem.areaPath,
+    iterationPath: workItem.iterationPath,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
     hasImages: !!(workItem.images && workItem.images.length > 0),
