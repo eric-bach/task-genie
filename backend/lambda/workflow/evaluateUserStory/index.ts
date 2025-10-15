@@ -144,6 +144,7 @@ const validateWorkItem = (resource: any) => {
   const requiredFields = [
     'System.TeamProject',
     'System.AreaPath',
+    'System.IterationPath',
     'System.ChangedBy',
     'System.Title',
     'System.Description',
@@ -248,6 +249,7 @@ const parseEvent = (event: any): WorkItemRequest => {
     workItemId: workItemId ?? 0,
     teamProject: sanitizeField(fields['System.TeamProject']),
     areaPath: sanitizeField(fields['System.AreaPath']),
+    iterationPath: sanitizeField(fields['System.IterationPath']),
     // Handle both Custom.BusinessUnit and Custom.BusinessUnit2 field names
     businessUnit: fields['Custom.BusinessUnit']
       ? sanitizeField(fields['Custom.BusinessUnit'])
@@ -270,8 +272,10 @@ const parseEvent = (event: any): WorkItemRequest => {
 
   logger.info(`▶️ Starting evaluation of work item ${workItem.workItemId}`, {
     title: workItem.title,
+    areaPath: workItem.areaPath,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
+    iterationPath: workItem.iterationPath,
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
   });

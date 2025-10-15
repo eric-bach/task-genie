@@ -136,6 +136,8 @@ const parseEventBody = (
 
   logger.info(`▶️ Starting processing of work item ${workItem.workItemId}`, {
     title: workItem.title,
+    areaPath: workItem.areaPath,
+    iterationPath: workItem.iterationPath,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
     hasImages: !!(workItem.images && workItem.images.length > 0),

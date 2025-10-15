@@ -116,6 +116,7 @@ const parseErrorEvent = (
       workItemId: event.resource.workItemId,
       teamProject: fields?.['System.TeamProject'] || 'Unknown',
       areaPath: fields?.['System.AreaPath'] || '',
+      iterationPath: fields?.['System.IterationPath'] || '',
       businessUnit: fields?.['Custom.BusinessUnit'],
       system: fields?.['Custom.System'],
       changedBy: extractUserFromChangedBy(fields?.['System.ChangedBy'] || 'Unknown'),

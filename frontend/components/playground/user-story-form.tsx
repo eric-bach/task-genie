@@ -104,6 +104,7 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
             'Microsoft.VSTS.Common.AcceptanceCriteria': acceptanceCriteria,
             'System.TeamProject': 'test',
             'System.AreaPath': areaPath,
+            'System.IterationPath': 'test', // Hardcode for test
             'Custom.BusinessUnit': businessUnit,
             'Custom.System': system,
           },

@@ -14,6 +14,7 @@ export interface WorkItem {
   workItemId: number;
   teamProject: string;
   areaPath: string;
+  iterationPath: string;
   businessUnit?: string;
   system?: string;
   changedBy: string;

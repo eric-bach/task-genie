@@ -427,6 +427,11 @@ export class AzureService {
       },
       {
         op: 'add',
+        path: '/fields/System.IterationPath',
+        value: workItem.iterationPath,
+      },
+      {
+        op: 'add',
         path: '/fields/System.WorkItemType',
         value: 'Task',
       },
