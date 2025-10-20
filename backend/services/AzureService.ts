@@ -391,9 +391,6 @@ export class AzureService {
 
       taskId = await this.createTask(workItem, task, i);
 
-      // Add Task Genie tag to task
-      await this.addTag(workItem.teamProject, taskId, 'Task Genie');
-
       // Set task Id
       task.taskId = taskId;
     }
@@ -434,6 +431,11 @@ export class AzureService {
         op: 'add',
         path: '/fields/System.WorkItemType',
         value: 'Task',
+      },
+      {
+        op: 'add',
+        path: '/fields/System.Tags',
+        value: 'Task Genie',
       },
     ];
 
