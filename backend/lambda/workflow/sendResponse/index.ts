@@ -116,6 +116,7 @@ const saveResponseToDynamoDB = async (
       acceptanceCriteria: workItem.acceptanceCriteria || '', // Provide default for undefined
     },
     tasksCount: tasks?.length || 0,
+    taskIds: tasks?.map((task) => task.taskId) || [],
     tasks:
       tasks?.map((task) => ({
         ...(task.taskId && { id: task.taskId }), // Only include if defined
