@@ -281,6 +281,55 @@ export class AzureService {
   }
 
   /**
+   * Retrieves work item details by ID
+   * @param workItemId The ID of the work item to fetch
+   * @param teamProject The team project name
+   * @returns The work item details including all fields
+   */
+  public async getWorkItem(workItemId: number, teamProject?: string): Promise<any> {
+    this.logger.info(`⚙️ Fetching work item ${workItemId}`);
+
+    try {
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${teamProject}/_apis/wit/workItems/${workItemId}?api-version=7.1`;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        this.logger.error('Failed to fetch work item', {
+          workItemId,
+          status: response.status,
+          statusText: response.statusText,
+        });
+        throw new Error(`Failed to fetch work item ${workItemId}: ${response.statusText}`);
+      }
+
+      const workItemData = await response.json();
+
+      this.logger.debug('Successfully fetched work item', {
+        workItemId,
+        hasFields: !!workItemData.fields,
+        fieldsCount: workItemData.fields ? Object.keys(workItemData.fields).length : 0,
+      });
+
+      return workItemData;
+    } catch (error) {
+      this.logger.error('Error fetching work item', {
+        workItemId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Retrieves all tasks associated with a specific work item
    * @param workItem The work item to fetch tasks for
    * @returns Array of tasks associated with the work item
@@ -355,6 +404,15 @@ export class AzureService {
 
       if (tasksData.value && Array.isArray(tasksData.value)) {
         for (const taskItem of tasksData.value) {
+          // Ignore tasks that are closed/resolved/removed
+          if (
+            taskItem.fields['System.State'] == 'Removed' ||
+            taskItem.fields['System.State'] == 'Closed' ||
+            taskItem.fields['System.State'] == 'Resolved'
+          ) {
+            continue;
+          }
+
           tasks.push({
             taskId: taskItem.id,
             title: taskItem.fields['System.Title'],
