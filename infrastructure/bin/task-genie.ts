@@ -24,6 +24,7 @@ export interface AppStackProps extends BaseStackProps {
     // ssmVpcEndpointId: string;
     configTableArn: string;
     resultsTableArn: string;
+    feedbackTableArn: string;
     dataSourceBucketArn: string;
     azureDevOpsCredentialsSecretName: string;
   };
@@ -36,6 +37,7 @@ export interface ObservabilityStackProps extends BaseStackProps {
     createTasksFunctionArn: string;
     addCommentFunctionArn: string;
     sendResponseFunctionArn: string;
+    trackTaskFeedbackFunctionArn: string;
     apiGwAccessLogGroupArn: string;
     apiName: string;
   };
@@ -75,6 +77,7 @@ const appProps = new AppStack(app, `${APP_NAME}-app-${ENV_NAME}`, {
     // ssmVpcEndpointId: dataProps.ssmVpcEndpointId,
     configTableArn: dataProps.configTableArn,
     resultsTableArn: dataProps.resultsTableArn,
+    feedbackTableArn: dataProps.feedbackTableArn,
     dataSourceBucketArn: dataProps.dataSourceBucketArn,
     azureDevOpsCredentialsSecretName: dataProps.azureDevOpsCredentialsSecretName,
   },
@@ -89,6 +92,7 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
     createTasksFunctionArn: appProps.createTasksFunctionArn,
     addCommentFunctionArn: appProps.addCommentFunctionArn,
     sendResponseFunctionArn: appProps.sendResponseFunctionArn,
+    trackTaskFeedbackFunctionArn: appProps.trackTaskFeedbackFunctionArn,
     apiGwAccessLogGroupArn: appProps.apiGwAccessLogGroupArn,
     apiName: appProps.apiName,
   },

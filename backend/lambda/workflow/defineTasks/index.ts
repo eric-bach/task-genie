@@ -20,6 +20,7 @@ import { AzureService } from '../../../services/AzureService';
  * Environment Variables:
  * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for task generation
  * - AWS_BEDROCK_KNOWLEDGE_BASE_ID: Knowledge base ID for retrieving context
+ * - FEEDBACK_FEATURE_ENABLED: Feature flag to enable/disable feedback learning (true/false)
  * - AZURE_DEVOPS_PAT_PARAMETER_NAME: Parameter Store parameter name containing Azure DevOps PAT
  */
 
@@ -45,6 +46,11 @@ export const AZURE_DEVOPS_ORGANIZATION = process.env.AZURE_DEVOPS_ORGANIZATION;
 if (AZURE_DEVOPS_ORGANIZATION === undefined) {
   throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
 }
+const FEEDBACK_TABLE_NAME = process.env.FEEDBACK_TABLE_NAME;
+if (!FEEDBACK_TABLE_NAME) {
+  throw new Error('FEEDBACK_TABLE_NAME environment variable is required');
+}
+const FEEDBACK_FEATURE_ENABLED = process.env.FEEDBACK_FEATURE_ENABLED === 'true';
 
 // Clients and services
 const logger = new Logger({ serviceName: 'defineTasks' });
@@ -115,6 +121,8 @@ const getBedrockService = (): BedrockService => {
       maxImageSize: 5, // 5MB
       maxImages: 3,
       configTableName: CONFIG_TABLE_NAME,
+      feedbackTableName: FEEDBACK_TABLE_NAME,
+      feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
     };
 
     bedrockService = new BedrockService(config);
@@ -142,6 +150,7 @@ const parseEventBody = (
     system: workItem.system,
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
+    feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
   });
 
   return { params, workItem, workItemStatus };
