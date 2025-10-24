@@ -214,8 +214,8 @@ export class FeedbackService {
       }
 
       // Analyze patterns
-      const patterns = this.extractPatterns(recentFeedback, config);
-      const insights = this.generateInsights(recentFeedback, patterns, config);
+      const patterns = this.extractPatterns(recentFeedback);
+      const insights = this.generateInsights(patterns, config);
 
       return {
         patterns: patterns.slice(0, config.maxPatterns),
@@ -253,9 +253,6 @@ export class FeedbackService {
       // Sort by completion time for completed tasks (faster = better)
       return successfulTasks
         .sort((a, b) => {
-          if (a.completionTimeHours && b.completionTimeHours) {
-            return a.completionTimeHours - b.completionTimeHours;
-          }
           return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
         })
         .slice(0, limit);
@@ -308,7 +305,7 @@ export class FeedbackService {
   /**
    * Extract patterns from feedback data
    */
-  private extractPatterns(feedback: TaskFeedback[], config: FeedbackAnalysisConfig): FeedbackPattern[] {
+  private extractPatterns(feedback: TaskFeedback[]): FeedbackPattern[] {
     const contextKey = feedback.length > 0 ? feedback[0].contextKey || '' : '';
     const [areaPath, businessUnit, system] = contextKey.split('#');
 
@@ -372,7 +369,6 @@ export class FeedbackService {
         modificationRate,
         deletionRate,
         missedTaskRate,
-        avgCompletionTime: this.calculateAverageCompletionTime(feedback),
       },
       lastUpdated: new Date().toISOString(),
       sampleSize: totalTasks,
@@ -384,11 +380,7 @@ export class FeedbackService {
   /**
    * Generate actionable insights from patterns
    */
-  private generateInsights(
-    feedback: TaskFeedback[],
-    patterns: FeedbackPattern[],
-    config: FeedbackAnalysisConfig
-  ): FeedbackInsight[] {
+  private generateInsights(patterns: FeedbackPattern[], config: FeedbackAnalysisConfig): FeedbackInsight[] {
     const insights: FeedbackInsight[] = [];
 
     for (const pattern of patterns) {
@@ -521,18 +513,5 @@ export class FeedbackService {
       .map(([phrase, frequency]) => ({ phrase, frequency }))
       .filter((p) => p.frequency > 1) // Only return phrases that appear multiple times
       .sort((a, b) => b.frequency - a.frequency);
-  }
-
-  /**
-   * Calculate average completion time for completed tasks
-   */
-  private calculateAverageCompletionTime(feedback: TaskFeedback[]): number | undefined {
-    const completedTasks = feedback.filter((f) => f.action === FeedbackAction.COMPLETED && f.completionTimeHours);
-
-    if (completedTasks.length === 0) return undefined;
-
-    const totalTime = completedTasks.reduce((sum, task) => sum + (task.completionTimeHours || 0), 0);
-
-    return totalTime / completedTasks.length;
   }
 }

@@ -1106,7 +1106,7 @@ ${insights}`);
     }
 
     if (enhancements.length > 0) {
-      this.logger.debug('🔀 Built feedback context for task generation prompt', {
+      this.logger.debug('🔀 Added feedback context for task generation', {
         feedbackPatternsUsed: feedbackExamples?.patterns?.length || 0,
         feedbackInsights: feedbackExamples?.insights?.length || 0,
         successfulExamples: feedbackExamples?.successfulExamples?.length || 0,
