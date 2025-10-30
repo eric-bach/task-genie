@@ -19,6 +19,7 @@ export class DataStack extends Stack {
   // public ssmVpcEndpointId: string;
   public configTableArn: string;
   public resultsTableArn: string;
+  public feedbackTableArn: string;
   public dataSourceBucketArn: string;
   public azureDevOpsCredentialsSecretName: string;
 
@@ -102,6 +103,71 @@ export class DataStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       pointInTimeRecovery: true,
       timeToLiveAttribute: 'ttl',
+    });
+
+    // GSI for querying results by work item Ids
+    resultsTable.addGlobalSecondaryIndex({
+      indexName: 'workItemId-timestamp-index',
+      partitionKey: {
+        name: 'workItemId',
+        type: AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: 'timestamp',
+        type: AttributeType.STRING,
+      },
+    });
+
+    // Task Feedback table for AI learning and improvement
+    const feedbackTable = new Table(this, 'TaskFeedbackTable', {
+      tableName: `${props.appName}-feedback-${props.envName}`,
+      partitionKey: {
+        name: 'feedbackId',
+        type: AttributeType.STRING,
+      },
+      billingMode: BillingMode.PAY_PER_REQUEST,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecovery: true,
+      timeToLiveAttribute: 'ttl',
+    });
+
+    // GSI for querying feedback by work item
+    feedbackTable.addGlobalSecondaryIndex({
+      indexName: 'workItemId-timestamp-index',
+      partitionKey: {
+        name: 'workItemId',
+        type: AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: 'timestamp',
+        type: AttributeType.STRING,
+      },
+    });
+
+    // GSI for querying feedback by task ID
+    feedbackTable.addGlobalSecondaryIndex({
+      indexName: 'taskId-timestamp-index',
+      partitionKey: {
+        name: 'taskId',
+        type: AttributeType.NUMBER,
+      },
+      sortKey: {
+        name: 'timestamp',
+        type: AttributeType.STRING,
+      },
+    });
+
+    // GSI for querying feedback by context key
+    feedbackTable.addGlobalSecondaryIndex({
+      indexName: 'contextKey-timestamp-index',
+      partitionKey: {
+        name: 'contextKey',
+        type: AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'timestamp',
+        type: AttributeType.STRING,
+      },
     });
 
     /*
@@ -229,6 +295,7 @@ export class DataStack extends Stack {
     // this.ssmVpcEndpointId = ssmEndpoint.vpcEndpointId;
     this.configTableArn = configTable.tableArn;
     this.resultsTableArn = resultsTable.tableArn;
+    this.feedbackTableArn = feedbackTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
     this.azureDevOpsCredentialsSecretName = azureDevOpsCredentials.secretName;
   }

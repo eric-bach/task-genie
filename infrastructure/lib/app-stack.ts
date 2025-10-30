@@ -1,6 +1,15 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { Choice, Condition, LogLevel, StateMachine, StateMachineType, TaskInput } from 'aws-cdk-lib/aws-stepfunctions';
+import {
+  Choice,
+  Condition,
+  LogLevel,
+  StateMachine,
+  StateMachineType,
+  TaskInput,
+  Errors,
+  Pass,
+} from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import {
@@ -37,6 +46,8 @@ export class AppStack extends Stack {
   public createTasksFunctionArn: string;
   public addCommentFunctionArn: string;
   public sendResponseFunctionArn: string;
+  public handleErrorFunctionArn: string;
+  public trackTaskFeedbackFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
   public apiName: string;
 
@@ -68,6 +79,7 @@ export class AppStack extends Stack {
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
     const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
+    const feedbackTable = Table.fromTableArn(this, 'FeedbackTable', props.params.feedbackTableArn);
 
     const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
 
@@ -107,15 +119,17 @@ export class AppStack extends Stack {
       functionName: `${props.appName}-define-tasks-${props.envName}`,
       entry: path.resolve(__dirname, '../../backend/lambda/workflow/defineTasks/index.ts'),
       memorySize: 1024,
-      timeout: Duration.seconds(180),
+      timeout: Duration.seconds(300),
       // vpc: removed to use default VPC with internet access
       environment: {
         AWS_ACCOUNT_ID: this.account,
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
+        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
+        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
@@ -127,6 +141,13 @@ export class AppStack extends Stack {
         new PolicyStatement({
           actions: ['dynamodb:GetItem'],
           resources: [props.params.configTableArn],
+        }),
+        new PolicyStatement({
+          actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
+          resources: [
+            feedbackTable.tableArn,
+            `${feedbackTable.tableArn}/index/*`, // For GSI access
+          ],
         }),
       ],
       // interfaceEndpoints: removed since not using private VPC
@@ -141,7 +162,7 @@ export class AppStack extends Stack {
       // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       policyStatements: [
@@ -162,7 +183,7 @@ export class AppStack extends Stack {
       // vpc: removed to use default VPC with internet access
       environment: {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_PROJECT: process.env.AZURE_DEVOPS_PROJECT || '',
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       // interfaceEndpoints: removed since not using private VPC
@@ -181,6 +202,20 @@ export class AppStack extends Stack {
       },
     });
     resultsTable.grantWriteData(sendResponseFunction);
+
+    // Error Handling Lambda
+    const handleErrorFunction = new TaskGenieLambda(this, 'HandleError', {
+      functionName: `${props.appName}-handle-error-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/handleError/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(30),
+      environment: {
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+    azureDevOpsCredentialsSecret.grantRead(handleErrorFunction);
 
     const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
       functionName: `${props.appName}-poll-execution-${props.envName}`,
@@ -353,6 +388,31 @@ export class AppStack extends Stack {
     });
     configTable.grantWriteData(deleteConfigFunction);
 
+    // Feedback Tracking Lambda
+    const trackTaskFeedbackFunction = new TaskGenieLambda(this, 'TrackTaskFeedback', {
+      functionName: `${props.appName}-track-task-feedback-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/feedback/trackTaskFeedback/index.ts'),
+      memorySize: 512,
+      timeout: Duration.seconds(30),
+      environment: {
+        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
+        RESULTS_TABLE_NAME: resultsTable.tableName,
+        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:UpdateItem', 'dynamodb:Query', 'dynamodb:Scan'],
+          resources: [
+            feedbackTable.tableArn,
+            `${feedbackTable.tableArn}/index/*`, // For GSI access
+            resultsTable.tableArn,
+            `${resultsTable.tableArn}/index/*`, // For GSI access
+          ],
+        }),
+      ],
+    });
+
     /*
      * AWS Step Functions
      */
@@ -388,8 +448,114 @@ export class AppStack extends Stack {
       outputPath: '$.Payload',
     });
 
-    // State Machine Definition
-    const definition = evaluateUserStoryTask.next(
+    // Create separate error handling tasks for each catch block
+    const evaluateUserStoryErrorTask = new LambdaInvoke(this, 'EvaluateUserStoryErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'resource.$': '$.resource',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    const defineTasksErrorTask = new LambdaInvoke(this, 'DefineTasksErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    const createTasksErrorTask = new LambdaInvoke(this, 'CreateTasksErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    const addCommentErrorTask = new LambdaInvoke(this, 'AddCommentErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(sendResponseTask);
+
+    // Add error handling to tasks with catch blocks
+    const evaluateUserStoryTaskWithCatch = evaluateUserStoryTask.addCatch(
+      new Pass(this, 'SetEvaluateUserStoryError', {
+        parameters: {
+          errorStep: 'Evaluate User Story',
+          'resource.$': '$.resource',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(evaluateUserStoryErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    const defineTasksTaskWithCatch = defineTasksTask.addCatch(
+      new Pass(this, 'SetDefineTasksError', {
+        parameters: {
+          errorStep: 'Define Tasks',
+          'body.$': '$.body',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(defineTasksErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    const createTasksTaskWithCatch = createTasksTask.addCatch(
+      new Pass(this, 'SetCreateTasksError', {
+        parameters: {
+          errorStep: 'Create Tasks',
+          'body.$': '$.body',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(createTasksErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    const addCommentTaskWithCatch = addCommentTask.addCatch(
+      new Pass(this, 'SetAddCommentError', {
+        parameters: {
+          errorStep: 'Add Comment',
+          'body.$': '$.body',
+          'Error.$': '$.error.Error',
+          'Cause.$': '$.error.Cause',
+        },
+      }).next(addCommentErrorTask),
+      {
+        errors: [Errors.ALL],
+        resultPath: '$.error',
+      }
+    );
+
+    // State Machine Definition with error handling
+    const definition = evaluateUserStoryTaskWithCatch.next(
       new Choice(this, 'User story is defined?')
         .when(
           Condition.or(Condition.numberEquals('$.statusCode', 400), Condition.numberEquals('$.statusCode', 500)),
@@ -398,14 +564,20 @@ export class AppStack extends Stack {
         .when(
           Condition.or(Condition.numberEquals('$.statusCode', 204), Condition.numberEquals('$.statusCode', 412)),
           new Choice(this, 'Add comment?')
-            .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), addCommentTask.next(sendResponseTask))
+            .when(
+              Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
+              addCommentTaskWithCatch.next(sendResponseTask)
+            )
             .otherwise(sendResponseTask)
         )
         .otherwise(
-          defineTasksTask.next(
+          defineTasksTaskWithCatch.next(
             new Choice(this, 'Create task?')
               .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
-              .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), createTasksTask.next(addCommentTask))
+              .when(
+                Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
+                createTasksTaskWithCatch.next(addCommentTaskWithCatch)
+              )
               .otherwise(sendResponseTask)
           )
         )
@@ -645,6 +817,55 @@ export class AppStack extends Stack {
       apiKeyRequired: false,
     });
 
+    // Feedback webhook API resource for Azure DevOps (Asynchronous)
+    //  POST /feedback/track
+    const feedbackResource = api.root.addResource('feedback');
+    const trackFeedbackResource = feedbackResource.addResource('track');
+
+    // Asynchronous Lambda integration for feedback tracking
+    trackFeedbackResource.addMethod(
+      'POST',
+      new LambdaIntegration(trackTaskFeedbackFunction, {
+        proxy: false, // Don't use proxy integration for async
+        integrationResponses: [
+          {
+            statusCode: '202',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': "'*'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,POST'",
+              'method.response.header.Access-Control-Allow-Headers':
+                "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+            },
+            responseTemplates: {
+              'application/json': JSON.stringify({
+                message: 'Feedback request accepted for processing',
+                timestamp: '$context.requestTime',
+              }),
+            },
+          },
+        ],
+        requestTemplates: {
+          'application/json': '$input.body', // Pass the request body directly
+        },
+        requestParameters: {
+          'integration.request.header.X-Amz-Invocation-Type': "'Event'", // Async invocation
+        },
+      }),
+      {
+        apiKeyRequired: true,
+        methodResponses: [
+          {
+            statusCode: '202',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+              'method.response.header.Access-Control-Allow-Headers': true,
+            },
+          },
+        ],
+      }
+    );
+
     // Add method to poll Step Function execution results
     //  GET /executions/{executionId} (URL-encoded execution ID with colons)
     const pollResource = executionsResource.addResource('{executionId}');
@@ -667,8 +888,8 @@ export class AppStack extends Stack {
     const usagePlan = api.addUsagePlan('TaskGenieUsagePlan', {
       name: `${props.appName}-usage-plan-${props.envName}`,
       throttle: {
-        rateLimit: 10,
-        burstLimit: 2,
+        rateLimit: 200,
+        burstLimit: 50,
       },
     });
 
@@ -695,6 +916,8 @@ export class AppStack extends Stack {
     this.createTasksFunctionArn = createTasksFunction.functionArn;
     this.addCommentFunctionArn = addCommentFunction.functionArn;
     this.sendResponseFunctionArn = sendResponseFunction.functionArn;
+    this.handleErrorFunctionArn = handleErrorFunction.functionArn;
+    this.trackTaskFeedbackFunctionArn = trackTaskFeedbackFunction.functionArn;
     this.apiGwAccessLogGroupArn = apiGwAccessLogGroup.logGroupArn;
     this.apiName = api.restApiName;
   }

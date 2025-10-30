@@ -102,6 +102,7 @@ const saveResponseToDynamoDB = async (
     timestamp: new Date().toISOString(),
     // ADO - only include if defined
     ...(workItem.areaPath && { areaPath: workItem.areaPath }),
+    ...(workItem.iterationPath && { iterationPath: workItem.iterationPath }),
     ...(workItem.businessUnit && { businessUnit: workItem.businessUnit }),
     ...(workItem.system && { system: workItem.system }),
     // Work Item
@@ -115,6 +116,7 @@ const saveResponseToDynamoDB = async (
       acceptanceCriteria: workItem.acceptanceCriteria || '', // Provide default for undefined
     },
     tasksCount: tasks?.length || 0,
+    taskIds: tasks?.map((task) => task.taskId) || [],
     tasks:
       tasks?.map((task) => ({
         ...(task.taskId && { id: task.taskId }), // Only include if defined

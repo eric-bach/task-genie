@@ -149,6 +149,7 @@
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
 
                     const workItemId = await workItemFormService.getId();
+                    const revision = await workItemFormService.getRevision();
                     const fields = await workItemFormService.getFieldValues([
                       'System.Title',
                       'System.Description',
@@ -158,6 +159,7 @@
                       'System.Tags',
                       'System.TeamProject',
                       'System.AreaPath',
+                      'System.IterationPath',
                       // Fetch both possible field names for Business Unit
                       'Custom.BusinessUnit',
                       'Custom.BusinessUnit2',
@@ -167,7 +169,7 @@
                     ]);
 
                     // Call your REST API here
-                    await callTaskGenieAPI(workItemId, fields);
+                    await callTaskGenieAPI(workItemId, fields, revision);
 
                     statusMessage.textContent = 'Task Genie is processing...';
                     statusMessage.className = 'status-message success-message';
@@ -204,7 +206,7 @@
                 return '';
               }
 
-              async function callTaskGenieAPI(workItemId, fields) {
+              async function callTaskGenieAPI(workItemId, fields, revision) {
                 // Get configuration values from extension inputs
                 const config = SDK.getConfiguration();
 
@@ -214,6 +216,7 @@
 
                 console.log('Calling Task Genie API:', {
                   workItemId: workItemId,
+                  revision: revision,
                   fields,
                   apiUrl,
                   apiKey: apiKey.substring(0, 4) + '***' + apiKey.substring(apiKey.length - 4),
@@ -222,7 +225,7 @@
                 const requestBody = {
                   resource: {
                     workItemId: workItemId,
-                    rev: 1,
+                    rev: revision,
                     revision: {
                       fields: {
                         'System.ChangedBy': fields['System.ChangedBy'],
@@ -232,6 +235,7 @@
                         'System.TeamProject': fields['System.TeamProject'],
                         'System.Tags': fields['System.Tags'],
                         'System.AreaPath': fields['System.AreaPath'],
+                        'System.IterationPath': fields['System.IterationPath'],
                         // Handle both Custom.BusinessUnit and Custom.BusinessUnit2 field names
                         'Custom.BusinessUnit': getCustomFieldValue(fields, 'BusinessUnit'),
                         // Handle both Custom.System and Custom.System2 field names
