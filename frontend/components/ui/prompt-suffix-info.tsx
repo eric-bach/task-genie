@@ -42,6 +42,9 @@ export function PromptSuffixInfo({ className = '' }: PromptSuffixInfoProps) {
 - Here are the tasks that have already been created for this work item (if any):
   \${tasks}
 
+- Here are relevant learnings from past feedback (if any):
+  'None'
+
 - Here are the images referenced (if any were included):
   \${images}
       
