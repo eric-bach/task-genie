@@ -50,12 +50,14 @@
 - Ensures user stories follow best practices
 - Identifies missing components in user stories
 - Provides suggestions to improve clarity and completeness
-- **NEW**: Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
 
 ### 📋 Task Breakdown
 
 - Automatically decomposes validated user stories into smaller, actionable tasks
-- Ensures tasks align with agile methodologies for efficient development
+- Understands images within user stories as context in task breakdown process
+- Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
+- Learns from user feedback on generated tasks to improve future task generation action using RAG
+- Ability to fully customize the AI prompt for mutliple workflows
 
 <div align="center">
   <img src="docs/ui.png" alt="Task Genie UI" width="800">
@@ -63,15 +65,9 @@
 
 ### 🔗 Azure DevOps Boards Integration
 
-- Seamless integration with Azure DevOps Boards
-- Automatically updates work items and tasks
-- Supports custom workflows and board configurations
-
-### 📊 Powerful Insights
-
+- Multiple, seamless integration options with Azure DevOps Boards (Extension or Service Hooks)
+- Automatically updates work items, tasks, and comments
 - Built-in dashboards to visualize performance and effectiveness of task generation
-- Offers recommendations for improving workflows based on historical data
-- Detects potential bottlenecks or ambiguities in user stories
 
 <div align="center">
   <img src="docs/dashboard.png" alt="Dashboard" width="800">
@@ -119,14 +115,17 @@ Estimated monthly costs (USD) for running in AWS:
 
 <div align="center">
 
-| Service                   | Rate (us-west-2)                      | Quantity | Estimated Cost |
-| ------------------------- | ------------------------------------- | -------- | -------------- |
-| CloudWatch                | $3 per dashboard                      | 1        | $3.00          |
-| Amplify                   | $0.01 per minute                      | 10       | $0.10          |
-| Lambda                    | $0.0000166667 per GB-second           | 100,000  | $1.67          |
-| Step Functions            | $0.00001667 per GB-second             | 100,000  | $1.67          |
-| Bedrock (Claude 4 Sonnet) | $3.00/1M (input) / $15.00/1M (output) | 1        | $18.00         |
-| **TOTAL (estimated)**     |                                       |          | **$24.44**     |
+| Service                     | Rate (us-west-2)                      | Quantity | Estimated Cost |
+| --------------------------- | ------------------------------------- | -------- | -------------- |
+| CloudWatch                  | $3 per dashboard                      | 1        | $3.00          |
+| Amplify                     | $0.01 per minute                      | 10       | $0.10          |
+| Lambda                      | $0.0000166667 per GB-second           | 100,000  | $1.67          |
+| Step Functions              | $0.00001667 per GB-second             | 100,000  | $1.67          |
+| S3 Vectors (storage)        | $0.06 per GB                          | 1        | $0.06          |
+| S3 Vectors (requests)       | $0.20 per GB                          | 1        | $0.20          |
+| S3 Vectors (query requests) | $0.0025 per 1,000 requests            | 1,000    | $2.50          |
+| Bedrock (Claude 4 Sonnet)   | $3.00/1M (input) / $15.00/1M (output) | 1        | $18.00         |
+| **TOTAL (estimated)**       |                                       |          | **$27.20**     |
 
 </div>
 
@@ -197,7 +196,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
 
    **Required Secrets:**
 
-   - `AZURE_DEVOPS_PROJECT`: Your Azure DevOps project name
+   - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
    - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
    - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
    - `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
@@ -218,7 +217,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
    Update the `/infrastructure/.env` file with your parameters:
 
    ```env
-   AZURE_DEVOPS_PROJECT=
+   AZURE_DEVOPS_ORGANIZATION=
    AZURE_DEVOPS_TENANT_ID=
    AZURE_DEVOPS_CLIENT_ID=
    AZURE_DEVOPS_CLIENT_SECRET=
@@ -226,6 +225,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
+   FEEDBACK_FEATURE_ENABLED=
    ```
 
 2. **Install Dependencies**
@@ -269,9 +269,23 @@ The backend is deployed using GitHub Actions with the following pipelines:
    npm run deploy-prod
    ```
 
-### 🌐 Frontend Deployment
+### 🌐 Frontend
 
-The frontend is deployed using **Vercel**.
+The frontend is deployed using **AWS Amplify Console**.
+
+#### Amplify Console
+
+1. Create a new AWS Amplify project and point to this monorepo with `frontend` as the folder name.
+
+2. Configure the environment variables in the project
+
+   ```env
+   NEXT_PUBLIC_COGNITO_USER_POOL_ID=
+   NEXT_PUBLIC_COGNITO_CLIENT_ID=
+   NEXT_PUBLIC_API_GATEWAY_URL=
+   NEXT_PUBLIC_API_GATEWAY_API_KEY=
+   NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+   ```
 
 #### Local Development
 
@@ -301,7 +315,9 @@ The frontend is deployed using **Vercel**.
    npm run dev
    ```
 
-### 🔗 Azure DevOps Configuration (One-time, per board)
+## ⚙️ Setup
+
+### 🔗 Azure DevOps Configuration (ont-time, per board)
 
 #### Option 1: Azure DevOps Extension
 
@@ -356,6 +372,39 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
    | **Trigger on this type of event** | work item created (1), work item updated (3)                            |
    | **Area path**                     | Azure DevOps project name                                               |
    | **Work item type**                | User Story                                                              |
+   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` |
+   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                      |
+
+#### Task Feedback
+
+To setup the task feedback which will be used as supplemental information in the task generation process, setup three Azure DevOps Service Hooks:
+
+- Work item created
+- Work item updated
+- Work item deleted
+  ![Tasks Service Hooks](/docs/service_hooks_tasks.png)
+
+1. **Access Project Settings**
+
+   - In Azure DevOps project → Click the gear icon → `Project Settings`
+
+2. **Navigate to Service Hooks**
+
+   - Click on `Service hooks`
+
+3. **Create New Service Hook**
+
+   - Click the `+` plus sign to create a new Service Hook
+
+4. **Configure Three Service Hooks**
+
+   Create **thress (3) Service Hooks** with the following configuration:
+
+   | Setting                           | Value                                                                   |
+   | --------------------------------- | ----------------------------------------------------------------------- |
+   | **Trigger on this type of event** | work item created (1), work item updated (2)                            |
+   | **Area path**                     | Azure DevOps project name                                               |
+   | **Work item type**                | Task                                                                    |
    | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` |
    | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                      |
 

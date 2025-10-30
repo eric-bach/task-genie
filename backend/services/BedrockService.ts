@@ -9,6 +9,7 @@ import { ConverseCommand, ConverseCommandInput, BedrockRuntimeClient } from '@aw
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 
 import { AzureService } from './AzureService';
+import { FeedbackService } from './FeedbackService';
 import { WorkItem, Task } from '../types/azureDevOps';
 import {
   BedrockInferenceParams,
@@ -16,6 +17,7 @@ import {
   BedrockTaskGenerationResponse,
   BedrockWorkItemEvaluationResponse,
 } from '../types/bedrock';
+import { FeedbackPattern, FeedbackInsight, TaskFeedback } from '../types/feedback';
 
 export interface BedrockServiceConfig {
   region: string;
@@ -24,7 +26,9 @@ export interface BedrockServiceConfig {
   maxKnowledgeDocuments?: number;
   maxImageSize?: number; // in MB
   maxImages?: number;
-  configTableName?: string; // Optional: for custom prompts
+  configTableName?: string;
+  feedbackTableName?: string;
+  feedbackFeatureEnabled?: boolean;
 }
 
 const MAX_OUTPUT_TOKENS = 10240;
@@ -35,13 +39,20 @@ export class BedrockService {
   private readonly dynamoClient: DynamoDBClient;
   private readonly logger: any;
   private readonly config: Required<BedrockServiceConfig>;
+  private readonly feedbackService?: FeedbackService;
 
+  /**
+   * Creates a new BedrockService instance
+   * @param config Configuration object containing AWS region, model settings, and limits
+   */
   constructor(config: BedrockServiceConfig) {
     this.config = {
       maxKnowledgeDocuments: 3,
       maxImageSize: 5,
       maxImages: 3,
       configTableName: config.configTableName || '',
+      feedbackTableName: config.feedbackTableName || '',
+      feedbackFeatureEnabled: config.feedbackFeatureEnabled || false,
       ...config,
     };
 
@@ -49,12 +60,22 @@ export class BedrockService {
     this.bedrockAgentClient = new BedrockAgentRuntimeClient({ region: config.region });
     this.bedrockRuntimeClient = new BedrockRuntimeClient({ region: config.region });
     this.dynamoClient = new DynamoDBClient({ region: config.region });
+
+    // Initialize FeedbackService if feature is enabled
+    if (this.config.feedbackFeatureEnabled) {
+      this.feedbackService = new FeedbackService({
+        region: config.region,
+        tableName: this.config.feedbackTableName,
+      });
+    }
   }
 
   /**
-   * Main method to evaluate a work item and generate tasks
+   * Evaluates a work item to determine if it's well-defined and ready for development
+   * @param workItem The Azure DevOps work item to evaluate
+   * @returns An evaluation response indicating if the work item passes quality checks
    */
-  async evaluateWorkItem(workItem: WorkItem): Promise<BedrockWorkItemEvaluationResponse> {
+  public async evaluateWorkItem(workItem: WorkItem): Promise<BedrockWorkItemEvaluationResponse> {
     try {
       this.logger.info('⚙️ Starting work item evaluation', { workItemId: workItem.workItemId });
 
@@ -83,33 +104,50 @@ export class BedrockService {
   }
 
   /**
-   * Main method to generate tasks
+   * Generates development tasks for a work item using AI and knowledge base context
+   * @param workItem The Azure DevOps work item to generate tasks for
+   * @param existingTasks Array of tasks that already exist for this work item
+   * @param params Optional inference parameters including custom prompts and model settings
+   * @returns Generated tasks along with supporting knowledge base documents
    */
-  async generateTasks(
+  public async generateTasks(
     workItem: WorkItem,
     existingTasks: Task[],
     params: BedrockInferenceParams = {}
   ): Promise<BedrockTaskGenerationResponse> {
     try {
-      this.logger.info('⚙️ Starting task generation', { workItemId: workItem.workItemId });
+      this.logger.info('⚙️ Starting task generation', {
+        workItemId: workItem.workItemId,
+        feedbackEnabled: !!this.feedbackService,
+      });
 
       // Step 1: Retrieve relevant knowledge base context
       const query = this.buildTaskBreakdownKnowledgeQuery(workItem);
       const filters = this.buildTaskBreakdownFilters(workItem);
       const knowledgeContext = await this.retrieveKnowledgeContext(query, filters);
 
-      // Resolve the prompt to use (parameter override takes precedence over database config)
+      // Step 2: Resolve the prompt to use (parameter override takes precedence over database config)
       const resolvedPrompt = await this.resolvePrompt(workItem, params.prompt);
       const enhancedParams = { ...params, prompt: resolvedPrompt };
 
-      // Step 2: Generate tasks using the model
-      const tasks = await this.invokeModelForTaskGeneration(workItem, existingTasks, enhancedParams, knowledgeContext);
+      // Step 3: Build feedback context (if any feedback examples are available)
+      const feedbackContext = await this.buildFeedbackContext(workItem);
+
+      // Step 4: Generate tasks using the model with enhanced context and feedback
+      const tasks = await this.invokeModelForTaskGeneration(
+        workItem,
+        existingTasks,
+        enhancedParams,
+        knowledgeContext,
+        feedbackContext
+      );
 
       this.logger.info('Task generation completed', {
         workItemId: workItem.workItemId,
         tasks,
         tasksCount: tasks.length,
         documentsRetrieved: knowledgeContext.length,
+        feedbackEnabled: !!this.feedbackService,
       });
 
       return {
@@ -126,7 +164,10 @@ export class BedrockService {
   }
 
   /**
-   * Retrieve relevant documents from the knowledge base
+   * Retrieves relevant documents from the AWS Bedrock knowledge base using vector search
+   * @param query The search query text to find relevant documents
+   * @param filters Optional filters to narrow down the search results
+   * @returns Array of processed knowledge base documents with content and metadata
    */
   private async retrieveKnowledgeContext(
     query: string,
@@ -167,7 +208,9 @@ export class BedrockService {
   }
 
   /**
-   * Process knowledge base results into structured documents
+   * Processes raw knowledge base retrieval results into structured document objects
+   * @param results Raw results array from Bedrock knowledge base retrieval
+   * @returns Array of structured knowledge documents with content, source, and scoring information
    */
   private processKnowledgeResults(results: any[]): BedrockKnowledgeDocument[] {
     return results.map((result, index) => {
@@ -192,7 +235,9 @@ export class BedrockService {
   }
 
   /**
-   * Build the knowledge base query for user story evaluation
+   * Constructs a knowledge base search query for work item evaluation
+   * @param workItem The work item to create a search query for
+   * @returns A formatted search query string for finding relevant evaluation guidelines
    */
   private buildWorkItemEvaluationKnowledgeQuery(workItem: WorkItem): string {
     return `Find relevant information about the user story process and guidelines that would help evaluate the following user story is well-defined:
@@ -202,17 +247,20 @@ export class BedrockService {
   }
 
   /**
-   * Build the knowledge base query for task breakdown
+   * Constructs a knowledge base search query for task breakdown and generation
+   * @param workItem The work item to create a task breakdown query for
+   * @returns A formatted search query string for finding relevant technical and architectural information
    */
   private buildTaskBreakdownKnowledgeQuery(workItem: WorkItem): string {
-    return `Find relevant information to help with task breakdown (such as technical details, application architecture, business context, etc.) for the following use story:
+    return `Find relevant information to help with task breakdown (such as technical details, application architecture, business context, etc.) for the following user story:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
     - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
   }
 
   /**
-   * Build knowledge base search filters for work item evaluation
+   * Creates search filters for work item evaluation knowledge base queries
+   * @returns Filter object configured to find agile process documentation
    */
   private buildWorkItemEvaluationFilters(): any {
     return {
@@ -226,7 +274,9 @@ export class BedrockService {
   }
 
   /**
-   * Build knowledge base search filters for task breakdown
+   * Creates search filters for task breakdown knowledge base queries based on work item context
+   * @param workItem The work item containing area path, business unit, and system information
+   * @returns Filter object configured to find relevant technical documentation
    */
   private buildTaskBreakdownFilters(workItem: WorkItem): any {
     const filterConditions = [];
@@ -260,7 +310,10 @@ export class BedrockService {
   }
 
   /**
-   * Invoke the Bedrock model with context to evaluate work items
+   * Invokes the Bedrock model to evaluate work item quality and readiness
+   * @param workItem The work item to evaluate
+   * @param knowledgeContext Relevant knowledge base documents to provide context
+   * @returns Evaluation response indicating if the work item passes quality checks
    */
   private async invokeModelForWorkItemEvaluation(
     workItem: WorkItem,
@@ -337,15 +390,27 @@ export class BedrockService {
   }
 
   /**
-   * Invoke the Bedrock model with context to generate tasks
+   * Invokes the Bedrock model to generate development tasks for a work item
+   * @param workItem The work item to generate tasks for
+   * @param existingTasks Array of tasks that already exist to avoid duplication
+   * @param params Inference parameters including custom prompts and model settings
+   * @param knowledgeContext Relevant knowledge base documents to provide technical context
+   * @returns Array of generated tasks with titles and descriptions
    */
   private async invokeModelForTaskGeneration(
     workItem: WorkItem,
     existingTasks: Task[],
     params: BedrockInferenceParams,
-    knowledgeContext: BedrockKnowledgeDocument[]
+    knowledgeContext: BedrockKnowledgeDocument[],
+    feedbackContext?: string
   ): Promise<Task[]> {
-    const prompt = await this.buildTaskGenerationPrompt(workItem, existingTasks, params, knowledgeContext);
+    const prompt = await this.buildTaskGenerationPrompt(
+      workItem,
+      existingTasks,
+      params,
+      knowledgeContext,
+      feedbackContext
+    );
     const content = await this.buildModelContent(workItem, prompt);
 
     const inferenceConfig: any = {
@@ -429,7 +494,10 @@ export class BedrockService {
   }
 
   /**
-   * Build the prompt for work item evaluation
+   * Constructs the AI prompt for work item evaluation with knowledge context
+   * @param workItem The work item to create an evaluation prompt for
+   * @param knowledgeContext Relevant knowledge base documents to include in the prompt
+   * @returns A formatted prompt string for work item quality evaluation
    */
   private buildWorkItemEvaluationPrompt(workItem: WorkItem, knowledgeContext: BedrockKnowledgeDocument[]): string {
     const knowledgeSection =
@@ -472,13 +540,19 @@ Images referenced:
   }
 
   /**
-   * Build the prompt for task generation
+   * Constructs the AI prompt for task generation with all relevant context
+   * @param workItem The work item to generate tasks for
+   * @param existingTasks Array of existing tasks to avoid duplication
+   * @param params Inference parameters that may include custom prompts
+   * @param knowledgeContext Relevant knowledge base documents to provide technical context
+   * @returns A formatted prompt string for task generation
    */
   private async buildTaskGenerationPrompt(
     workItem: WorkItem,
     existingTasks: Task[],
     params: BedrockInferenceParams,
-    knowledgeContext: BedrockKnowledgeDocument[]
+    knowledgeContext: BedrockKnowledgeDocument[],
+    feedbackContext?: string
   ): Promise<string> {
     const imagesSection =
       workItem.images && workItem.images.length > 0
@@ -496,9 +570,10 @@ Images referenced:
 - If some tasks already exist, only generate the additional tasks that are missing so the set of tasks is complete without duplication.
 - Do NOT create any tasks for analyzing, investigating, testing, or deployment.`;
 
-    const prompt = params.prompt || defaultPrompt;
+    // Get base prompt (either custom override or default)
+    const basePrompt = (await this.resolvePrompt(workItem, params.prompt)) || defaultPrompt;
 
-    return `${prompt}\n
+    return `${basePrompt}\n
 **Context**
 - Here is the work item:
   - Title: ${workItem.title}
@@ -508,11 +583,14 @@ Images referenced:
 - Here are the tasks that have already been created for this work item (if any):
   ${existingTasks.length > 0 ? existingTasks.map((t, i) => `${i + 1}. ${t.title}`).join('\n') : 'None'}
 
+- Here are relevant learnings from past feedback (if any):
+  ${feedbackContext || 'None'}
+
 - Here are the images referenced (if any were included):
-  ${imagesSection}
+  ${imagesSection || 'None'}
       
 - Here is additional context that you should consider (if any were provided):
-  ${knowledgeSection}
+  ${knowledgeSection || 'None'}
 
 **Output Rules**
 - ONLY return a JSON object with the following structure:
@@ -523,7 +601,10 @@ Images referenced:
   }
 
   /**
-   * Build the content array for multi-modal input (text + images)
+   * Builds multi-modal content array combining text prompt with processed images
+   * @param workItem The work item containing potential image attachments
+   * @param textPrompt The text prompt to include in the content
+   * @returns Array of content items including text and processed images for model input
    */
   private async buildModelContent(workItem: WorkItem, textPrompt: string): Promise<any[]> {
     const content: any[] = [
@@ -585,7 +666,9 @@ Images referenced:
   }
 
   /**
-   * Validate image size against configured limits
+   * Validates that an image meets the configured size limits
+   * @param base64Data The base64-encoded image data to validate
+   * @returns True if the image is within size limits, false otherwise
    */
   private isImageSizeValid(base64Data: string): boolean {
     const sizeInBytes = (base64Data.length * 3) / 4;
@@ -603,7 +686,9 @@ Images referenced:
   }
 
   /**
-   * Detect image format from binary data
+   * Detects image format from binary data by examining file signatures
+   * @param buffer The image buffer to analyze
+   * @returns The detected image format (jpeg, png, webp, gif) or jpeg as default
    */
   private detectImageFormat(buffer: Buffer): string {
     // Check file signatures (magic numbers)
@@ -649,7 +734,9 @@ Images referenced:
   }
 
   /**
-   * Parse the model response for work item evaluation
+   * Parses the Bedrock model response for work item evaluation
+   * @param response The raw response from the Bedrock Converse API
+   * @returns Parsed evaluation response with pass/fail status and optional comments
    */
   private parseWorkItemEvaluation(response: any): BedrockWorkItemEvaluationResponse {
     // Converse API returns response directly without needing to decode body
@@ -694,7 +781,9 @@ Images referenced:
   }
 
   /**
-   * Parse the model response and extract tasks
+   * Parses the Bedrock model response and extracts generated tasks
+   * @param response The raw response from the Bedrock Converse API
+   * @returns Array of parsed tasks with titles and descriptions
    */
   private parseTasks(response: any): Task[] {
     // Log the full response structure for debugging
@@ -758,7 +847,9 @@ Images referenced:
   }
 
   /**
-   * Safely parse JSON with error handling for malformed responses
+   * Safely parses JSON strings with error handling for malformed model responses
+   * @param input The input string that may contain JSON
+   * @returns Parsed JSON object or undefined if parsing fails
    */
   private safeJsonParse<T = any>(input: string): T | undefined {
     // Find the first '{' and the last '}'
@@ -779,8 +870,11 @@ Images referenced:
   }
 
   /**
-   * Resolve the prompt to use for task generation.
+   * Resolves the prompt to use for task generation with priority-based selection
    * Priority: 1) Parameter override, 2) Database config, 3) Default (undefined)
+   * @param workItem The work item used for database prompt lookup
+   * @param parameterPrompt Optional prompt override passed as parameter
+   * @returns The resolved prompt string or undefined to use default
    */
   private async resolvePrompt(workItem: WorkItem, parameterPrompt?: string): Promise<string | undefined> {
     // If a prompt was passed as a parameter, use it (highest priority)
@@ -807,7 +901,9 @@ Images referenced:
   }
 
   /**
-   * Retrieve a custom prompt from the DynamoDB config table if available.
+   * Retrieves a custom prompt from the DynamoDB config table based on work item context
+   * @param workItem The work item containing area path, business unit, and system information
+   * @returns Custom prompt string if found, undefined otherwise
    */
   private async getCustomPrompt(workItem: WorkItem): Promise<string | undefined> {
     if (!this.config.configTableName) {
@@ -847,5 +943,177 @@ Images referenced:
       });
       return undefined;
     }
+  }
+
+  /**
+   * Get feedback examples for learning from similar work items
+   */
+  private async getFeedbackExamples(workItem: WorkItem): Promise<{
+    patterns: FeedbackPattern[];
+    insights: FeedbackInsight[];
+    successfulExamples: TaskFeedback[];
+    antiPatterns: { title: string; description: string; frequency: number }[];
+  } | null> {
+    if (!this.feedbackService) {
+      this.logger.debug('ℹ️ Feedback service not available or not enabled, skipping feedback context');
+      return null;
+    }
+
+    try {
+      // Analyze feedback patterns for this context
+      const feedbackAnalysis = await this.feedbackService.analyzeFeedbackPatterns(
+        workItem.areaPath,
+        workItem.businessUnit,
+        workItem.system
+      );
+
+      // Get successful task examples
+      const successfulExamples = await this.feedbackService.getSuccessfulTaskExamples(
+        workItem.areaPath,
+        workItem.businessUnit,
+        workItem.system,
+        10
+      );
+
+      // Get anti-patterns to avoid
+      const antiPatterns = await this.feedbackService.getAntiPatterns(
+        workItem.areaPath,
+        workItem.businessUnit,
+        workItem.system,
+        5
+      );
+
+      if (
+        feedbackAnalysis.patterns.length > 0 ||
+        feedbackAnalysis.insights.length > 0 ||
+        successfulExamples.length > 0 ||
+        antiPatterns.length > 0
+      ) {
+        this.logger.info('Retrieved feedback context to assist in task generation', {
+          workItemId: workItem.workItemId,
+          patternsCount: feedbackAnalysis.patterns.length,
+          insightsCount: feedbackAnalysis.insights.length,
+          successfulExamplesCount: successfulExamples.length,
+          antiPatternsCount: antiPatterns.length,
+        });
+      } else {
+        this.logger.info('No feedback context found for work item', {
+          workItemId: workItem.workItemId,
+        });
+      }
+
+      return {
+        patterns: feedbackAnalysis.patterns,
+        insights: feedbackAnalysis.insights,
+        successfulExamples,
+        antiPatterns,
+      };
+    } catch (error) {
+      this.logger.error('Failed to get feedback context', {
+        workItemId: workItem.workItemId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return null;
+    }
+  }
+
+  /**
+   * Build feedback context for the prompt
+   */
+  private async buildFeedbackContext(workItem: WorkItem): Promise<string> {
+    const feedbackExamples = await this.getFeedbackExamples(workItem);
+    if (!feedbackExamples) {
+      return '';
+    }
+
+    const enhancements: string[] = [];
+
+    // Add successful examples section
+    if (feedbackExamples.successfulExamples?.length > 0) {
+      const examples = feedbackExamples.successfulExamples
+        .slice(0, 3)
+        .map(
+          (example: TaskFeedback) =>
+            `- "${example.originalTask.title}": ${example.originalTask.description.substring(0, 200)}...`
+        )
+        .join('\n');
+
+      enhancements.push(`**✅ SUCCESSFUL TASK PATTERNS (Learn from these):**
+${examples}`);
+    }
+
+    // Add anti-patterns section
+    if (feedbackExamples.antiPatterns?.length > 0) {
+      const antiPatterns = feedbackExamples.antiPatterns
+        .slice(0, 3)
+        .map((pattern: any) => `- Avoid: "${pattern.title}" (${pattern.description})`)
+        .join('\n');
+
+      enhancements.push(`**❌ AVOID THESE PATTERNS (Users frequently deleted/modified these):**
+${antiPatterns}`);
+    }
+
+    // Add insights section
+    if (feedbackExamples.insights?.length > 0) {
+      const insights = feedbackExamples.insights
+        .filter((insight: FeedbackInsight) => insight.confidence > 0.7)
+        .slice(0, 2)
+        .map((insight: FeedbackInsight) => `- ${insight.description} (${insight.recommendation.details})`)
+        .join('\n');
+
+      if (insights) {
+        enhancements.push(`**📊 FEEDBACK INSIGHTS:**
+${insights}`);
+      }
+    }
+
+    // Add metrics-based guidance
+    if (feedbackExamples.patterns?.length > 0) {
+      const pattern = feedbackExamples.patterns[0];
+      const metrics = pattern.metrics;
+
+      if (metrics.modificationRate > 0.3) {
+        enhancements.push(
+          `**⚠️ ATTENTION:** ${Math.round(
+            metrics.modificationRate * 100
+          )}% of tasks in this context are typically modified by users. Focus on adding more specific technical details and clear acceptance criteria.`
+        );
+      }
+
+      if (metrics.deletionRate > 0.2) {
+        enhancements.push(
+          `**⚠️ ATTENTION:** ${Math.round(
+            metrics.deletionRate * 100
+          )}% of tasks in this context are typically deleted by users. Ensure tasks are relevant, actionable, and not too high-level.`
+        );
+      }
+
+      if (metrics.missedTaskRate > 0.15) {
+        const missedPatterns = pattern.missedTaskPatterns;
+        if (missedPatterns.titlePatterns.length > 0) {
+          const patterns = missedPatterns.titlePatterns
+            .slice(0, 3)
+            .map((title: string) => `- "${title}"`)
+            .join('\n');
+
+          enhancements.push(
+            `**📋 COMMONLY MISSED TASKS:** ${Math.round(
+              metrics.missedTaskRate * 100
+            )}% of users create additional tasks. Consider including tasks like:\n${patterns}`
+          );
+        }
+      }
+    }
+
+    if (enhancements.length > 0) {
+      this.logger.debug('🔀 Added feedback context for task generation', {
+        feedbackPatternsUsed: feedbackExamples?.patterns?.length || 0,
+        feedbackInsights: feedbackExamples?.insights?.length || 0,
+        successfulExamples: feedbackExamples?.successfulExamples?.length || 0,
+        antiPatterns: feedbackExamples?.antiPatterns?.length || 0,
+      });
+    }
+
+    return enhancements.length > 0 ? `\n**🤖 AI LEARNING FROM USER FEEDBACK:**\n${enhancements.join('\n\n')}` : '';
   }
 }
