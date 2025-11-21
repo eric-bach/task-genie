@@ -106,8 +106,4 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
 // Documentation Stack
 new DocsStack(app, `${APP_NAME}-docs-${ENV_NAME}`, {
   ...baseProps,
-  params: {
-    domainName: process.env.DOCS_DOMAIN_NAME || app.node.tryGetContext('domainName'),
-    certificateArn: process.env.AWS_CERTIFICATE_ARN || app.node.tryGetContext('certificateArn'),
-  },
 });

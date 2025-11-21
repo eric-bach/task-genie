@@ -14,12 +14,11 @@ import { Bucket, BlockPublicAccess, BucketAccessControl } from 'aws-cdk-lib/aws-
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { BaseStackProps } from '../bin/task-genie';
 
-export interface DocsStackProps extends BaseStackProps {
-  params?: {
-    domainName?: string;
-    certificateArn?: string;
-  };
-}
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
+export interface DocsStackProps extends BaseStackProps {}
 
 export class DocsStack extends Stack {
   public readonly distributionDomainName: string;
@@ -27,6 +26,22 @@ export class DocsStack extends Stack {
 
   constructor(scope: Construct, id: string, props: DocsStackProps) {
     super(scope, id, props);
+
+    // Read environment variables for domain and certificate
+    const domainName = process.env.DOCS_DOMAIN_NAME || '';
+    const certificateArn = process.env.AWS_CERTIFICATE_ARN || '';
+
+    console.log('🔍 DocsStack Environment Check:', {
+      domainName,
+      certificateArn: certificateArn ? `${certificateArn.substring(0, 50)}...` : 'undefined',
+      envVars: {
+        DOCS_DOMAIN_NAME: !!process.env.DOCS_DOMAIN_NAME,
+        AWS_CERTIFICATE_ARN: !!process.env.AWS_CERTIFICATE_ARN,
+      },
+      allEnvKeys: Object.keys(process.env)
+        .filter((key) => key.includes('DOCS') || key.includes('CERT') || key.includes('AWS_'))
+        .sort(),
+    });
 
     // S3 Bucket for hosting the static website
     const docsBucket = new Bucket(this, 'DocsBucket', {
@@ -46,8 +61,11 @@ export class DocsStack extends Stack {
 
     // SSL Certificate (import existing certificate if ARN is provided)
     let certificate: ICertificate | undefined;
-    if (props.params?.certificateArn) {
-      certificate = Certificate.fromCertificateArn(this, 'DocsCertificate', props.params.certificateArn);
+    if (certificateArn) {
+      console.log('📜 Importing certificate:', certificateArn);
+      certificate = Certificate.fromCertificateArn(this, 'DocsCertificate', certificateArn);
+    } else {
+      console.log('⚠️ No certificate ARN provided - distribution will use default CloudFront certificate');
     }
 
     // CloudFront Distribution
@@ -76,9 +94,12 @@ export class DocsStack extends Stack {
     };
 
     // Add custom domain configuration if provided
-    if (props.params?.domainName && certificate) {
-      distributionProps.domainNames = [props.params.domainName];
+    if (domainName && certificate) {
+      console.log('🌐 Configuring custom domain:', domainName);
+      distributionProps.domainNames = [domainName];
       distributionProps.certificate = certificate;
+    } else {
+      console.log('🌐 No domain configuration - using CloudFront default domain');
     }
 
     const distribution = new Distribution(this, 'DocsDistribution', distributionProps);
@@ -93,7 +114,7 @@ export class DocsStack extends Stack {
 
     // Outputs
     new CfnOutput(this, 'DocsWebsiteURL', {
-      value: `https://${distribution.distributionDomainName}`,
+      value: domainName ? `https://${domainName}` : `https://${distribution.distributionDomainName}`,
       description: 'Task Genie Documentation Website URL',
     });
 
