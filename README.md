@@ -398,13 +398,13 @@ To setup the task feedback which will be used as supplemental information in the
 
    Create **thress (3) Service Hooks** with the following configuration:
 
-   | Setting                           | Value                                                                                                                          |
-   | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-   | **Trigger on this type of event** | work item created (1), work item updated (2)                                                                                   |
-   | **Area path**                     | Azure DevOps project name                                                                                                      |
-   | **Work item type**                | Task                                                                                                                           |
-   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` or `https://api.taskgenie.YOUR_DOMAIN.NAME/executions` |
-   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                                                                             |
+   | Setting                           | Value                                                                                                                                  |
+   | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Trigger on this type of event** | work item created (1), work item updated (2)                                                                                           |
+   | **Area path**                     | Azure DevOps project name                                                                                                              |
+   | **Work item type**                | Task                                                                                                                                   |
+   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/feedback/track` or `https://api.taskgenie.YOUR_DOMAIN.NAME/feedback/track` |
+   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                                                                                     |
 
 ## 💻 Azure DevOps Extension
 
