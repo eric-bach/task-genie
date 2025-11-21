@@ -14,6 +14,10 @@ import { Bucket, BlockPublicAccess, BucketAccessControl } from 'aws-cdk-lib/aws-
 import { BucketDeployment, Source } from 'aws-cdk-lib/aws-s3-deployment';
 import { BaseStackProps } from '../bin/task-genie';
 
+import * as dotenv from 'dotenv';
+
+dotenv.config();
+
 export interface DocsStackProps extends BaseStackProps {}
 
 export class DocsStack extends Stack {
@@ -24,8 +28,8 @@ export class DocsStack extends Stack {
     super(scope, id, props);
 
     // Read environment variables for domain and certificate
-    const domainName = process.env.DOCS_DOMAIN_NAME;
-    const certificateArn = process.env.AWS_CERTIFICATE_ARN;
+    const domainName = process.env.DOCS_DOMAIN_NAME || '';
+    const certificateArn = process.env.AWS_CERTIFICATE_ARN || '';
 
     console.log('🔍 DocsStack Environment Check:', {
       domainName,
@@ -34,6 +38,9 @@ export class DocsStack extends Stack {
         DOCS_DOMAIN_NAME: !!process.env.DOCS_DOMAIN_NAME,
         AWS_CERTIFICATE_ARN: !!process.env.AWS_CERTIFICATE_ARN,
       },
+      allEnvKeys: Object.keys(process.env)
+        .filter((key) => key.includes('DOCS') || key.includes('CERT') || key.includes('AWS_'))
+        .sort(),
     });
 
     // S3 Bucket for hosting the static website
