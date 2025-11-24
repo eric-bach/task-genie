@@ -444,13 +444,13 @@ export default function Knowledge() {
                             value='taskGeneration'
                             className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground'
                           >
-                            Project Scoped (Task Generation)
+                            Project (Task Generation)
                           </TabsTrigger>
                           <TabsTrigger
                             value='userStory'
                             className='data-[state=active]:bg-primary data-[state=active]:text-primary-foreground'
                           >
-                            Agile Guided (User Story Evaluation)
+                            Agile (User Story Evaluation)
                           </TabsTrigger>
                         </TabsList>
                       </Tabs>

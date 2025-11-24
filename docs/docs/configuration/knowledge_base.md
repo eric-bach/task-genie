@@ -4,22 +4,22 @@ sidebar_position: 1
 
 # Knowledge Base
 
-**Task Genie** leverages Amazon Bedrock Knowledge Bases with S3 Vectors to provide organizational and project context for highly accurate task breakdown. The system supports two distinct knowledge base types, each serving different purposes in the Agile workflow: **Agile Guided (User Story Evaluation)** and **Project Scoped (Task Generation)**.
+**Task Genie** leverages Amazon Bedrock Knowledge Bases with S3 Vectors to provide organizational and project context for highly accurate task breakdown. The system supports two distinct knowledge base types, each serving different purposes in the Agile workflow: **Agile (User Story Evaluation)** and **Project (Task Generation)**.
 
 ## Knowledge Base Types
 
 **Task Genie** uses Retrieval-Augmented Generation (RAG) to combine AI capabilities with your organization's specific knowledge, ensuring generated tasks and evaluations are contextually relevant and aligned with your team's practices.
 
-| Knowledge Base Type                      | Purpose                                                    | Scope                 | When Applied                 |
-| ---------------------------------------- | ---------------------------------------------------------- | --------------------- | ---------------------------- |
-| **Agile Guided (User Story Evaluation)** | Improve user story quality assessment                      | Organization-wide     | During user story evaluation |
-| **Project Scoped (Task Generation)**     | Enhance task breakdown with technical and business context | Team/Project specific | During task generation       |
+| Knowledge Base Type               | Purpose                                                    | Scope                 | When Applied                 |
+| --------------------------------- | ---------------------------------------------------------- | --------------------- | ---------------------------- |
+| **Agile (User Story Evaluation)** | Improve user story quality assessment                      | Organization-wide     | During user story evaluation |
+| **Project (Task Generation)**     | Enhance task breakdown with technical and business context | Team/Project specific | During task generation       |
 
 ---
 
-## Agile Guided Knowledge Base (User Story Evaluation)
+## Agile Knowledge Base (User Story Evaluation)
 
-The Agile Guided Knowledge Base provides organization-wide guidance for evaluating user story quality, ensuring consistency in Agile practices across all teams and projects.
+The Agile Knowledge Base provides organization-wide guidance for evaluating user story quality, ensuring consistency in Agile practices across all teams and projects.
 
 ### Purpose and Benefits
 
@@ -32,13 +32,13 @@ The Agile Guided Knowledge Base provides organization-wide guidance for evaluati
 
 #### **Organization-Wide Consistency**
 
-Agile Guided documents apply to all user stories regardless of team, project, or system, ensuring consistent quality standards across the organization.
+Agile documents apply to all user stories regardless of team, project, or system, ensuring consistent quality standards across the organization.
 
-### How Agile Guided Knowledge Works
+### How Agile Knowledge Works
 
 #### **Evaluation Query Construction**
 
-**Task Genie** searches the Agile Guided Knowledge Base for any process guidance on evaluating a user story:
+**Task Genie** searches the Agile Knowledge Base for any process guidance on evaluating a user story:
 
 ```
 Find relevant information about the user story process and guidelines that would help evaluate the following user story is well-defined:
@@ -64,11 +64,11 @@ Additional business or domain context from knowledge base:
 - Definition of Ready: All stories must include persona, rationale, and clear criteria
 ```
 
-### Document Organization for Agile Guided Knowledge
+### Document Organization for Agile Knowledge
 
 #### **Required Metadata**
 
-All Agile Guided documents must use this specific metadata (automatically added by **Task Genie**):
+All Agile documents must use this specific metadata (automatically added by **Task Genie**):
 
 ```javascript
 {
@@ -78,7 +78,7 @@ All Agile Guided documents must use this specific metadata (automatically added 
 
 #### **Content Categories**
 
-Organize Agile Guided content into these categories:
+Organize Agile content into these categories:
 
 ```
 Agile Process Knowledge/
@@ -100,7 +100,7 @@ Agile Process Knowledge/
     └── acceptance-criteria-templates.md
 ```
 
-### Best Practices for Agile Guided Knowledge
+### Best Practices for Agile Knowledge
 
 **Common Story Problems:**
 
@@ -128,9 +128,9 @@ Agile Process Knowledge/
 ✅ **Right:** "Login succeeds within 3 seconds with valid credentials and displays helpful error messages for invalid attempts"
 ```
 
-## Project Scoped Knowledge Base (Task Generation)
+## Project Knowledge Base (Task Generation)
 
-The Project Scoped Knowledge Base provides team-specific context to improve the quality and relevance of AI-generated tasks. Documents in this knowledge base are filtered and applied based on the Azure DevOps Boards fields: **Area Path**, **Business Unit**, and **System**.
+The Project Knowledge Base provides team-specific context to improve the quality and relevance of AI-generated tasks. Documents in this knowledge base are filtered and applied based on the Azure DevOps Boards fields: **Area Path**, **Business Unit**, and **System**.
 
 ### Purpose and Benefits
 
@@ -149,7 +149,7 @@ Documents are automatically retrieved based on matching criteria:
 - **Business Unit**: Organizational division (e.g., "Engineering", "Product")
 - **System**: Application or service identifier (e.g., "Customer Portal", "Payment Service")
 
-### How Project Scoped Knowledge Works
+### How Project Knowledge Works
 
 #### **Required Metadata**
 
@@ -207,7 +207,7 @@ Here is additional context that you should consider:
 
 #### **Recommended Folder Hierarchy**
 
-Organize your Project Scoped documents using this structure:
+Organize your Project documents using this structure:
 
 ```
 Knowledge Base/
@@ -227,7 +227,7 @@ Knowledge Base/
 │   │       └── deployment-procedures.md
 ```
 
-### Content Guidelines for Project Scoped Documents
+### Content Guidelines for Project Documents
 
 #### **Technical Documentation**
 
@@ -336,7 +336,7 @@ All API responses follow this structure:
 - Security best practices are followed
 ```
 
-### Best Practices for Project Scoped Knowledge
+### Best Practices for Project Knowledge
 
 #### **Document Quality**
 
@@ -375,13 +375,13 @@ All API responses follow this structure:
 
 2. **Select Knowledge Base Type**
 
-   - **Project Scoped (Task Generation)**: For team-specific technical/business context
-   - **Agile Guided (User Story Evaluation)**: For organization-wide process guidance
+   - **Project (Task Generation)**: For team-specific technical/business context
+   - **Agile (User Story Evaluation)**: For organization-wide process guidance
 
 3. **Configure Metadata**
 
-   - **Project Scoped**: Set Area Path, Business Unit, and System
-   - **Agile Guided**: Area Path is defaulted to "agile-process"
+   - **Project**: Set Area Path, Business Unit, and System
+   - **Agile**: Area Path is defaulted to "agile-process"
 
 4. **Upload Documents**
    - Support for `.md`, `.txt`, `.pdf`, `.docx`, `.json` files
@@ -475,7 +475,7 @@ After upload, documents undergo automatic processing:
 
 **Diagnosis Steps:**
 
-1. Review Agile Guided knowledge base content
+1. Review Agile knowledge base content
 2. Check for ambiguous or contradictory guidelines
 3. Verify universal application of evaluation criteria
 4. Compare AI assessments with human reviews
@@ -513,4 +513,4 @@ After configuring your knowledge bases:
 2. **[Team Collaboration](../guides/team-collaboration.md)** - Share knowledge management practices
 3. **[Analytics & Monitoring](../guides/analytics.md)** - Track knowledge base effectiveness
 
-Ready to enhance **Task Genie** with your organization's knowledge? Start by identifying your most valuable documentation and organizing it into Project Scoped and Agile Guided categories!
+Ready to enhance **Task Genie** with your organization's knowledge? Start by identifying your most valuable documentation and organizing it into Project and Agile categories!
