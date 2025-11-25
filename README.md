@@ -1,7 +1,7 @@
 # Task Genie
 
 <div align="center">
-  <img src="docs/logo.jpg" alt="Task Genie" width="120">
+  <img src="images/logo.jpg" alt="Task Genie" width="120">
 </div>
 
 <div align="center">
@@ -60,7 +60,7 @@
 - Ability to fully customize the AI prompt for mutliple workflows
 
 <div align="center">
-  <img src="docs/ui.png" alt="Task Genie UI" width="800">
+  <img src="images/ui.png" alt="Task Genie UI" width="800">
 </div>
 
 ### 🔗 Azure DevOps Boards Integration
@@ -70,7 +70,7 @@
 - Built-in dashboards to visualize performance and effectiveness of task generation
 
 <div align="center">
-  <img src="docs/dashboard.png" alt="Dashboard" width="800">
+  <img src="images/dashboard.png" alt="Dashboard" width="800">
 </div>
 
 ## 🏗️ Architecture
@@ -78,13 +78,13 @@
 The architecture is deployed in AWS using a **serverless model** with **Step Functions** orchestrating the AI workflow. Integration with Azure DevOps is done through **Service Hooks** for each board.
 
 <div align="center">
-  <img src="docs/architecture_v2.png" alt="Architecture Diagram" width="800">
+  <img src="images/architecture_v2.png" alt="Architecture Diagram" width="800">
 </div>
 
 A state machine, leveraging **AWS Step Functions**, orchestrates the workflow for the interaction with the LLM.
 
 <div align="center">
-  <img src="docs/state_machine.png" alt="State Machine" width="600">
+  <img src="images/state_machine.png" alt="State Machine" width="600">
 </div>
 
 ### 🛠️ Technology Stack
@@ -147,7 +147,7 @@ Estimated monthly costs (USD) for running in AWS:
    - Uncheck `Send email invites`
 
 <div align="center">
-  <img src="docs/service_principal.png" alt="Azure DevOps Service Principal" width="480">
+  <img src="images/service_principal.png" alt="Azure DevOps Service Principal" width="480">
 </div>
 
 ## 🔧 Deployment
@@ -248,7 +248,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
    - Set the Chunking strategy to `Semantic chunking` with `Max token size for a chunk` = 150
 
    <div align="center">
-     <img src="docs/kb_chunking.png" alt="Chunking Strategy" width="600">
+     <img src="images/kb_chunking.png" alt="Chunking Strategy" width="600">
    </div>
 
    - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from step 3
@@ -329,12 +329,12 @@ The frontend is deployed using **AWS Amplify Console**.
    - Click on the Process to edit
    - Click on `User Story`
    - Click `Add custom control` and select the ~Task Genie Button (AMA)`
-     ![](/docs/custom_control.png)
+     ![](/images/custom_control.png)
    - Click `Options` and set the API URL and API Key to the values in the AWS environment
-     ![](/docs/custom_control_options.png)
+     ![](/images/custom_control_options.png)
 
 3. The `Generate Tasks` button should now appear on any User Stories using the Process
-   ![](/docs/azure_devops_user_story.png)
+   ![](/images/azure_devops_user_story.png)
 
 #### Option 2: Azure DevOps Service Hooks
 
@@ -346,7 +346,7 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 - Work item updated (acceptance criteria)
 
 <div align="center">
-  <img src="docs/service_hooks.png" alt="Service Hooks Configuration" width="700">
+  <img src="images/service_hooks.png" alt="Service Hooks Configuration" width="700">
 </div>
 
 > ⚠️ **Important**: When the title, acceptance criteria, and description are updated simultaneously, it will trigger 3 times, resulting in 3x the number of tasks being generated. This is a limitation of Azure DevOps, not Task Genie.
@@ -367,13 +367,13 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 
    Create **four (4) Service Hooks** with the following configuration:
 
-   | Setting                           | Value                                                                   |
-   | --------------------------------- | ----------------------------------------------------------------------- |
-   | **Trigger on this type of event** | work item created (1), work item updated (3)                            |
-   | **Area path**                     | Azure DevOps project name                                               |
-   | **Work item type**                | User Story                                                              |
-   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` |
-   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                      |
+   | Setting                           | Value                                                                                                                          |
+   | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+   | **Trigger on this type of event** | work item created (1), work item updated (3)                                                                                   |
+   | **Area path**                     | Azure DevOps project name                                                                                                      |
+   | **Work item type**                | User Story                                                                                                                     |
+   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` or `https://api.taskgenie.YOUR_DOMAIN.NAME/executions` |
+   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                                                                             |
 
 #### Task Feedback
 
@@ -382,7 +382,7 @@ To setup the task feedback which will be used as supplemental information in the
 - Work item created
 - Work item updated
 - Work item deleted
-  ![Tasks Service Hooks](/docs/service_hooks_tasks.png)
+  ![Tasks Service Hooks](/images/service_hooks_tasks.png)
 
 1. **Access Project Settings**
 
@@ -400,13 +400,13 @@ To setup the task feedback which will be used as supplemental information in the
 
    Create **thress (3) Service Hooks** with the following configuration:
 
-   | Setting                           | Value                                                                   |
-   | --------------------------------- | ----------------------------------------------------------------------- |
-   | **Trigger on this type of event** | work item created (1), work item updated (2)                            |
-   | **Area path**                     | Azure DevOps project name                                               |
-   | **Work item type**                | Task                                                                    |
-   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` |
-   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                      |
+   | Setting                           | Value                                                                                                                                  |
+   | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+   | **Trigger on this type of event** | work item created (1), work item updated (2)                                                                                           |
+   | **Area path**                     | Azure DevOps project name                                                                                                              |
+   | **Work item type**                | Task                                                                                                                                   |
+   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/feedback/track` or `https://api.taskgenie.YOUR_DOMAIN.NAME/feedback/track` |
+   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                                                                                     |
 
 ## 💻 Azure DevOps Extension
 

@@ -65,3 +65,6 @@ jobs:
           AWS_BEDROCK_MODEL_ID: ${{ secrets.AWS_BEDROCK_MODEL_ID }}
           AWS_BEDROCK_KNOWLEDGE_BASE_ID: ${{ secrets.AWS_BEDROCK_KNOWLEDGE_BASE_ID }}
           AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: ${{ secrets.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID }}
+          # Documentation domain and SSL certificate
+          DOCS_DOMAIN_NAME: ${{ secrets.DOCS_DOMAIN_NAME }}
+          AWS_CERTIFICATE_ARN: ${{ secrets.AWS_CERTIFICATE_ARN }}

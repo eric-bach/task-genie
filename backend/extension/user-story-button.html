@@ -121,19 +121,23 @@
                   console.log('Current area path:', areaPath);
 
                   // Check if the area path matches any of the allowed pilot teams
-                  const allowedAreaPaths = ['eric-test', 'AMA-Ent\\Software Development\\Orange Team'];
+                  const allowedAreaPaths = [
+                    'eric-test',
+                    'AMA-Ent\\Software Development\\Orange Team',
+                    'AMA-Ent\\Software Development\\Blue Team',
+                  ];
 
                   if (!allowedAreaPaths.includes(areaPath)) {
                     // Disable button and show pilot message for non-pilot teams
                     button.disabled = true;
-                    statusMessage.textContent = 'Currently only enabled for pilot team';
+                    statusMessage.textContent = 'Currently only enabled for pilot teams';
                     statusMessage.className = 'status-message';
                     return;
                   }
                 } catch (error) {
                   console.error('Error checking area path:', error);
                   button.disabled = true;
-                  statusMessage.textContent = 'Currently only enabled for pilot team';
+                  statusMessage.textContent = 'Currently only enabled for pilot teams';
                   statusMessage.className = 'status-message';
                   return;
                 }
