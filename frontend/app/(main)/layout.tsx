@@ -35,6 +35,7 @@ const config: ResourcesConfig = {
 Amplify.configure(config, { ssr: true });
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
