@@ -79,13 +79,13 @@ Task Genie is built on a modern, serverless architecture that ensures scalabilit
 
 ### **Option 1: Azure DevOps Extension**
 
-Install the [Task Genie extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) directly from the Azure DevOps marketplace to include a button on you User Story forms to trigger **Task Genie**
+An **Azure DevOps Extension** from the Azure DevOps marketplace that includes a button on you User Story forms to trigger **Task Genie**.
 
 ![Extension](../static/img/azure_devops_user_story.png)
 
 ### **Option 2: Service Hook Integration**
 
-Configure Azure DevOps Service Hooks to automatically trigger Task Genie when work items are created or updated.
+Using **Azure DevOps Service Hooks** to automatically trigger Task Genie when work items are created or updated.
 
 ![Service Hooks](../static/img/service_hooks.png)
 

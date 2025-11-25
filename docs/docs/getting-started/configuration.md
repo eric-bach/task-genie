@@ -4,7 +4,7 @@ sidebar_position: 3
 
 # Configuration
 
-Task Genie offers multiple layers of configuration to tailor the AI-powered task generation to your team's specific needs, organizational context, and Azure DevOps setup. This guide covers all configuration options available to end users.
+**Task Genie** offers multiple layers of configuration to tailor the AI-powered task generation to your team's specific needs, organizational context, and Azure DevOps setup. This guide covers all configuration options available to end users.
 
 ## Configuration Overview
 
@@ -89,13 +89,7 @@ These settings control the AI model behavior across all task generation:
 
 #### **Model Selection**
 
-Task Genie supports multiple AI models via Amazon Bedrock:
-
-| Model                                       | Best For      | Strengths                       |
-| ------------------------------------------- | ------------- | ------------------------------- |
-| `anthropic.claude-3-5-sonnet-20241022-v2:0` | General use   | Balanced performance and cost   |
-| `anthropic.claude-3-opus-20240229-v1:0`     | Complex tasks | Highest quality reasoning       |
-| `anthropic.claude-3-haiku-20240307-v1:0`    | Simple tasks  | Fastest and most cost-effective |
+**Task Genie** supports multiple AI models via Amazon Bedrock and is currently configured to use `Anthropic Claude Sonnet 4.5` for the most advanced reasoning.
 
 ### Per-Request AI Settings
 

@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Knowledge Base
 
-**Task Genie** leverages Amazon Bedrock Knowledge Bases with S3 Vectors to provide organizational and project context for highly accurate task breakdown. The system supports two distinct knowledge base types, each serving different purposes in the Agile workflow: **Agile (User Story Evaluation)** and **Project (Task Generation)**.
+**Task Genie** leverages **Amazon Bedrock Knowledge Bases** with **S3 Vectors** to provide organizational and project context for highly accurate task breakdown. The system supports two distinct knowledge base types, each serving different purposes in the Agile workflow: **Agile (User Story Evaluation)** and **Project (Task Generation)**.
 
 ## Knowledge Base Types
 
