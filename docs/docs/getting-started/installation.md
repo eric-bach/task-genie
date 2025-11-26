@@ -4,9 +4,9 @@ sidebar_position: 2
 
 # Installation & Setup
 
-**Task Genie** offers two methods for integration with Azure DevOps, each designed to meet different organizational needs and preferences. Choose the method that best fits your team's workflow and administrative requirements.
+**Task Genie** offers two methods for integration with **Azure DevOps**, each designed to meet different organizational needs and preferences. Choose the method that best fits your team's workflow and administrative requirements.
 
-:::tip My tip
+:::tip Installation Options
 
 Both integration methods provide the same functionality and feature set.
 
@@ -21,9 +21,9 @@ Both integration methods provide the same functionality and feature set.
 
 ---
 
-## Method 1: Azure DevOps Extension
+## Option 1: Azure DevOps Extension
 
-The [Task Genie Azure DevOps Extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) provides the quickest and most user-friendly way to get started with Task Genie. It adds a `Generate Tasks` button directly to your User Story work item forms that can be used to trigger **Task Genie**.
+The **Task Genie** [Azure DevOps Extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) provides the quickest and most user-friendly way to get started. It adds a `Generate Tasks` button directly to your User Story work item forms that can be used to trigger **Task Genie**.
 
 ![Extension](../../static/img/azure_devops_user_story.png)
 
@@ -42,12 +42,12 @@ Before installing the extension, ensure you have:
 1. **Access Azure DevOps Marketplace**
 
    - Navigate to the [Azure DevOps Marketplace](https://marketplace.visualstudio.com/)
-   - Search for "Task Genie" or contact your administrator for the extension package
+   - Search for "**Task Genie**" or contact your administrator for the extension package
 
 2. **Install in Your Organization**
    - Click "Get it free" or "Install"
-   - Select your Azure DevOps organization
-   - Choose the projects where you want to install Task Genie
+   - Select your **Azure DevOps** organization
+   - Choose the projects where you want to install **Task Genie**
    - Complete the installation process
 
 #### Step 2: Add Control to Work Item Forms
@@ -67,14 +67,14 @@ Before installing the extension, ensure you have:
    - Click **Add a custom control**
    - Select "Task Genie Button" from the list
      ![Custom Control](../../static/img/custom_control.png)
-   - Configure the control settings:
+   - Click `Options` and set the API URL and API Key to the values in the AWS environment
+
      - **Label**: "Task Genie"
      - **API URL**: Reference your configured API endpoint
      - **API Key**: Reference your configured API key
-   - Save the changes
+       ![Custom Control Options](../../static/img/custom_control_options.png)
 
-   - Click `Options` and set the API URL and API Key to the values in the AWS environment
-     ![Custom Control Options](../../static/img/custom_control_options.png)
+   - Save the changes
 
 4. The `Generate Tasks` button should now appear on any User Stories using the Process
    ![](../../static/img/azure_devops_user_story.png)
@@ -86,12 +86,12 @@ Once installed and configured:
 1. **Open a User Story**
 
    - Navigate to any User Story work item in your project
-   - The "Generate Tasks" button will appear in the work item form
+   - The **Generate Tasks** button will appear in the work item form
 
 2. **Generate Tasks**
 
    - Click the **Generate Tasks** button
-   - Task Genie will analyze your user story
+   - **Task Genie** will analyze your user story
    - Generated tasks will be automatically created and linked to your story
 
 3. **Review Generated Tasks**
@@ -107,6 +107,14 @@ Once installed and configured:
 - Check that the control was added to the User Story layout
 - Ensure you have proper permissions to view custom controls
 
+:::warning Pilot
+
+**Task Genie** is currently in pilot and the extension is only enabled for a few select ADO boards. If this is not enabled for your board, please contact the **Task Genie** team to enable this for your ADO board.
+
+![](../../static/img/extension_disabled.png)
+
+:::
+
 **API Connection Issues?**
 
 - Verify the API URL is correct and accessible
@@ -115,9 +123,9 @@ Once installed and configured:
 
 ---
 
-## Method 2: Service Hooks Integration
+## Option 2: Service Hooks Integration
 
-Service Hooks provide automatic, real-time integration with Task Genie. This method is ideal for organizations wanting seamless, automated task generation without manual intervention.
+**Azure DevOps Service Hooks** provide automatic, real-time integration with **Task Genie**. This method is ideal for organizations wanting seamless, automated task generation without manual intervention.
 
 ### Prerequisites
 
@@ -125,19 +133,13 @@ Service Hooks provide automatic, real-time integration with Task Genie. This met
 - **Task Genie Deployment**: Completed backend deployment with API Gateway endpoint
 - **API Gateway Configuration**: Proper API key setup for authentication
 
-### Important Limitations
-
-:::warning Azure DevOps Service Hooks Limitation
-Azure DevOps Service Hooks can only trigger on individual field changes. When Title, Description, and Acceptance Criteria are updated simultaneously, Task Genie will be triggered 3 times, potentially generating 3x the number of tasks. This is a limitation of Azure DevOps, not Task Genie.
-:::
-
 ### Service Hooks Configuration
 
 #### Step 1: Access Project Settings
 
 1. **Navigate to Project Settings**
 
-   - In your Azure DevOps project, click the gear icon
+   - In your **Azure DevOps** project, click the gear icon
    - Select **Project Settings** from the dropdown
 
 2. **Open Service Hooks**
@@ -150,7 +152,7 @@ You need to create **four (4) separate Service Hooks** for comprehensive integra
 
 :::warning Azure DevOps Limitations
 
-When configuring multiple Service Hooks for different fields on the same action (i.e. Work item updated), the Service Hook will trigger for each field change. For example, if the title and description is updated, **Task Genie** will be triggered twice.
+When configuring multiple Service Hooks for different fields on the same action (i.e. Work item updated), the Service Hook will trigger for each field change. For example, if the title and description is updated, **Task Genie** will be triggered twice. This is a limitation of **Azure DevOps**.
 
 :::
 
@@ -184,7 +186,7 @@ For each of the four hooks, follow these steps:
 
 3. **Configure Action Settings**
 
-   - **URL**: `https://{API_GATEWAY_ID}.execute-api.{REGION}.amazonaws.com/prod/executions`
+   - **URL**: `https://{API_GATEWAY_ID}.execute-api.{REGION}.amazonaws.com/prod/executions` or `https://api.taskgenie.{DOMAIN}`
    - **HTTP Headers**:
      ```
      x-api-key: {YOUR_API_KEY}
@@ -196,14 +198,14 @@ For each of the four hooks, follow these steps:
 4. **Test the Configuration**
    - Click **Test** to verify the connection
    - Ensure you receive a successful response
-   - Save the Service Hook
+   - Save the **Service Hook**
 
 #### Step 4: Verify Integration
 
 1. **Create a Test User Story**
 
    - Create a new User Story with title, description, and acceptance criteria
-   - Task Genie should automatically analyze and generate tasks
+   - **Task Genie** should automatically analyze and generate tasks
 
 2. **Monitor Service Hook Activity**
    - Return to **Service hooks** in project settings
@@ -221,8 +223,7 @@ For each of the four hooks, follow these steps:
 **Monitor API Usage**
 
 - Track Service Hook execution logs regularly
-- Set up CloudWatch alarms for API Gateway errors
-- Monitor AWS costs related to increased API calls
+- Monitor the **Task Genie** CloudWatch dashboard for API Gateway errors
 
 ### Troubleshooting Service Hooks
 

@@ -14,9 +14,15 @@ For new teams using Task Genie:
 
 1. **Readiness Validation**
 
-   - [ ] Have an existing Azure DevOps Boards
-   - [ ] Confirm the Area Path, Business Unit, and System values. Task Genie supports alphanumeric characters and some special characters such as spaces ( ), dashes (-, --), and backslashes (/).
-   - [ ] Confirm whether to use the Azure DevOps Extension or Service Hook integration
+- [ ] Have an existing **Azure DevOps Boards**
+- [ ] Confirm the `Area Path`, `Business Unit`, and `System values`
+- [ ] Confirm whether to use the **Azure DevOps Extension** or **Service Hook** integration
+
+:::warning Special characters
+
+**Task Genie** supports alphanumeric characters and some special characters such as spaces ( ), dashes/en-dashes (-, --), and backslashes (/). Please check the Area Path, Business Unit, and System you are using conform to these supported characters.
+
+:::
 
 2. **Installation & Setup**
 
