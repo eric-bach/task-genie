@@ -1,4 +1,4 @@
-import { Brain, ChevronUp, Home, PlayCircle, Settings, User2 } from 'lucide-react';
+import { Brain, ChevronUp, ExternalLink, Home, PlayCircle, Settings, User2 } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -68,6 +68,25 @@ export function AppSidebar({
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <a
+                    href={process.env.NEXT_PUBLIC_DOCS_URL || 'http://localhost:3001'}
+                    target='_blank'
+                    rel='noopener noreferrer'
+                  >
+                    <ExternalLink />
+                    <span>Documentation</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

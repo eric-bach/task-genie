@@ -292,6 +292,7 @@ The frontend is deployed using **AWS Amplify Console**.
    NEXT_PUBLIC_REDIRECT_SIGNOUT_URL=
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
+   NEXT_PUBLIC_DOCS_URL=
    ```
 
 #### Local Development
@@ -308,6 +309,7 @@ The frontend is deployed using **AWS Amplify Console**.
    NEXT_PUBLIC_REDIRECT_SIGNOUT_URL=http://localhost:3000
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
+   NEXT_PUBLIC_DOCS_URL=
    ```
 
 2. **Install Dependencies**
