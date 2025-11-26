@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useAuth } from '@/contexts/auth-context';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -40,8 +40,8 @@ interface ConfigItem {
 }
 
 export default function ConfigPage() {
-  const { user } = useAuthenticator((context) => [context.user]);
-  const email = user?.signInDetails?.loginId || '';
+  const { user } = useAuth();
+  const email = user?.email || '';
 
   const [items, setItems] = useState<ConfigItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);

@@ -48,7 +48,7 @@ export function AppSidebar({
   user,
   signOut,
 }: {
-  user: Partial<Record<UserAttributeKey, string>> | undefined;
+  user: Partial<Record<UserAttributeKey, string>> | null;
   signOut: ((data?: AuthEventData | undefined) => void) | undefined;
 }) {
   return (

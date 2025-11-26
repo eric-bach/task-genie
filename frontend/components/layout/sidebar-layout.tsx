@@ -4,7 +4,7 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
 type LayoutProps = {
-  user: Partial<Record<UserAttributeKey, string>> | undefined;
+  user: Partial<Record<UserAttributeKey, string>> | null;
   signOut: ((data?: AuthEventData | undefined) => void) | undefined;
   children: React.ReactNode;
 };
