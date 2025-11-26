@@ -17,9 +17,9 @@ export function PromptSuffixInfo({ className = '' }: PromptSuffixInfoProps) {
       <AlertDescription className='text-sm text-blue-800'>
         <div className='space-y-2'>
           <p>
-            <strong>Note:</strong> Your custom prompt will also contain the following system instructions to ensure the
-            AI agent returns results in the correct JSON format. You do not need to include references to the work item
-            details in your prompt.
+            <strong>Note:</strong> Your prompt override will also contain the following context to ensure the AI agent
+            evaluates the user story content and returns results in the correct JSON format. You do not need to
+            duplicate this in the prompt override.
           </p>
           <button
             type='button'
@@ -27,28 +27,35 @@ export function PromptSuffixInfo({ className = '' }: PromptSuffixInfoProps) {
             className='flex items-center text-xs text-blue-600 hover:text-blue-800 font-medium'
           >
             {showPromptSuffix ? <ChevronDown className='h-3 w-3 mr-1' /> : <ChevronRight className='h-3 w-3 mr-1' />}
-            {showPromptSuffix ? 'Hide' : 'Show'} system instructions
+            {showPromptSuffix ? 'Hide' : 'Show'} context prompt
           </button>
           {showPromptSuffix && (
             <div className='mt-2 p-3 bg-gray-50 rounded-md border border-gray-200'>
-              <p className='text-xs text-gray-600 font-medium mb-2'>The following will be appended to your prompt:</p>
+              <p className='text-xs text-gray-600 font-medium mb-2'>
+                The following will be provided in addition to your prompt:
+              </p>
               <pre className='text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed'>
                 {`**Context**
-- Here is the work item:
+- Work item:
+Use this information to understand the scope and expectation to generate relevant tasks.
   - Title: \${workItemTitle}
   - Description: \${workItemDescription}
   - Acceptance Criteria: \${workItemAcceptanceCriteria}
 
-- Here are the tasks that have already been created for this work item (if any):
+- Existing tasks (if any):
+Current tasks already created for this user story. Avoid duplicating these; generate only missing or supplementary tasks for completeness.
   \${tasks}
 
-- Here are relevant learnings from past feedback (if any):
-  'None'
+- Feedback or past learnings (if any):
+Previous user feedback relevant to this user story; such as tasks that were missed, or tasks that were removed or not relevant. Incorporate these insights to improve quality and relevance.
+  \${feedback}
 
-- Here are the images referenced (if any were included):
+- Images (if any):
+Visual aids or references that provide additional context for task generation.
   \${images}
       
-- Here is additional context that you should consider (if any were provided):
+- Additional contextual knowledge (if any):
+Extra domain knowledge, system information, or reference material to guide more context-aware and accurate task generation.
   \${knowledgeBaseContent}
 
 **Output Rules**

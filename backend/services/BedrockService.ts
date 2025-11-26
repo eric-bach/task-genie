@@ -623,7 +623,7 @@ Visual aids or references that provide additional context for task generation.
         : '';
 
     return `**Context**
-Work item:
+- Work item:
 Use this information to understand the scope and expectation to generate relevant tasks.
   - Title: ${workItem.title}
   - Description: ${workItem.description}
