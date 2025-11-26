@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Upload, FileText, X, Check, AlertCircle, RefreshCw, HardDrive, Trash2, MoreHorizontal } from 'lucide-react';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useAuth } from '@/contexts/auth-context';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -107,7 +107,7 @@ const formSchema = z
 type FormData = z.infer<typeof formSchema>;
 
 export default function Knowledge() {
-  const { user } = useAuthenticator();
+  const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -311,7 +311,7 @@ export default function Knowledge() {
       }
 
       // Add user information
-      queryParams.append('username', user.signInDetails?.loginId || user.username);
+      queryParams.append('username', user?.email || '');
       console.log('👉 Query Params', queryParams.toString());
 
       const presignedResponse = await fetch(`/api/knowledge-base/presigned-url?${queryParams.toString()}`, {
@@ -366,7 +366,7 @@ export default function Knowledge() {
         s3Bucket: bucket,
         uploadedAt: new Date().toISOString(),
         areaPath: areaPath,
-        username: user.signInDetails?.loginId || user.username,
+        username: user?.email || '',
       };
 
       // Only include businessUnit and system for Task Generation mode

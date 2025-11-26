@@ -12,8 +12,11 @@ import {
 } from '@aws-amplify/auth';
 import { Toaster } from 'sonner';
 import SidebarLayout from '@/components/layout/sidebar-layout';
+import { AuthProvider } from '@/contexts/auth-context';
 
 import '@aws-amplify/ui-react/styles.css';
+
+type UserAttributes = Partial<Record<UserAttributeKey, string>>;
 
 const config: ResourcesConfig = {
   Auth: {
@@ -41,7 +44,7 @@ const config: ResourcesConfig = {
 Amplify.configure(config, { ssr: true });
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<Partial<Record<UserAttributeKey, string>>>();
+  const [user, setUser] = useState<UserAttributes | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -97,12 +100,14 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <main>
-      <SidebarLayout user={user} signOut={handleSignOut}>
-        {children}
-        <Toaster richColors />
-      </SidebarLayout>
-    </main>
+    <AuthProvider value={{ user, signOut: handleSignOut }}>
+      <main>
+        <SidebarLayout user={user} signOut={handleSignOut}>
+          {children}
+          <Toaster richColors />
+        </SidebarLayout>
+      </main>
+    </AuthProvider>
   );
 };
 
