@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from './ui/dropdown-menu';
-import { AuthUser } from 'aws-amplify/auth';
+import { UserAttributeKey } from 'aws-amplify/auth';
 import { AuthEventData } from '@aws-amplify/ui';
 
 // Menu items.
@@ -48,7 +48,7 @@ export function AppSidebar({
   user,
   signOut,
 }: {
-  user: AuthUser | undefined;
+  user: Partial<Record<UserAttributeKey, string>> | undefined;
   signOut: ((data?: AuthEventData | undefined) => void) | undefined;
 }) {
   return (
@@ -84,7 +84,7 @@ export function AppSidebar({
               </DropdownMenuTrigger>
               <DropdownMenuContent side='top' className='w-[--radix-popper-anchor-width]'>
                 <DropdownMenuItem disabled className='opacity-100 cursor-default text-foreground'>
-                  <span className='font-medium'>{user?.signInDetails?.loginId}</span>
+                  <span className='font-medium'>{user?.email}</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={signOut}>

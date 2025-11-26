@@ -3,7 +3,13 @@
 import { useEffect, useState } from 'react';
 import { Amplify } from 'aws-amplify';
 import { ResourcesConfig } from '@aws-amplify/core';
-import { fetchAuthSession, signInWithRedirect, signOut, fetchUserAttributes } from '@aws-amplify/auth';
+import {
+  fetchAuthSession,
+  signInWithRedirect,
+  signOut,
+  fetchUserAttributes,
+  UserAttributeKey,
+} from '@aws-amplify/auth';
 import { Toaster } from 'sonner';
 import SidebarLayout from '@/components/layout/sidebar-layout';
 
@@ -18,8 +24,8 @@ const config: ResourcesConfig = {
         oauth: {
           domain: process.env.NEXT_PUBLIC_DOMAIN!,
           scopes: ['openid', 'email', 'profile', 'aws.cognito.signin.user.admin'],
-          redirectSignIn: [process.env.NEXT_PUBLIC_REDIRECT_URL!],
-          redirectSignOut: [process.env.NEXT_PUBLIC_REDIRECT_URL!],
+          redirectSignIn: [process.env.NEXT_PUBLIC_REDIRECT_SIGNIN_URL!],
+          redirectSignOut: [process.env.NEXT_PUBLIC_REDIRECT_SIGNOUT_URL!],
           responseType: 'code',
           providers: [
             {
@@ -35,8 +41,7 @@ const config: ResourcesConfig = {
 Amplify.configure(config, { ssr: true });
 
 const MainLayout = ({ children }: { children: React.ReactNode }) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<Partial<Record<UserAttributeKey, string>>>();
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -62,6 +67,9 @@ const MainLayout = ({ children }: { children: React.ReactNode }) => {
           } else {
             // Fetch user attributes if session is valid
             const userAttributes = await fetchUserAttributes();
+
+            console.log('User attributes fetched:', userAttributes);
+
             setUser(userAttributes);
           }
         }
