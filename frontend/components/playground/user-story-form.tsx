@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useAuth } from '@/contexts/auth-context';
 import { TasksDisplay } from './tasks-display';
 import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
 
@@ -244,7 +244,7 @@ export async function pollForResults(executionId: string, maxAttempts: number = 
 }
 
 export function UserStoryForm() {
-  const { user } = useAuthenticator();
+  const { user } = useAuth();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
@@ -346,7 +346,7 @@ export function UserStoryForm() {
     setTasks([]);
 
     try {
-      const userId = user.signInDetails?.loginId || '';
+      const userId = user?.email || '';
 
       // Step 1: Submit the request
       const initialResponse = await generateTasks(values, userId);

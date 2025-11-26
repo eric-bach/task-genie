@@ -196,19 +196,22 @@ The backend is deployed using GitHub Actions with the following pipelines:
 
    **Required Secrets:**
 
-   - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
    - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
    - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
    - `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
-   - `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
    - `AWS_BEDROCK_MODEL_ID`: Bedrock model ID
 
    **Environment-Specific Secrets:**
    For **staging** and **production** environments:
 
-   - `AWS_ROLE_ARN`
-   - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
-   - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
+   - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
+   - `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
+   - `AWS_ROLE_ARN`: AWS IAM role for Github Actions deployment
+   - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`: Amazon Bedrock Knowledge Base ID
+   - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`: Amazon Bedrock Knowledge Base Data Source ID
+   - `AWS_CERTIFICATE_ARN`: ARN of the AWS Certificate used for the Docusarus Cloudfront Distribution
+   - `DOCS_DOMAIN_NAME`: domain name of the Docusarus website
+   - `FEEDBACK_FEATURE_ENABLED`: true or false to toggle Adapative Feedback feature
 
 #### Option 2: Manual Deployment (CDK)
 
@@ -225,6 +228,8 @@ The backend is deployed using GitHub Actions with the following pipelines:
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
+   AWS_CERTIFICATE_ARN=
+   DOCS_DOMAIN_NAME=
    FEEDBACK_FEATURE_ENABLED=
    ```
 
@@ -282,9 +287,12 @@ The frontend is deployed using **AWS Amplify Console**.
    ```env
    NEXT_PUBLIC_COGNITO_USER_POOL_ID=
    NEXT_PUBLIC_COGNITO_CLIENT_ID=
+   NEXT_PUBLIC_DOMAIN=
+   NEXT_PUBLIC_REDIRECT_SIGNIN_URL=
+   NEXT_PUBLIC_REDIRECT_SIGNOUT_URL=
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
-   NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+   NEXT_PUBLIC_DOCS_URL=
    ```
 
 #### Local Development
@@ -296,9 +304,12 @@ The frontend is deployed using **AWS Amplify Console**.
    ```env
    NEXT_PUBLIC_COGNITO_USER_POOL_ID=
    NEXT_PUBLIC_COGNITO_CLIENT_ID=
+   NEXT_PUBLIC_DOMAIN=
+   NEXT_PUBLIC_REDIRECT_SIGNIN_URL=http://localhost:3000/dashboard
+   NEXT_PUBLIC_REDIRECT_SIGNOUT_URL=http://localhost:3000
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
-   NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+   NEXT_PUBLIC_DOCS_URL=
    ```
 
 2. **Install Dependencies**

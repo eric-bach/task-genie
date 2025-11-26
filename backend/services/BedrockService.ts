@@ -5,7 +5,12 @@ import {
   BedrockAgentRuntimeClient,
   RetrievalFilter,
 } from '@aws-sdk/client-bedrock-agent-runtime';
-import { ConverseCommand, ConverseCommandInput, BedrockRuntimeClient } from '@aws-sdk/client-bedrock-runtime';
+import {
+  ConverseCommand,
+  ConverseCommandInput,
+  BedrockRuntimeClient,
+  SystemContentBlock,
+} from '@aws-sdk/client-bedrock-runtime';
 import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 
 import { AzureService } from './AzureService';
@@ -319,8 +324,9 @@ export class BedrockService {
     workItem: WorkItem,
     knowledgeContext: BedrockKnowledgeDocument[]
   ): Promise<BedrockWorkItemEvaluationResponse> {
-    const prompt = this.buildWorkItemEvaluationPrompt(workItem, knowledgeContext);
-    const content = await this.buildModelContent(workItem, prompt);
+    const systemPrompt = this.buildWorkItemEvaluationSystemPrompt();
+    const userPrompt = this.buildWorkItemEvaluationUserPrompt(workItem, knowledgeContext);
+    const content = await this.buildModelContent(workItem, userPrompt);
 
     const input: ConverseCommandInput = {
       modelId: this.config.modelId,
@@ -334,6 +340,7 @@ export class BedrockService {
         maxTokens: 2048,
         temperature: 0.5,
       },
+      system: systemPrompt,
     };
 
     const imagesCount = content.filter((item) => item.image).length;
@@ -404,14 +411,15 @@ export class BedrockService {
     knowledgeContext: BedrockKnowledgeDocument[],
     feedbackContext?: string
   ): Promise<Task[]> {
-    const prompt = await this.buildTaskGenerationPrompt(
+    const systemPrompt = await this.buildTaskGenerationSystemPrompt(workItem, params);
+    const userPrompt = await this.buildTaskGenerationUserPrompt(
       workItem,
       existingTasks,
-      params,
       knowledgeContext,
       feedbackContext
     );
-    const content = await this.buildModelContent(workItem, prompt);
+
+    const content = await this.buildModelContent(workItem, userPrompt);
 
     const inferenceConfig: any = {
       maxTokens: params.maxTokens || MAX_OUTPUT_TOKENS,
@@ -436,6 +444,7 @@ export class BedrockService {
         },
       ],
       inferenceConfig,
+      system: systemPrompt,
     };
 
     const textLength = content.reduce((sum, item) => {
@@ -461,6 +470,7 @@ export class BedrockService {
       knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
       imagesCount,
       imagesSizeKB,
+      feedbackContext: !!feedbackContext,
       inferenceConfig: input.inferenceConfig,
     });
 
@@ -494,12 +504,39 @@ export class BedrockService {
   }
 
   /**
-   * Constructs the AI prompt for work item evaluation with knowledge context
+   * Constructs the system prompt for work item evaluation
+   * @returns A formatted prompt string for work item quality evaluation
+   */
+  private buildWorkItemEvaluationSystemPrompt(): SystemContentBlock[] {
+    const system: SystemContentBlock[] = [
+      {
+        text: `You are an AI assistant that reviews Azure DevOps work items. 
+**Instructions**
+- Evaluate the work item to check if it is reasonably clear and has enough detail for a developer to begin with minimal clarification.
+- Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
+- Evaluate the user story based on the following criteria:
+  - It should generally state the user, the need, and the business value in some way.
+  - The acceptance criteria should provide guidance that is testable or verifiable, though it need not be exhaustive.
+  - If images are provided, treat them as additional context to understand the story.
+
+**Output Rules**
+- Return a JSON object with the following structure:
+  - "pass": boolean (true if the work item is good enough to proceed, false only it it is seriously incomplete or confusing)
+  - if "pass" is false, include a "comment" field (string) with a clear explaination of what's missing or unclear, and provide an example of a higher-quality story that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
+- Only output the JSON object, no exta text outside it.`,
+      },
+    ];
+
+    return system;
+  }
+
+  /**
+   * Constructs the user prompt for work item evaluation with knowledge context
    * @param workItem The work item to create an evaluation prompt for
    * @param knowledgeContext Relevant knowledge base documents to include in the prompt
    * @returns A formatted prompt string for work item quality evaluation
    */
-  private buildWorkItemEvaluationPrompt(workItem: WorkItem, knowledgeContext: BedrockKnowledgeDocument[]): string {
+  private buildWorkItemEvaluationUserPrompt(workItem: WorkItem, knowledgeContext: BedrockKnowledgeDocument[]): string {
     const knowledgeSection =
       knowledgeContext.length > 0
         ? `${knowledgeContext.map((doc) => `- ${doc.content.substring(0, 500)}...`).join('\n')}`
@@ -510,47 +547,68 @@ export class BedrockService {
         ? `${workItem.images.map((img, i) => `${i + 1}. ${img.url}${img.alt ? ` (${img.alt})` : ''}`).join('\n')}`
         : '';
 
-    return `You are an AI assistant that reviews Azure DevOps work items. 
-**Instructions**
-- Evaluate the work item to ensure it is reasonably clear, has enough detail to be understood, and is ready for a developer to work on with minimal clarification.
-- Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
-
-- Evaluate the user story based on the following criteria:
-  - It states the user, need, and business value in some form.
-  - The acceptance criteria is testable and provides some direction.
-  - If images are provided, treat them as additional context.
-
-**Context**
-- The work item to review is: 
+    return `**Context**
+- Work item: 
+Use this information to understand the scope and expectation to generate relevant tasks.
   - Title: ${workItem.title}
   - Description: ${workItem.description}
   - Acceptance Criteria: ${workItem.acceptanceCriteria}
       
-Additional business or domain context from knowledge base:
+- Additional contextual knowledge (if any):
+Extra domain knowledge, system information, or reference material to guide more context-aware and accurate task generation.
   ${knowledgeSection}
 
-Images referenced:
-  ${imagesSection}
-
-**Output Rules**
-- Return your assessment as a valid JSON object with the following structure:
-  - "pass": boolean (true if the work item is good enough to proceed, false only it it is seriously incomplete or unclear)
-  - if "pass" is false, include a "comment" field (string), explain what's missing or unclear, and provide a concrete example of a high-quality story that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
-- Only output a JSON object, no additional text.`;
+- Images (if any):
+Visual aids or references that provide additional context for task generation.
+  ${imagesSection}`;
   }
 
   /**
-   * Constructs the AI prompt for task generation with all relevant context
+   * Constructs the system prompt for task generation
    * @param workItem The work item to generate tasks for
-   * @param existingTasks Array of existing tasks to avoid duplication
    * @param params Inference parameters that may include custom prompts
-   * @param knowledgeContext Relevant knowledge base documents to provide technical context
    * @returns A formatted prompt string for task generation
    */
-  private async buildTaskGenerationPrompt(
+  private async buildTaskGenerationSystemPrompt(
+    workItem: WorkItem,
+    params: BedrockInferenceParams
+  ): Promise<SystemContentBlock[]> {
+    const defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing work items into clear, actionable, and appropriately sized tasks.
+**Instructions**
+- Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
+- Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
+- Avoid creating duplicate tasks if they already exist.
+- Do NOT create any tasks for analysis, investigation, testing, or deployment.`;
+
+    // Get base prompt (either custom override or default)
+    const basePrompt = (await this.resolvePrompt(workItem, params.prompt)) || defaultPrompt;
+
+    const system: SystemContentBlock[] = [
+      {
+        text: `${basePrompt}\n
+**Output Rules**
+- ONLY return a JSON object with the following structure:
+  - "tasks": array of task objects, each with:
+    - "title": string (task title, prefixed with order, e.g., "1. Task Title")
+    - "description": string (detailed task description with HTML formatting)
+- DO NOT output any text outside of the JSON object.`,
+      },
+    ];
+
+    return system;
+  }
+
+  /**
+   * Constructs the user prompt for task generation with all relevant context
+   * @param workItem The work item to generate tasks for
+   * @param existingTasks Array of existing tasks to avoid duplication
+   * @param knowledgeContext Relevant knowledge base documents to provide technical context
+   * @param feedbackContext Optional feedback insights to guide task generation
+   * @returns A formatted prompt string for task generation
+   */
+  private async buildTaskGenerationUserPrompt(
     workItem: WorkItem,
     existingTasks: Task[],
-    params: BedrockInferenceParams,
     knowledgeContext: BedrockKnowledgeDocument[],
     feedbackContext?: string
   ): Promise<string> {
@@ -558,59 +616,47 @@ Images referenced:
       workItem.images && workItem.images.length > 0
         ? `${workItem.images.map((img, i) => `${i + 1}. ${img.url}${img.alt ? ` (${img.alt})` : ''}`).join('\n')}`
         : '';
+
     const knowledgeSection =
       knowledgeContext.length > 0
         ? `${knowledgeContext.map((doc) => `- ${doc.content.substring(0, 500)}...`).join('\n')}`
         : '';
 
-    const defaultPrompt = `You are an expert Agile software development assistant for Azure DevOps that specializes in decomposing work items into actionable tasks.
-**Instructions**
-- Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
-- Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
-- If some tasks already exist, only generate the additional tasks that are missing so the set of tasks is complete without duplication.
-- Do NOT create any tasks for analyzing, investigating, testing, or deployment.`;
-
-    // Get base prompt (either custom override or default)
-    const basePrompt = (await this.resolvePrompt(workItem, params.prompt)) || defaultPrompt;
-
-    return `${basePrompt}\n
-**Context**
-- Here is the work item:
+    return `**Context**
+- Work item:
+Use this information to understand the scope and expectation to generate relevant tasks.
   - Title: ${workItem.title}
   - Description: ${workItem.description}
   - Acceptance Criteria: ${workItem.acceptanceCriteria}
 
-- Here are the tasks that have already been created for this work item (if any):
+- Existing tasks (if any):
+Current tasks already created for this user story. Avoid duplicating these; generate only missing or supplementary tasks for completeness.
   ${existingTasks.length > 0 ? existingTasks.map((t, i) => `${i + 1}. ${t.title}`).join('\n') : 'None'}
 
-- Here are relevant learnings from past feedback (if any):
+- Feedback or past learnings (if any):
+Previous user feedback relevant to this user story; such as tasks that were missed, or tasks that were removed or not relevant. Incorporate these insights to improve quality and relevance.
   ${feedbackContext || 'None'}
 
-- Here are the images referenced (if any were included):
+- Images (if any):
+Visual aids or references that provide additional context for task generation.
   ${imagesSection || 'None'}
       
-- Here is additional context that you should consider (if any were provided):
-  ${knowledgeSection || 'None'}
-
-**Output Rules**
-- ONLY return a JSON object with the following structure:
-  - "tasks": array of task objects, each with:
-    - "title": string (task title, prefixed with order, e.g., "1. Task Title")
-    - "description": string (detailed task description with HTML formatting)
-- DO NOT output any text outside of the JSON object.`;
+- Additional contextual knowledge (if any):
+Extra domain knowledge, system information, or reference material to guide more context-aware and accurate task generation.
+  ${knowledgeSection || 'None'}`;
   }
 
   /**
    * Builds multi-modal content array combining text prompt with processed images
    * @param workItem The work item containing potential image attachments
-   * @param textPrompt The text prompt to include in the content
+   * @param userPrompt The user prompt to include in the content
    * @returns Array of content items including text and processed images for model input
    */
-  private async buildModelContent(workItem: WorkItem, textPrompt: string): Promise<any[]> {
+  private async buildModelContent(workItem: WorkItem, userPrompt: string): Promise<any[]> {
     const content: any[] = [
       {
         type: 'text',
-        text: textPrompt,
+        text: userPrompt,
       },
     ];
 
@@ -1107,10 +1153,17 @@ ${insights}`);
 
     if (enhancements.length > 0) {
       this.logger.debug('🔀 Added feedback context for task generation', {
-        feedbackPatternsUsed: feedbackExamples?.patterns?.length || 0,
-        feedbackInsights: feedbackExamples?.insights?.length || 0,
         successfulExamples: feedbackExamples?.successfulExamples?.length || 0,
+        succcessfulExamplesSample: feedbackExamples?.successfulExamples.toString().substring(0, 200),
+
         antiPatterns: feedbackExamples?.antiPatterns?.length || 0,
+        antiPatternsSample: feedbackExamples?.antiPatterns.toString().substring(0, 200),
+
+        feedbackInsights: feedbackExamples?.insights?.length || 0,
+        feedbackInsightsSample: feedbackExamples?.insights.toString().substring(0, 200),
+
+        feedbackPatternsUsed: feedbackExamples?.patterns?.length || 0,
+        feedbackPatternsSample: feedbackExamples?.patterns.toString().substring(0, 200),
       });
     }
 
