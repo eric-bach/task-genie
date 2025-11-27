@@ -48,8 +48,8 @@ When you create a new User Story in Azure DevOps with Service Hooks configured, 
    - Then [expected result]
 
    Area Path: Select your team's area path
-   Custom.BusinessUnit2: Your business unit (e.g., "Engineering")
-   Custom.System2: Target system (e.g., "Customer Portal")
+   Custom.BusinessUnit: Your business unit (e.g., "Engineering")
+   Custom.System: Target system (e.g., "Customer Portal")
    ```
 
 3. **Save the User Story**

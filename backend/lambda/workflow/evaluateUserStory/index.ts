@@ -250,18 +250,8 @@ const parseEvent = (event: any): WorkItemRequest => {
     teamProject: sanitizeField(fields['System.TeamProject']),
     areaPath: sanitizeField(fields['System.AreaPath']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
-    // Handle both Custom.BusinessUnit and Custom.BusinessUnit2 field names
-    businessUnit: fields['Custom.BusinessUnit']
-      ? sanitizeField(fields['Custom.BusinessUnit'])
-      : fields['Custom.BusinessUnit2']
-      ? sanitizeField(fields['Custom.BusinessUnit2'])
-      : '',
-    // Handle both Custom.System and Custom.System2 field names
-    system: fields['Custom.System']
-      ? sanitizeField(fields['Custom.System'])
-      : fields['Custom.System2']
-      ? sanitizeField(fields['Custom.System2'])
-      : '',
+    businessUnit: sanitizeField(fields['Custom.BusinessUnit']), // Custom Field
+    system: sanitizeField(fields['Custom.System']), // Custom Field
     changedBy: sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim(),
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(rawDescription),
