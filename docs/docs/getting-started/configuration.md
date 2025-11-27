@@ -36,11 +36,11 @@ Task Genie requires specific work item fields to function properly:
 | `System.Description`                       | Main story description                  | ✅       | No           |
 | `Microsoft.VSTS.Common.AcceptanceCriteria` | Acceptance criteria for task generation | ✅       | No           |
 | `System.AreaPath`                          | Project area path for organization      | ✅       | No           |
-| `Custom.BusinessUnit2`                     | Business unit classification            | ✅       | Yes          |
-| `Custom.System2`                           | System/application identifier           | ✅       | Yes          |
+| `Custom.BusinessUnit`                      | Business unit classification            | ✅       | Yes          |
+| `Custom.System`                            | System/application identifier           | ✅       | Yes          |
 
 :::info Custom Field Setup
-The `Custom.BusinessUnit2` and `Custom.System2` fields need to be created in your Azure DevOps process template. Contact your Azure DevOps administrator to add these custom fields to your User Story work item type.
+The `Custom.BusinessUnit` and `Custom.System` fields need to be created in your Azure DevOps process template. Contact your Azure DevOps administrator to add these custom fields to your User Story work item type.
 :::
 
 #### **Azure DevOps Service Principal Configuration**

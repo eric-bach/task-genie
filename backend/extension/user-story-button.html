@@ -164,12 +164,8 @@
                       'System.TeamProject',
                       'System.AreaPath',
                       'System.IterationPath',
-                      // Fetch both possible field names for Business Unit
                       'Custom.BusinessUnit',
-                      'Custom.BusinessUnit2',
-                      // Fetch both possible field names for System
                       'Custom.System',
-                      'Custom.System2',
                     ]);
 
                     // Call your REST API here
@@ -190,24 +186,6 @@
                     }, 5000);
                   }
                 });
-              }
-
-              // Function to get the correct field value, handling both possible field names
-              function getCustomFieldValue(fields, baseName) {
-                // Try the standard field name first (e.g., Custom.BusinessUnit)
-                const standardField = `Custom.${baseName}`;
-                if (fields[standardField] && fields[standardField].trim()) {
-                  return fields[standardField];
-                }
-
-                // Fall back to the numbered field name (e.g., Custom.BusinessUnit2)
-                const numberedField = `Custom.${baseName}2`;
-                if (fields[numberedField] && fields[numberedField].trim()) {
-                  return fields[numberedField];
-                }
-
-                // Return empty string if neither exists
-                return '';
               }
 
               async function callTaskGenieAPI(workItemId, fields, revision) {
@@ -240,10 +218,9 @@
                         'System.Tags': fields['System.Tags'],
                         'System.AreaPath': fields['System.AreaPath'],
                         'System.IterationPath': fields['System.IterationPath'],
-                        // Handle both Custom.BusinessUnit and Custom.BusinessUnit2 field names
-                        'Custom.BusinessUnit': getCustomFieldValue(fields, 'BusinessUnit'),
-                        // Handle both Custom.System and Custom.System2 field names
-                        'Custom.System': getCustomFieldValue(fields, 'System'),
+                        // Get custom fields
+                        'Custom.BusinessUnit': fields['Custom.BusinessUnit'],
+                        'Custom.System': fields['Custom.System'],
                       },
                     },
                   },
