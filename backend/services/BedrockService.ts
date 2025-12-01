@@ -1196,7 +1196,7 @@ Extra domain knowledge, system information, or reference material to guide more 
     }
 
     // Construct the adoKey from workItem properties including workItemType
-    const adoKey = `${workItem.workItemType.replace(' ', '')}#${workItem.areaPath}#${workItem.businessUnit || ''}#${
+    const adoKey = `${workItem.workItemType}#${workItem.areaPath}#${workItem.businessUnit || ''}#${
       workItem.system || ''
     }`;
 
