@@ -79,14 +79,18 @@
 
       <div class="mock-data">
         <strong>Mock Work Item Data:</strong><br />
-        ID: 12345<br />
-        Title: "Implement user authentication system"<br />
-        Description: "As a user, I want to be able to log in securely so that I can access my personal data."<br />
-        Type: User Story
+        ID: <span id="mockWorkItemId">12345</span><br />
+        Title: "<span id="mockTitle">Implement user authentication system</span>"<br />
+        Description: "<span id="mockDescription">As a user, I want to be able to log in securely so that I can access my personal data.</span>"<br />
+        Type: <select id="workItemTypeSelector">
+          <option value="User Story">User Story</option>
+          <option value="Feature">Feature</option>
+          <option value="Epic">Epic</option>
+        </select>
       </div>
 
       <div style="margin-top: 20px">
-        <button id="taskGenieButton" class="task-genie-button">Generate Tasks</button>
+        <button id="taskGenieButton" class="task-genie-button">Generate</button>
         <span id="statusMessage" class="status-message"></span>
       </div>
 
@@ -109,21 +113,66 @@
         getService: (serviceId) => {
           console.log('SDK.getService called with:', serviceId);
           return Promise.resolve({
-            getId: () => Promise.resolve(12345),
+            getId: () => Promise.resolve(parseInt(document.getElementById('mockWorkItemId').textContent)),
+            getRevision: () => Promise.resolve(1),
             getFieldValues: (fields) => {
               console.log('getFieldValues called with:', fields);
-              return Promise.resolve({
-                'System.Title': 'Implement user authentication system',
-                'System.Description':
-                  '<div><p>As a user, I want to be able to log in securely so that I can access my personal data.</p><br><strong>Additional details:</strong> The system should support OAuth and MFA.</div>',
-                'Microsoft.VSTS.Common.AcceptanceCriteria':
-                  '<div><ul><li>User can log in with email/password</li><li>Support for Google OAuth</li><li>MFA via SMS or authenticator app</li></ul></div>',
-                'System.WorkItemType': 'User Story',
-              });
+              const workItemType = document.getElementById('workItemTypeSelector').value;
+              const mockData = getMockDataForWorkItemType(workItemType);
+              return Promise.resolve(mockData);
             },
           });
         },
       };
+
+      // Mock data generator
+      function getMockDataForWorkItemType(workItemType) {
+        const baseData = {
+          'System.ChangedBy': 'Test User <test@example.com>',
+          'System.TeamProject': 'TestProject',
+          'System.Tags': 'test; automation',
+          'System.AreaPath': 'eric-test',
+          'System.IterationPath': 'TestProject\Sprint 1',
+          'Custom.BusinessUnit': 'Technology',
+          'Custom.System': 'Authentication',
+        };
+
+        switch (workItemType) {
+          case 'User Story':
+            return {
+              ...baseData,
+              'System.Title': 'Implement user authentication system',
+              'System.Description': '<div><p>As a user, I want to be able to log in securely so that I can access my personal data.</p><br><strong>Additional details:</strong> The system should support OAuth and MFA.</div>',
+              'System.WorkItemType': 'User Story',
+              'Microsoft.VSTS.Common.AcceptanceCriteria': '<div><ul><li>User can log in with email/password</li><li>Support for Google OAuth</li><li>MFA via SMS or authenticator app</li></ul></div>',
+              'Custom.Importance': 'High',
+            };
+          case 'Feature':
+            return {
+              ...baseData,
+              'System.Title': 'User Authentication and Authorization',
+              'System.Description': '<div><p>Implement comprehensive user authentication and authorization system to secure the application and manage user access.</p></div>',
+              'System.WorkItemType': 'Feature',
+              'Custom.SuccessCriteria': '<div><ul><li>Users can securely authenticate</li><li>Role-based access control implemented</li><li>Security audit trail maintained</li></ul></div>',
+              'Custom.BusinessDeliverable': 'Secure user access management system',
+            };
+          case 'Epic':
+            return {
+              ...baseData,
+              'System.Title': 'Digital Identity Platform',
+              'System.Description': '<div><p>Build a comprehensive digital identity platform that provides secure authentication, authorization, and user management capabilities across all applications.</p></div>',
+              'System.WorkItemType': 'Epic',
+              'Custom.SuccessCriteria': '<div><ul><li>Single sign-on across all applications</li><li>Scalable identity management</li><li>Compliance with security standards</li></ul></div>',
+              'Custom.Objective': 'Establish enterprise-wide identity management',
+              'Custom.AddressedRisks': 'Security vulnerabilities, data breaches, compliance issues',
+              'Custom.PursueRisk': 'Technical complexity of integration',
+              'Custom.MostRecentUpdate': 'Architecture review completed',
+              'Custom.OutstandingActionItems': 'Finalize vendor selection',
+            };
+          default:
+            return baseData;
+        }
+      }
 
       // Enhanced logging
       const originalLog = console.log;
@@ -141,14 +190,51 @@
       // Your extension code here (copy from user-story-button.html)
       console.log('Test environment initialized');
 
-      function setupButton() {
+      async function setupButton() {
         const button = document.getElementById('taskGenieButton');
         const statusMessage = document.getElementById('statusMessage');
+        const workItemTypeSelector = document.getElementById('workItemTypeSelector');
+
+        // Function to update button text based on work item type
+        function updateButtonText() {
+          const workItemType = workItemTypeSelector.value;
+          let buttonText = 'Generate';
+          switch (workItemType) {
+            case 'User Story':
+              buttonText = 'Generate Tasks';
+              break;
+            case 'Feature':
+              buttonText = 'Generate User Stories';
+              break;
+            case 'Epic':
+              buttonText = 'Generate Features';
+              break;
+            default:
+              buttonText = 'Generate';
+              break;
+          }
+          button.textContent = buttonText;
+          
+          // Update mock display
+          const mockData = getMockDataForWorkItemType(workItemType);
+          document.getElementById('mockTitle').textContent = mockData['System.Title'];
+          document.getElementById('mockDescription').innerHTML = mockData['System.Description'].replace(/<[^>]*>/g, '');
+          
+          console.log('Updated button text and mock data for work item type:', workItemType);
+        }
+
+        // Set initial button text
+        updateButtonText();
+
+        // Update button text when work item type changes
+        workItemTypeSelector.addEventListener('change', updateButtonText);
 
         button.addEventListener('click', async function () {
-          console.log('Generate Tasks button clicked');
+          const workItemType = workItemTypeSelector.value;
+          console.log(`Generate ${getExpectedChildType(workItemType)} button clicked`);
+          
           button.disabled = true;
-          statusMessage.textContent = 'Generating tasks...';
+          statusMessage.textContent = 'Submitting request...';
           statusMessage.className = 'status-message';
 
           try {
@@ -157,58 +243,165 @@
             console.log('Work item form service obtained');
 
             const workItemId = await workItemFormService.getId();
-            console.log('Current work item ID:', workItemId);
+            const revision = await workItemFormService.getRevision();
+            console.log('Current work item ID:', workItemId, 'Revision:', revision);
 
             const fields = await workItemFormService.getFieldValues([
+              // Base fields for all work item types
               'System.Title',
               'System.Description',
               'System.WorkItemType',
+              'System.ChangedBy',
+              'System.Tags',
+              'System.TeamProject',
+              'System.AreaPath',
+              'System.IterationPath',
+              // User Story specific fields
+              'Microsoft.VSTS.Common.AcceptanceCriteria',
+              'Custom.Importance',
+              // Epic specific fields
+              'Custom.SuccessCriteria',
+              'Custom.Objective',
+              'Custom.AddressedRisks',
+              'Custom.PursueRisk',
+              'Custom.MostRecentUpdate',
+              'Custom.OutstandingActionItems',
+              // Feature specific fields
+              'Custom.BusinessDeliverable',
+              // Common custom fields
+              'Custom.BusinessUnit',
+              'Custom.System',
             ]);
             console.log('Work item fields:', fields);
 
-            await callTaskGenieAPI(workItemId, fields);
+            await callTaskGenieAPI(workItemId, fields, revision);
 
-            statusMessage.textContent = 'Tasks generated successfully!';
+            statusMessage.textContent = 'Task Genie is processing...';
             statusMessage.className = 'status-message success-message';
           } catch (error) {
-            console.error('Error generating tasks:', error);
-            statusMessage.textContent = 'Error generating tasks. Please try again.';
+            console.error('An error occurred:', error);
+            statusMessage.textContent = 'An error occurred. Please try again.';
             statusMessage.className = 'status-message error-message';
           } finally {
             button.disabled = false;
             setTimeout(() => {
               statusMessage.textContent = '';
-            }, 3000);
+            }, 5000);
           }
         });
       }
 
-      async function callTaskGenieAPI(workItemId, fields) {
-        console.log('Calling Task Genie API with data:', {
+      function getExpectedChildType(workItemType) {
+        switch (workItemType) {
+          case 'Epic': return 'Features';
+          case 'Feature': return 'User Stories';
+          case 'User Story': return 'Tasks';
+          default: return 'Items';
+        }
+      }
+
+      async function callTaskGenieAPI(workItemId, fields, revision) {
+        // Mock configuration values
+        const apiUrl = 'https://api.example.com/task-genie';
+        const apiKey = 'mock-api-key-1234';
+
+        console.log('Calling Task Genie API:', {
           workItemId: workItemId,
-          title: fields['System.Title'],
-          description: fields['System.Description'],
-          workItemType: fields['System.WorkItemType'],
+          revision: revision,
+          fields,
+          apiUrl,
+          apiKey: apiKey.substring(0, 4) + '***' + apiKey.substring(apiKey.length - 4),
         });
+
+        const requestBody = {
+          resource: {
+            workItemId: workItemId,
+            rev: revision,
+            revision: {
+              fields: {
+                // Base fields
+                'System.ChangedBy': fields['System.ChangedBy'],
+                'System.WorkItemType': fields['System.WorkItemType'],
+                'System.Title': fields['System.Title'],
+                'System.Description': fields['System.Description'],
+                'System.TeamProject': fields['System.TeamProject'],
+                'System.Tags': fields['System.Tags'],
+                'System.AreaPath': fields['System.AreaPath'],
+                'System.IterationPath': fields['System.IterationPath'],
+                // User Story specific fields
+                'Microsoft.VSTS.Common.AcceptanceCriteria': fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
+                'Custom.Importance': fields['Custom.Importance'],
+                // Epic specific fields
+                'Custom.SuccessCriteria': fields['Custom.SuccessCriteria'],
+                'Custom.Objective': fields['Custom.Objective'],
+                'Custom.AddressedRisks': fields['Custom.AddressedRisks'],
+                'Custom.PursueRisk': fields['Custom.PursueRisk'],
+                'Custom.MostRecentUpdate': fields['Custom.MostRecentUpdate'],
+                'Custom.OutstandingActionItems': fields['Custom.OutstandingActionItems'],
+                // Feature specific fields
+                'Custom.BusinessDeliverable': fields['Custom.BusinessDeliverable'],
+                // Common custom fields
+                'Custom.BusinessUnit': fields['Custom.BusinessUnit'],
+                'Custom.System': fields['Custom.System'],
+              },
+            },
+          },
+        };
+
+        console.log('Request body:', JSON.stringify(requestBody, null, 2));
 
         // Simulate API delay
         await new Promise((resolve) => setTimeout(resolve, 1500));
 
-        // Mock successful response
-        const mockResult = {
-          success: true,
-          tasks: [
-            { title: 'Task 1: Setup authentication database schema' },
-            { title: 'Task 2: Implement login API endpoint' },
-            { title: 'Task 3: Create password hashing utility' },
-            { title: 'Task 4: Build login UI component' },
-            { title: 'Task 5: Add session management' },
-            { title: 'Task 6: Write authentication tests' },
-          ],
-        };
+        // Generate mock response based on work item type
+        const workItemType = fields['System.WorkItemType'];
+        const mockResult = generateMockResponse(workItemType);
 
         console.log('Mock API response:', mockResult);
         return mockResult;
+      }
+
+      function generateMockResponse(workItemType) {
+        switch (workItemType) {
+          case 'User Story':
+            return {
+              success: true,
+              tasks: [
+                { title: '1. Setup authentication database schema' },
+                { title: '2. Implement login API endpoint' },
+                { title: '3. Create password hashing utility' },
+                { title: '4. Build login UI component' },
+                { title: '5. Add session management' },
+                { title: '6. Implement OAuth integration' },
+              ],
+            };
+          case 'Feature':
+            return {
+              success: true,
+              userStories: [
+                { title: '1. User Login Story' },
+                { title: '2. Password Reset Story' },
+                { title: '3. Multi-Factor Authentication Story' },
+                { title: '4. OAuth Integration Story' },
+                { title: '5. Session Management Story' },
+              ],
+            };
+          case 'Epic':
+            return {
+              success: true,
+              features: [
+                { title: '1. Core Authentication Feature' },
+                { title: '2. Advanced Security Feature' },
+                { title: '3. Identity Provider Integration Feature' },
+                { title: '4. User Management Feature' },
+              ],
+            };
+          default:
+            return {
+              success: true,
+              items: [{ title: '1. Generated Item' }],
+            };
+        }
       }
 
       // Initialize

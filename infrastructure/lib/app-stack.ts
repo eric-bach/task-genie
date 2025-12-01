@@ -41,11 +41,11 @@ dotenv.config();
 
 export class AppStack extends Stack {
   public stateMachineArn: string;
-  public evaluateUserStoryFunctionArn: string;
-  public defineTasksFunctionArn: string;
-  public createTasksFunctionArn: string;
+  public evaluateWorkItemFunctionArn: string;
+  public generateWorkItemsFunctionArn: string;
+  public createWorkItemsFunctionArn: string;
   public addCommentFunctionArn: string;
-  public sendResponseFunctionArn: string;
+  public finalizeResponseFunctionArn: string;
   public handleErrorFunctionArn: string;
   public trackTaskFeedbackFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
@@ -87,9 +87,9 @@ export class AppStack extends Stack {
      * AWS Lambda
      */
 
-    const evaluateUserStoryFunction = new TaskGenieLambda(this, 'EvaluateUserStory', {
-      functionName: `${props.appName}-evaluate-user-story-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/workflow/evaluateUserStory/index.ts'),
+    const evaluateWorkItemFunction = new TaskGenieLambda(this, 'EvaluateWorkItem', {
+      functionName: `${props.appName}-evaluate-work-item-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/evaluateWorkItem/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(120),
       // vpc: removed to use default VPC with internet access
@@ -114,11 +114,11 @@ export class AppStack extends Stack {
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
-    azureDevOpsCredentialsSecret.grantRead(evaluateUserStoryFunction);
+    azureDevOpsCredentialsSecret.grantRead(evaluateWorkItemFunction);
 
-    const defineTasksFunction = new TaskGenieLambda(this, 'DefineTasks', {
-      functionName: `${props.appName}-define-tasks-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/workflow/defineTasks/index.ts'),
+    const generateWorkItemsFunction = new TaskGenieLambda(this, 'GenerateWorkItems', {
+      functionName: `${props.appName}-generate-work-items-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/generateWorkItems/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(300),
       // vpc: removed to use default VPC with internet access
@@ -153,11 +153,11 @@ export class AppStack extends Stack {
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
-    azureDevOpsCredentialsSecret.grantRead(defineTasksFunction);
+    azureDevOpsCredentialsSecret.grantRead(generateWorkItemsFunction);
 
-    const createTasksFunction = new TaskGenieLambda(this, 'CreateTasks', {
-      functionName: `${props.appName}-create-tasks-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/workflow/createTasks/index.ts'),
+    const createWorkItemsFunction = new TaskGenieLambda(this, 'CreateWorkItems', {
+      functionName: `${props.appName}-create-work-items-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/createWorkItems/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(30),
       // vpc: removed to use default VPC with internet access
@@ -174,7 +174,7 @@ export class AppStack extends Stack {
       ],
       // interfaceEndpoints: removed since not using private VPC
     });
-    azureDevOpsCredentialsSecret.grantRead(createTasksFunction);
+    azureDevOpsCredentialsSecret.grantRead(createWorkItemsFunction);
 
     const addCommentFunction = new TaskGenieLambda(this, 'AddComment', {
       functionName: `${props.appName}-add-comment-${props.envName}`,
@@ -191,9 +191,9 @@ export class AppStack extends Stack {
     });
     azureDevOpsCredentialsSecret.grantRead(addCommentFunction);
 
-    const sendResponseFunction = new TaskGenieLambda(this, 'SendResponse', {
-      functionName: `${props.appName}-send-response-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/workflow/sendResponse/index.ts'),
+    const finalizeResponseFunction = new TaskGenieLambda(this, 'FinalizeResponse', {
+      functionName: `${props.appName}-finalize-response-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/finalizeResponse/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(3),
       environment: {
@@ -202,7 +202,7 @@ export class AppStack extends Stack {
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
     });
-    resultsTable.grantWriteData(sendResponseFunction);
+    resultsTable.grantWriteData(finalizeResponseFunction);
 
     // Error Handling Lambda
     const handleErrorFunction = new TaskGenieLambda(this, 'HandleError', {
@@ -419,18 +419,18 @@ export class AppStack extends Stack {
      */
 
     // Tasks
-    const evaluateUserStoryTask = new LambdaInvoke(this, 'EvaluateUserStoryTask', {
-      lambdaFunction: evaluateUserStoryFunction,
+    const evaluateWorkItemTask = new LambdaInvoke(this, 'EvaluateWorkItemTask', {
+      lambdaFunction: evaluateWorkItemFunction,
       outputPath: '$.Payload',
     });
 
-    const defineTasksTask = new LambdaInvoke(this, 'DefineTasksTask', {
-      lambdaFunction: defineTasksFunction,
+    const generateWorkItemsTask = new LambdaInvoke(this, 'GenerateWorkItemsTask', {
+      lambdaFunction: generateWorkItemsFunction,
       outputPath: '$.Payload',
     });
 
-    const createTasksTask = new LambdaInvoke(this, 'CreateTasksTask', {
-      lambdaFunction: createTasksFunction,
+    const createWorkItemsTask = new LambdaInvoke(this, 'CreateWorkItemsTask', {
+      lambdaFunction: createWorkItemsFunction,
       outputPath: '$.Payload',
     });
 
@@ -439,8 +439,8 @@ export class AppStack extends Stack {
       outputPath: '$.Payload',
     });
 
-    const sendResponseTask = new LambdaInvoke(this, 'SendResponseTask', {
-      lambdaFunction: sendResponseFunction,
+    const finalizeResponseTask = new LambdaInvoke(this, 'FinalizeResponseTask', {
+      lambdaFunction: finalizeResponseFunction,
       payload: TaskInput.fromObject({
         'body.$': '$.body',
         'statusCode.$': '$.statusCode',
@@ -450,7 +450,7 @@ export class AppStack extends Stack {
     });
 
     // Create separate error handling tasks for each catch block
-    const evaluateUserStoryErrorTask = new LambdaInvoke(this, 'EvaluateUserStoryErrorTask', {
+    const evaluateWorkItemErrorTask = new LambdaInvoke(this, 'EvaluateWorkItemErrorTask', {
       lambdaFunction: handleErrorFunction,
       payload: TaskInput.fromObject({
         'resource.$': '$.resource',
@@ -459,9 +459,9 @@ export class AppStack extends Stack {
         'errorStep.$': '$.errorStep',
       }),
       outputPath: '$.Payload',
-    }).next(sendResponseTask);
+    }).next(finalizeResponseTask);
 
-    const defineTasksErrorTask = new LambdaInvoke(this, 'DefineTasksErrorTask', {
+    const generateWorkItemsErrorTask = new LambdaInvoke(this, 'GenerateWorkItemsErrorTask', {
       lambdaFunction: handleErrorFunction,
       payload: TaskInput.fromObject({
         'body.$': '$.body',
@@ -470,9 +470,9 @@ export class AppStack extends Stack {
         'errorStep.$': '$.errorStep',
       }),
       outputPath: '$.Payload',
-    }).next(sendResponseTask);
+    }).next(finalizeResponseTask);
 
-    const createTasksErrorTask = new LambdaInvoke(this, 'CreateTasksErrorTask', {
+    const createWorkItemsErrorTask = new LambdaInvoke(this, 'CreateWorkItemsErrorTask', {
       lambdaFunction: handleErrorFunction,
       payload: TaskInput.fromObject({
         'body.$': '$.body',
@@ -481,7 +481,7 @@ export class AppStack extends Stack {
         'errorStep.$': '$.errorStep',
       }),
       outputPath: '$.Payload',
-    }).next(sendResponseTask);
+    }).next(finalizeResponseTask);
 
     const addCommentErrorTask = new LambdaInvoke(this, 'AddCommentErrorTask', {
       lambdaFunction: handleErrorFunction,
@@ -492,48 +492,48 @@ export class AppStack extends Stack {
         'errorStep.$': '$.errorStep',
       }),
       outputPath: '$.Payload',
-    }).next(sendResponseTask);
+    }).next(finalizeResponseTask);
 
     // Add error handling to tasks with catch blocks
-    const evaluateUserStoryTaskWithCatch = evaluateUserStoryTask.addCatch(
-      new Pass(this, 'SetEvaluateUserStoryError', {
+    const evaluateWorkItemTaskWithCatch = evaluateWorkItemTask.addCatch(
+      new Pass(this, 'SetEvaluateWorkItemError', {
         parameters: {
-          errorStep: 'Evaluate User Story',
+          errorStep: 'Evaluate Work Item',
           'resource.$': '$.resource',
           'Error.$': '$.error.Error',
           'Cause.$': '$.error.Cause',
         },
-      }).next(evaluateUserStoryErrorTask),
+      }).next(evaluateWorkItemErrorTask),
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
       }
     );
 
-    const defineTasksTaskWithCatch = defineTasksTask.addCatch(
-      new Pass(this, 'SetDefineTasksError', {
+    const generateWorkItemsTaskWithCatch = generateWorkItemsTask.addCatch(
+      new Pass(this, 'SetGenerateWorkItemsError', {
         parameters: {
-          errorStep: 'Define Tasks',
+          errorStep: 'Generate Work Items',
           'body.$': '$.body',
           'Error.$': '$.error.Error',
           'Cause.$': '$.error.Cause',
         },
-      }).next(defineTasksErrorTask),
+      }).next(generateWorkItemsErrorTask),
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
       }
     );
 
-    const createTasksTaskWithCatch = createTasksTask.addCatch(
-      new Pass(this, 'SetCreateTasksError', {
+    const createWorkItemsTaskWithCatch = createWorkItemsTask.addCatch(
+      new Pass(this, 'SetCreateWorkItemsError', {
         parameters: {
-          errorStep: 'Create Tasks',
+          errorStep: 'Create Work Items',
           'body.$': '$.body',
           'Error.$': '$.error.Error',
           'Cause.$': '$.error.Cause',
         },
-      }).next(createTasksErrorTask),
+      }).next(createWorkItemsErrorTask),
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
@@ -556,30 +556,30 @@ export class AppStack extends Stack {
     );
 
     // State Machine Definition with error handling
-    const definition = evaluateUserStoryTaskWithCatch.next(
-      new Choice(this, 'User story is defined?')
+    const definition = evaluateWorkItemTaskWithCatch.next(
+      new Choice(this, 'Work item is defined?')
         .when(
           Condition.or(Condition.numberEquals('$.statusCode', 400), Condition.numberEquals('$.statusCode', 500)),
-          sendResponseTask
+          finalizeResponseTask
         )
         .when(
           Condition.or(Condition.numberEquals('$.statusCode', 204), Condition.numberEquals('$.statusCode', 412)),
           new Choice(this, 'Add comment?')
             .when(
               Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-              addCommentTaskWithCatch.next(sendResponseTask)
+              addCommentTaskWithCatch.next(finalizeResponseTask)
             )
-            .otherwise(sendResponseTask)
+            .otherwise(finalizeResponseTask)
         )
         .otherwise(
-          defineTasksTaskWithCatch.next(
+          generateWorkItemsTaskWithCatch.next(
             new Choice(this, 'Create task?')
-              .when(Condition.numberEquals('$.statusCode', 500), sendResponseTask)
+              .when(Condition.numberEquals('$.statusCode', 500), finalizeResponseTask)
               .when(
                 Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-                createTasksTaskWithCatch.next(addCommentTaskWithCatch)
+                createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch)
               )
-              .otherwise(sendResponseTask)
+              .otherwise(finalizeResponseTask)
           )
         )
     );
@@ -912,11 +912,11 @@ export class AppStack extends Stack {
      */
 
     this.stateMachineArn = stateMachine.stateMachineArn;
-    this.evaluateUserStoryFunctionArn = evaluateUserStoryFunction.functionArn;
-    this.defineTasksFunctionArn = defineTasksFunction.functionArn;
-    this.createTasksFunctionArn = createTasksFunction.functionArn;
+    this.evaluateWorkItemFunctionArn = evaluateWorkItemFunction.functionArn;
+    this.generateWorkItemsFunctionArn = generateWorkItemsFunction.functionArn;
+    this.createWorkItemsFunctionArn = createWorkItemsFunction.functionArn;
     this.addCommentFunctionArn = addCommentFunction.functionArn;
-    this.sendResponseFunctionArn = sendResponseFunction.functionArn;
+    this.finalizeResponseFunctionArn = finalizeResponseFunction.functionArn;
     this.handleErrorFunctionArn = handleErrorFunction.functionArn;
     this.trackTaskFeedbackFunctionArn = trackTaskFeedbackFunction.functionArn;
     this.apiGwAccessLogGroupArn = apiGwAccessLogGroup.logGroupArn;

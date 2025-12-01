@@ -1,0 +1,33 @@
+##### Epic
+    - System.Title
+    - System.Description
+    - Custom.SuccessCriteria
+    - Custom.Objective
+    - Custom.AddressedRisks
+    - Custom.PursueRisk
+    - Custom.MostRecentUpdate
+    - Custom.OutstandingActionItems
+    - Custom.BusinessUnit
+    - Custom.System
+
+##### Feature
+    - System.Title
+    - System.Description
+    - Custom.SuccessCriteria
+    - Custom.BusinessDeliverable
+    - Custom.BusinessUnit
+    - Custom.System
+
+##### User Story 
+    - System.Title
+    - System.Description
+    - Microsoft.VSTS.Common.AcceptanceCriteria
+    - Custom.Importance
+    - Custom.BusinessUnit
+    - Custom.System
+
+##### Task
+    - System.Title
+    - System.Description
+    - Custom.BusinessUnit
+    - Custom.System

@@ -2,20 +2,31 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItemRequest, WorkItemImage } from '../../../types/azureDevOps';
+import {
+  WorkItemRequest,
+  WorkItemImage,
+  WorkItem,
+  UserStory,
+  Epic,
+  Feature,
+  isUserStory,
+  isEpic,
+  isFeature,
+} from '../../../types/azureDevOps';
 import { CloudWatchService } from '../../../services/CloudWatchService';
 import { InvalidWorkItemError } from '../../../types/errors';
 import { BedrockService, BedrockServiceConfig } from '../../../services/BedrockService';
 
 /**
- * Lambda function to evaluate Azure DevOps work items using AWS Bedrock
+ * Lambda function to evaluate Azure DevOps work items (User Story, Epic, Feature) using AWS Bedrock
  *
  * Features:
- * - Extracts and parses work item fields including title, description, and acceptance criteria
- * - Extracts images from HTML content in description and acceptance criteria
+ * - Supports User Story, Epic, and Feature work item types
+ * - Extracts type-specific fields (acceptance criteria, success criteria, objectives, etc.)
+ * - Extracts images from HTML content in description and type-specific criteria fields
  * - Sends images as context to Bedrock's multi-modal Claude models for evaluation
  * - Retrieves relevant context from knowledge base
- * - Evaluates work item quality based on INVEST principles
+ * - Evaluates work item quality based on type-specific criteria
  *
  * Environment Variables:
  * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for evaluation
@@ -36,7 +47,7 @@ if (AWS_BEDROCK_KNOWLEDGE_BASE_ID === undefined) {
   throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
 }
 
-export const logger = new Logger({ serviceName: 'evaluateUserStory' });
+export const logger = new Logger({ serviceName: 'evaluateWorkItem' });
 
 // Cache for dependencies
 let bedrockService: BedrockService | null = null;
@@ -52,7 +63,7 @@ const lambdaHandler = async (event: any, context: Context) => {
     // Check if work item has been updated already
     if (workItem.tags.includes('Task Genie')) {
       logger.info(
-        `⏩ Work item ${workItem.workItemId} has already been evaluated by Task Genie. Skipping re-evaluation.`
+        `⏩ ${workItem.workItemType} ${workItem.workItemId} has already been evaluated by Task Genie. Skipping re-evaluation.`
       );
 
       return {
@@ -62,8 +73,7 @@ const lambdaHandler = async (event: any, context: Context) => {
           workItem,
           workItemStatus: {
             pass: false,
-            comment:
-              '<br />⚠️ Work Item has already been previously evaluated by Task Genie. Please remove the `Task Genie` tag to re-evaluate this work item.',
+            comment: `<br />⚠️ ${workItem.workItemType} has already been previously evaluated by Task Genie. Please remove the \`Task Genie\` tag to re-evaluate this ${workItem.workItemType}.`,
           },
         },
       };
@@ -76,17 +86,19 @@ const lambdaHandler = async (event: any, context: Context) => {
     const bedrockResponse = await bedrock.evaluateWorkItem(workItem);
 
     if (bedrockResponse.pass !== true) {
-      logger.error(`🛑 Work item ${workItem.workItemId} does not meet requirements`, {
+      logger.error(`🛑 ${workItem.workItemType} ${workItem.workItemId} does not meet requirements`, {
         reason: bedrockResponse.comment,
       });
 
       // Create CloudWatch metric
       const cloudWatchClient = new CloudWatchService();
-      await cloudWatchClient.createIncompleteUserStoriesMetric();
+      await cloudWatchClient.createIncompleteWorkItemMetric(workItem.workItemType);
 
       statusCode = 412;
     } else {
-      logger.info(`✅ Work item ${workItem.workItemId} meets requirements`, { work_item_id: workItem.workItemId });
+      logger.info(`✅ ${workItem.workItemType} ${workItem.workItemId} meets requirements`, {
+        work_item_id: workItem.workItemId,
+      });
     }
 
     return {
@@ -141,14 +153,14 @@ const getBedrockService = (): BedrockService => {
 };
 
 const validateWorkItem = (resource: any) => {
-  const requiredFields = [
+  const commonRequiredFields = [
     'System.TeamProject',
     'System.AreaPath',
     'System.IterationPath',
     'System.ChangedBy',
     'System.Title',
     'System.Description',
-    'Microsoft.VSTS.Common.AcceptanceCriteria',
+    'System.WorkItemType',
   ];
 
   if (!resource) {
@@ -163,10 +175,36 @@ const validateWorkItem = (resource: any) => {
     throw new InvalidWorkItemError('Bad request', 'Work item fields are undefined or missing.', 400);
   }
 
-  for (const field of requiredFields) {
+  // Validate common required fields
+  for (const field of commonRequiredFields) {
     if (!fields[field]) {
       logger.error('Work item is missing a required field', { field: field });
       throw new InvalidWorkItemError('Bad request', `Work item is missing required field: ${field}.`, 400);
+    }
+  }
+
+  // Validate work item type is supported
+  const workItemType = fields['System.WorkItemType'];
+  const supportedTypes = ['User Story', 'Epic', 'Feature'];
+  if (!supportedTypes.includes(workItemType)) {
+    throw new InvalidWorkItemError(
+      'Unsupported work item type',
+      `Work item type '${workItemType}' is not supported. Supported types: ${supportedTypes.join(', ')}.`,
+      400
+    );
+  }
+
+  // Type-specific validation
+  if (workItemType === 'User Story') {
+    // User Story should have acceptance criteria (but make it optional to be lenient)
+    if (!fields['Microsoft.VSTS.Common.AcceptanceCriteria']) {
+      logger.warn('User Story is missing acceptance criteria', { workItemId: resource.workItemId || resource.id });
+    }
+  }
+  if (workItemType === 'Epic' || workItemType === 'Feature') {
+    // Epic and Feature should have success criteria (but make it optional to be lenient)
+    if (!fields['Custom.SuccessCriteria']) {
+      logger.warn(`${workItemType} is missing success criteria`, { workItemId: resource.workItemId || resource.id });
     }
   }
 };
@@ -227,26 +265,41 @@ const parseEvent = (event: any): WorkItemRequest => {
   const { params, resource } = event;
   const workItemId = resource.workItemId || resource.id;
   const fields = resource.revision?.fields || resource.fields;
+  const workItemType = fields['System.WorkItemType'] as 'User Story' | 'Epic' | 'Feature';
 
   const tagsString = sanitizeField(fields['System.Tags'] ?? '');
   const tags = tagsString ? tagsString.split(';').map((tag: string) => tag.trim()) : [];
 
-  // Extract raw HTML content before sanitization
+  // Extract raw HTML content before sanitization for type-specific fields
   const rawDescription = fields['System.Description'] || '';
-  const rawAcceptanceCriteria = fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '';
 
-  // Extract image URLs from both description and acceptance criteria
+  // Get type-specific criteria field content
+  let rawCriteriaContent = '';
+  const allImages: WorkItemImage[] = [];
+
+  if (workItemType === 'User Story') {
+    rawCriteriaContent = fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '';
+  } else if (workItemType === 'Epic' || workItemType === 'Feature') {
+    rawCriteriaContent = fields['Custom.SuccessCriteria'] || '';
+  }
+
+  // Extract image URLs from description and criteria content
   const descriptionImages = extractImageUrls(rawDescription, 'Description');
-  const acceptanceCriteriaImages = extractImageUrls(rawAcceptanceCriteria, 'AcceptanceCriteria');
-  const allImages = [...descriptionImages, ...acceptanceCriteriaImages];
+  const criteriaImages = extractImageUrls(
+    rawCriteriaContent,
+    workItemType === 'User Story' ? 'AcceptanceCriteria' : 'SuccessCriteria'
+  );
+  allImages.push(...descriptionImages, ...criteriaImages);
 
   // Remove duplicates based on URL
   const uniqueImages = allImages.filter(
     (image, index, self) => index === self.findIndex((img) => img.url === image.url)
   );
 
-  const workItem = {
+  // Create base work item with common fields
+  const baseWorkItem = {
     workItemId: workItemId ?? 0,
+    workItemType,
     teamProject: sanitizeField(fields['System.TeamProject']),
     areaPath: sanitizeField(fields['System.AreaPath']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
@@ -255,12 +308,49 @@ const parseEvent = (event: any): WorkItemRequest => {
     changedBy: sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim(),
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(rawDescription),
-    acceptanceCriteria: sanitizeField(rawAcceptanceCriteria),
     tags,
     images: uniqueImages.length > 0 ? uniqueImages : undefined,
   };
 
-  logger.info(`▶️ Starting evaluation of work item ${workItem.workItemId}`, {
+  // Create type-specific work item
+  let workItem: WorkItem;
+  if (workItemType === 'User Story') {
+    workItem = {
+      ...baseWorkItem,
+      workItemType: 'User Story',
+      acceptanceCriteria: sanitizeField(rawCriteriaContent),
+      importance: fields['Custom.Importance'] ? sanitizeField(fields['Custom.Importance']) : undefined,
+    } as UserStory;
+  } else if (workItemType === 'Epic') {
+    workItem = {
+      ...baseWorkItem,
+      workItemType: 'Epic',
+      successCriteria: sanitizeField(rawCriteriaContent),
+      objective: fields['Custom.Objective'] ? sanitizeField(fields['Custom.Objective']) : undefined,
+      addressedRisks: fields['Custom.AddressedRisks'] ? sanitizeField(fields['Custom.AddressedRisks']) : undefined,
+      pursueRisk: fields['Custom.PursueRisk'] ? sanitizeField(fields['Custom.PursueRisk']) : undefined,
+      mostRecentUpdate: fields['Custom.MostRecentUpdate']
+        ? sanitizeField(fields['Custom.MostRecentUpdate'])
+        : undefined,
+      outstandingActionItems: fields['Custom.OutstandingActionItems']
+        ? sanitizeField(fields['Custom.OutstandingActionItems'])
+        : undefined,
+    } as Epic;
+  } else if (workItemType === 'Feature') {
+    workItem = {
+      ...baseWorkItem,
+      workItemType: 'Feature',
+      successCriteria: sanitizeField(rawCriteriaContent),
+      businessDeliverable: fields['Custom.BusinessDeliverable']
+        ? sanitizeField(fields['Custom.BusinessDeliverable'])
+        : undefined,
+    } as Feature;
+  } else {
+    throw new Error(`Unsupported work item type: ${workItemType}`);
+  }
+
+  logger.info(`▶️ Starting evaluation of ${workItem.workItemType} ${workItem.workItemId}`, {
+    workItemType: workItem.workItemType,
     title: workItem.title,
     areaPath: workItem.areaPath,
     businessUnit: workItem.businessUnit,

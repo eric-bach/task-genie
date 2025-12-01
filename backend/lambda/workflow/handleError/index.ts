@@ -114,6 +114,7 @@ const parseErrorEvent = (
     const fields = event.resource.revision?.fields;
     workItem = {
       workItemId: event.resource.workItemId,
+      workItemType: 'User Story',
       teamProject: fields?.['System.TeamProject'] || 'Unknown',
       areaPath: fields?.['System.AreaPath'] || '',
       iterationPath: fields?.['System.IterationPath'] || '',

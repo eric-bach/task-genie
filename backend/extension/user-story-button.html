@@ -49,7 +49,7 @@
   </head>
   <body>
     <div>
-      <button id="taskGenieButton" class="task-genie-button">Generate Tasks</button>
+      <button id="taskGenieButton" class="task-genie-button">Generate</button>
       <div id="statusMessage" class="status-message"></div>
     </div>
 
@@ -112,12 +112,34 @@
                 const button = document.getElementById('taskGenieButton');
                 const statusMessage = document.getElementById('statusMessage');
 
-                // TEMP (PILOT ONLY) - Check if current work item is in the allowed area path
+                // Get work item type to set appropriate button text
                 try {
                   const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
-                  const fields = await workItemFormService.getFieldValues(['System.AreaPath']);
+                  const fields = await workItemFormService.getFieldValues(['System.WorkItemType', 'System.AreaPath']);
+                  const workItemType = fields['System.WorkItemType'];
                   const areaPath = fields['System.AreaPath'];
 
+                  // Set button text based on work item type
+                  let buttonText = 'Generate';
+                  switch (workItemType) {
+                    case 'User Story':
+                      buttonText = 'Generate Tasks';
+                      break;
+                    case 'Feature':
+                      buttonText = 'Generate User Stories';
+                      break;
+                    case 'Epic':
+                      buttonText = 'Generate Features';
+                      break;
+                    default:
+                      buttonText = 'Generate';
+                      break;
+                  }
+                  
+                  button.textContent = buttonText;
+                  console.log('Set button text based on work item type:', workItemType, '->', buttonText);
+
+                  // TEMP (PILOT ONLY) - Check if current work item is in the allowed area path
                   console.log('Current area path:', areaPath);
 
                   // Check if the area path matches any of the allowed pilot teams
@@ -135,7 +157,7 @@
                     return;
                   }
                 } catch (error) {
-                  console.error('Error checking area path:', error);
+                  console.error('Error checking work item type or area path:', error);
                   button.disabled = true;
                   statusMessage.textContent = 'Currently only enabled for pilot teams';
                   statusMessage.className = 'status-message';
@@ -155,15 +177,28 @@
                     const workItemId = await workItemFormService.getId();
                     const revision = await workItemFormService.getRevision();
                     const fields = await workItemFormService.getFieldValues([
+                      // Base fields for all work item types
                       'System.Title',
                       'System.Description',
                       'System.WorkItemType',
                       'System.ChangedBy',
-                      'Microsoft.VSTS.Common.AcceptanceCriteria',
                       'System.Tags',
                       'System.TeamProject',
                       'System.AreaPath',
                       'System.IterationPath',
+                      // User Story specific fields
+                      'Microsoft.VSTS.Common.AcceptanceCriteria',
+                      'Custom.Importance',
+                      // Epic specific fields
+                      'Custom.SuccessCriteria',
+                      'Custom.Objective',
+                      'Custom.AddressedRisks',
+                      'Custom.PursueRisk',
+                      'Custom.MostRecentUpdate',
+                      'Custom.OutstandingActionItems',
+                      // Feature specific fields
+                      'Custom.BusinessDeliverable',
+                      // Common custom fields
                       'Custom.BusinessUnit',
                       'Custom.System',
                     ]);
@@ -174,8 +209,8 @@
                     statusMessage.textContent = 'Task Genie is processing...';
                     statusMessage.className = 'status-message success-message';
                   } catch (error) {
-                    console.error('Error generating tasks:', error);
-                    statusMessage.textContent = 'Error generating tasks. Please try again.';
+                    console.error('An error occurred:', error);
+                    statusMessage.textContent = 'An error occurred. Please try again.';
                     statusMessage.className = 'status-message error-message';
                   } finally {
                     button.disabled = false;
@@ -210,15 +245,28 @@
                     rev: revision,
                     revision: {
                       fields: {
+                        // Base fields
                         'System.ChangedBy': fields['System.ChangedBy'],
+                        'System.WorkItemType': fields['System.WorkItemType'],
                         'System.Title': fields['System.Title'],
                         'System.Description': fields['System.Description'],
-                        'Microsoft.VSTS.Common.AcceptanceCriteria': fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
                         'System.TeamProject': fields['System.TeamProject'],
                         'System.Tags': fields['System.Tags'],
                         'System.AreaPath': fields['System.AreaPath'],
                         'System.IterationPath': fields['System.IterationPath'],
-                        // Get custom fields
+                        // User Story specific fields
+                        'Microsoft.VSTS.Common.AcceptanceCriteria': fields['Microsoft.VSTS.Common.AcceptanceCriteria'],
+                        'Custom.Importance': fields['Custom.Importance'],
+                        // Epic specific fields
+                        'Custom.SuccessCriteria': fields['Custom.SuccessCriteria'],
+                        'Custom.Objective': fields['Custom.Objective'],
+                        'Custom.AddressedRisks': fields['Custom.AddressedRisks'],
+                        'Custom.PursueRisk': fields['Custom.PursueRisk'],
+                        'Custom.MostRecentUpdate': fields['Custom.MostRecentUpdate'],
+                        'Custom.OutstandingActionItems': fields['Custom.OutstandingActionItems'],
+                        // Feature specific fields
+                        'Custom.BusinessDeliverable': fields['Custom.BusinessDeliverable'],
+                        // Common custom fields
                         'Custom.BusinessUnit': fields['Custom.BusinessUnit'],
                         'Custom.System': fields['Custom.System'],
                       },

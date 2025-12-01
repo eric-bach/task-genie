@@ -15,11 +15,19 @@ import { DynamoDBClient, GetItemCommand } from '@aws-sdk/client-dynamodb';
 
 import { AzureService } from './AzureService';
 import { FeedbackService } from './FeedbackService';
-import { WorkItem, Task } from '../types/azureDevOps';
+import {
+  WorkItem,
+  isUserStory,
+  isEpic,
+  isFeature,
+  UserStory,
+  Feature,
+  getExpectedChildWorkItemType,
+} from '../types/azureDevOps';
 import {
   BedrockInferenceParams,
   BedrockKnowledgeDocument,
-  BedrockTaskGenerationResponse,
+  BedrockWorkItemGenerationResponse,
   BedrockWorkItemEvaluationResponse,
 } from '../types/bedrock';
 import { FeedbackPattern, FeedbackInsight, TaskFeedback } from '../types/feedback';
@@ -82,7 +90,10 @@ export class BedrockService {
    */
   public async evaluateWorkItem(workItem: WorkItem): Promise<BedrockWorkItemEvaluationResponse> {
     try {
-      this.logger.info('⚙️ Starting work item evaluation', { workItemId: workItem.workItemId });
+      this.logger.info(`⚙️ Starting evaluation of ${workItem.workItemType} ${workItem.workItemId}`, {
+        workItemId: workItem.workItemId,
+        workItemType: workItem.workItemType,
+      });
 
       // Step 1: Try to retrieve relevant documents from Knowledge Base
       const query = this.buildWorkItemEvaluationKnowledgeQuery(workItem);
@@ -92,7 +103,7 @@ export class BedrockService {
       // Step 2: Use direct model inference with any retrieved context
       const result = await this.invokeModelForWorkItemEvaluation(workItem, knowledgeContext);
 
-      this.logger.info('Work item evaluation completed', {
+      this.logger.info(`${workItem.workItemType} evaluation completed`, {
         workItemId: workItem.workItemId,
         documentsRetrieved: knowledgeContext.length,
         result,
@@ -109,58 +120,55 @@ export class BedrockService {
   }
 
   /**
-   * Generates development tasks for a work item using AI and knowledge base context
-   * @param workItem The Azure DevOps work item to generate tasks for
-   * @param existingTasks Array of tasks that already exist for this work item
+   * Generates work items using AI and knowledge base context. Epic work item types will generate Features,
+   * Feature work item types will generate User Stories, and User Story work item types will generate Tasks.
+   * @param workItem The parent work item to generate child work items for
+   * @param existingChildWorkItems Array of child work items that already exist for this work item
    * @param params Optional inference parameters including custom prompts and model settings
-   * @returns Generated tasks along with supporting knowledge base documents
+   * @returns Generated work items along with supporting knowledge base documents
    */
-  public async generateTasks(
+  public async generateWorkItems(
     workItem: WorkItem,
-    existingTasks: Task[],
+    existingChildWorkItems: WorkItem[],
     params: BedrockInferenceParams = {}
-  ): Promise<BedrockTaskGenerationResponse> {
+  ): Promise<BedrockWorkItemGenerationResponse> {
     try {
-      this.logger.info('⚙️ Starting task generation', {
+      this.logger.info(`⚙️ Starting work item generation of ${workItem.workItemType} ${workItem.workItemId}`, {
         workItemId: workItem.workItemId,
         feedbackEnabled: !!this.feedbackService,
       });
 
       // Step 1: Retrieve relevant knowledge base context
-      const query = this.buildTaskBreakdownKnowledgeQuery(workItem);
-      const filters = this.buildTaskBreakdownFilters(workItem);
+      const query = this.buildWorkItemBreakdownKnowledgeQuery(workItem);
+      const filters = this.buildWorkItemBreakdownFilters(workItem);
       const knowledgeContext = await this.retrieveKnowledgeContext(query, filters);
 
-      // Step 2: Resolve the prompt to use (parameter override takes precedence over database config)
-      const resolvedPrompt = await this.resolvePrompt(workItem, params.prompt);
-      const enhancedParams = { ...params, prompt: resolvedPrompt };
-
-      // Step 3: Build feedback context (if any feedback examples are available)
+      // Step 2: Build feedback context (if any feedback examples are available)
       const feedbackContext = await this.buildFeedbackContext(workItem);
 
-      // Step 4: Generate tasks using the model with enhanced context and feedback
-      const tasks = await this.invokeModelForTaskGeneration(
+      // Step 3: Generate work items using the model with enhanced context and feedback
+      const workItems = await this.invokeModelForWorkItemGeneration(
         workItem,
-        existingTasks,
-        enhancedParams,
+        existingChildWorkItems,
+        params,
         knowledgeContext,
         feedbackContext
       );
 
-      this.logger.info('Task generation completed', {
+      this.logger.info('Work item generation completed', {
         workItemId: workItem.workItemId,
-        tasks,
-        tasksCount: tasks.length,
+        workItems: workItems,
+        workItemsCount: workItems.length,
         documentsRetrieved: knowledgeContext.length,
         feedbackEnabled: !!this.feedbackService,
       });
 
       return {
-        tasks,
+        workItems,
         documents: knowledgeContext,
       };
     } catch (error) {
-      this.logger.error('Failed to generate tasks', {
+      this.logger.error('Failed to generate work items', {
         workItemId: workItem.workItemId,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -245,22 +253,37 @@ export class BedrockService {
    * @returns A formatted search query string for finding relevant evaluation guidelines
    */
   private buildWorkItemEvaluationKnowledgeQuery(workItem: WorkItem): string {
-    return `Find relevant information about the user story process and guidelines that would help evaluate the following user story is well-defined:
+    let criteriaField = '';
+    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+      criteriaField = `\n    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+    } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
+      criteriaField = `\n    - Success Criteria: ${workItem.successCriteria}`;
+    }
+
+    return `Find relevant information about the ${
+      workItem.workItemType
+    } process and guidelines that would help evaluate the following ${workItem.workItemType} is well-defined:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
-    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+    - ${isUserStory(workItem) ? 'Acceptance Criteria' : 'Success Criteria'}: ${criteriaField}`;
   }
 
   /**
-   * Constructs a knowledge base search query for task breakdown and generation
-   * @param workItem The work item to create a task breakdown query for
+   * Constructs a knowledge base search query for work item breakdown and generation
+   * @param workItem The work item to create a work item breakdown query
    * @returns A formatted search query string for finding relevant technical and architectural information
    */
-  private buildTaskBreakdownKnowledgeQuery(workItem: WorkItem): string {
-    return `Find relevant information to help with task breakdown (such as technical details, application architecture, business context, etc.) for the following user story:
+  private buildWorkItemBreakdownKnowledgeQuery(workItem: WorkItem): string {
+    let criteriaField = '';
+    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+      criteriaField = `\n    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+    } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
+      criteriaField = `\n    - Success Criteria: ${workItem.successCriteria}`;
+    }
+
+    return `Find relevant information to help break down the ${workItem.workItemType} (such as technical details, application architecture, business context, etc.) for the following ${workItem.workItemType}:
     - Title: ${workItem.title}
-    - Description: ${workItem.description}
-    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+    - Description: ${workItem.description}${criteriaField}`;
   }
 
   /**
@@ -279,11 +302,11 @@ export class BedrockService {
   }
 
   /**
-   * Creates search filters for task breakdown knowledge base queries based on work item context
+   * Creates search filters for work item breakdown knowledge base queries based on work item context
    * @param workItem The work item containing area path, business unit, and system information
    * @returns Filter object configured to find relevant technical documentation
    */
-  private buildTaskBreakdownFilters(workItem: WorkItem): any {
+  private buildWorkItemBreakdownFilters(workItem: WorkItem): any {
     const filterConditions = [];
 
     if (workItem.areaPath) {
@@ -324,7 +347,7 @@ export class BedrockService {
     workItem: WorkItem,
     knowledgeContext: BedrockKnowledgeDocument[]
   ): Promise<BedrockWorkItemEvaluationResponse> {
-    const systemPrompt = this.buildWorkItemEvaluationSystemPrompt();
+    const systemPrompt = this.buildWorkItemEvaluationSystemPrompt(workItem);
     const userPrompt = this.buildWorkItemEvaluationUserPrompt(workItem, knowledgeContext);
     const content = await this.buildModelContent(workItem, userPrompt);
 
@@ -353,7 +376,7 @@ export class BedrockService {
       }, 0)
     );
 
-    this.logger.debug('🧠 Invoking Bedrock model for Work Item Evaluation', {
+    this.logger.debug(`🧠 Invoking Bedrock model for ${workItem.workItemType} Evaluation`, {
       modelId: this.config.modelId,
       contextCount: content.length - (workItem.images?.length || 0),
       contextLength: content.reduce((sum, item) => {
@@ -397,24 +420,24 @@ export class BedrockService {
   }
 
   /**
-   * Invokes the Bedrock model to generate development tasks for a work item
-   * @param workItem The work item to generate tasks for
-   * @param existingTasks Array of tasks that already exist to avoid duplication
+   * Invokes the Bedrock model to generate work items for a work item
+   * @param workItem The work item to generate work items for
+   * @param existingChildWorkItems Array of child work items that already exist to avoid duplication
    * @param params Inference parameters including custom prompts and model settings
    * @param knowledgeContext Relevant knowledge base documents to provide technical context
-   * @returns Array of generated tasks with titles and descriptions
+   * @returns Array of generated work items with titles and descriptions
    */
-  private async invokeModelForTaskGeneration(
+  private async invokeModelForWorkItemGeneration(
     workItem: WorkItem,
-    existingTasks: Task[],
+    existingChildWorkItems: WorkItem[],
     params: BedrockInferenceParams,
     knowledgeContext: BedrockKnowledgeDocument[],
     feedbackContext?: string
-  ): Promise<Task[]> {
-    const systemPrompt = await this.buildTaskGenerationSystemPrompt(workItem, params);
-    const userPrompt = await this.buildTaskGenerationUserPrompt(
+  ): Promise<WorkItem[]> {
+    const systemPrompt = await this.buildWorkItemGenerationSystemPrompt(workItem, params);
+    const userPrompt = await this.buildWorkItemGenerationUserPrompt(
       workItem,
-      existingTasks,
+      existingChildWorkItems,
       knowledgeContext,
       feedbackContext
     );
@@ -461,18 +484,21 @@ export class BedrockService {
       }, 0)
     );
 
-    this.logger.info('🧠 Invoking Bedrock model for Task Breakdown', {
-      modelId: this.config.modelId,
-      contentItems: content.length,
-      textLength,
-      tasksCount: existingTasks.length,
-      knowledgeCount: knowledgeContext.length,
-      knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
-      imagesCount,
-      imagesSizeKB,
-      feedbackContext: !!feedbackContext,
-      inferenceConfig: input.inferenceConfig,
-    });
+    this.logger.info(
+      `🧠 Invoking Bedrock model for ${getExpectedChildWorkItemType(workItem.workItemType)} generation`,
+      {
+        modelId: this.config.modelId,
+        contentItems: content.length,
+        textLength,
+        existingWorkItemsCount: existingChildWorkItems.length,
+        knowledgeCount: knowledgeContext.length,
+        knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
+        imagesCount,
+        imagesSizeKB,
+        feedbackContext: !!feedbackContext,
+        inferenceConfig: input.inferenceConfig,
+      }
+    );
 
     try {
       const command = new ConverseCommand(input);
@@ -485,7 +511,7 @@ export class BedrockService {
         outputTokens: response.usage?.outputTokens,
       });
 
-      return this.parseTasks(response);
+      return this.parseWorkItems(response);
     } catch (error) {
       this.logger.error('Model invocation failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
@@ -505,25 +531,51 @@ export class BedrockService {
 
   /**
    * Constructs the system prompt for work item evaluation
+   * @param workItem The work item being evaluated to determine type-specific criteria
    * @returns A formatted prompt string for work item quality evaluation
    */
-  private buildWorkItemEvaluationSystemPrompt(): SystemContentBlock[] {
+  private buildWorkItemEvaluationSystemPrompt(workItem: WorkItem): SystemContentBlock[] {
+    let evaluationCriteria = '';
+
+    switch (workItem.workItemType) {
+      case 'User Story':
+        evaluationCriteria = `- Evaluate the user story based on the following criteria:
+  - It should generally state the user, the need, and the business value in some way.
+  - The acceptance criteria should provide guidance that is testable or verifiable, though it need not be exhaustive.
+  - The story should be appropriately sized for a development team to complete within a sprint.`;
+        break;
+
+      case 'Epic':
+        evaluationCriteria = `- Evaluate the epic based on the following criteria:
+  - It should clearly describe a high-level business objective or strategic goal.
+  - The description should provide sufficient business context and rationale.
+  - Success criteria should define measurable outcomes or business value.
+  - The scope should be appropriate for breaking down into multiple features.`;
+        break;
+
+      case 'Feature':
+        evaluationCriteria = `- Evaluate the feature based on the following criteria:
+  - It should describe a cohesive piece of functionality that delivers user value.
+  - The description should clearly define the functional boundaries and user interactions.
+  - Success criteria should be testable and define what constitutes completion.
+  - The scope should be appropriate for breaking down into multiple user stories.`;
+        break;
+    }
+
     const system: SystemContentBlock[] = [
       {
         text: `You are an AI assistant that reviews Azure DevOps work items. 
 **Instructions**
-- Evaluate the work item to check if it is reasonably clear and has enough detail for a developer to begin with minimal clarification.
-- Your task is to assess the quality of a user story based on the provided title, description, and acceptance criteria.
-- Evaluate the user story based on the following criteria:
-  - It should generally state the user, the need, and the business value in some way.
-  - The acceptance criteria should provide guidance that is testable or verifiable, though it need not be exhaustive.
-  - If images are provided, treat them as additional context to understand the story.
+- Evaluate the work item to check if it is reasonably clear and has enough detail for a developer or team to begin with minimal clarification.
+- Your task is to assess the quality of a ${workItem.workItemType} based on the provided title, description, and available criteria fields.
+${evaluationCriteria}
+  - If images are provided, treat them as additional context to understand the work item.
 
 **Output Rules**
 - Return a JSON object with the following structure:
-  - "pass": boolean (true if the work item is good enough to proceed, false only it it is seriously incomplete or confusing)
-  - if "pass" is false, include a "comment" field (string) with a clear explaination of what's missing or unclear, and provide an example of a higher-quality story that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
-- Only output the JSON object, no exta text outside it.`,
+  - "pass": boolean (true if the work item is good enough to proceed, false only if it is seriously incomplete or confusing)
+  - if "pass" is false, include a "comment" field (string) with a clear explanation of what's missing or unclear, and provide an example of a higher-quality ${workItem.workItemType} that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
+- Only output the JSON object, no extra text outside it.`,
       },
     ];
 
@@ -547,68 +599,152 @@ export class BedrockService {
         ? `${workItem.images.map((img, i) => `${i + 1}. ${img.url}${img.alt ? ` (${img.alt})` : ''}`).join('\n')}`
         : '';
 
+    // Build criteria section based on work item type
+    let criteriaSection = '';
+    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+      criteriaSection = `\n  - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+    } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
+      criteriaSection = `\n  - Success Criteria: ${workItem.successCriteria}`;
+    }
+
+    // Add Epic-specific fields
+    let epicFieldsSection = '';
+    if (isEpic(workItem)) {
+      const epicFields = [];
+      if (workItem.objective) epicFields.push(`  - Objective: ${workItem.objective}`);
+      if (workItem.addressedRisks) epicFields.push(`  - Addressed Risks: ${workItem.addressedRisks}`);
+      if (workItem.pursueRisk) epicFields.push(`  - Pursue Risk: ${workItem.pursueRisk}`);
+      if (workItem.mostRecentUpdate) epicFields.push(`  - Most Recent Update: ${workItem.mostRecentUpdate}`);
+      if (workItem.outstandingActionItems)
+        epicFields.push(`  - Outstanding Action Items: ${workItem.outstandingActionItems}`);
+      if (epicFields.length > 0) {
+        epicFieldsSection = `\n${epicFields.join('\n')}`;
+      }
+    }
+
+    // Add Feature-specific fields
+    let featureFieldsSection = '';
+    if (isFeature(workItem) && workItem.businessDeliverable) {
+      featureFieldsSection = `\n  - Business Deliverable: ${workItem.businessDeliverable}`;
+    }
+
+    // Add User Story-specific fields
+    let userStoryFieldsSection = '';
+    if (isUserStory(workItem) && workItem.importance) {
+      userStoryFieldsSection = `\n  - Importance: ${workItem.importance}`;
+    }
+
     return `**Context**
 - Work item: 
-Use this information to understand the scope and expectation to generate relevant tasks.
+Use this information to understand the scope and expectation for evaluation.
+  - Work Item Type: ${workItem.workItemType}
   - Title: ${workItem.title}
   - Description: ${workItem.description}
-  - Acceptance Criteria: ${workItem.acceptanceCriteria}
+  ${criteriaSection}
+  ${epicFieldsSection}${featureFieldsSection}${userStoryFieldsSection}
       
 - Additional contextual knowledge (if any):
-Extra domain knowledge, system information, or reference material to guide more context-aware and accurate task generation.
-  ${knowledgeSection}
+Extra domain knowledge, system information, or reference material to guide more context-aware and accurate evaluation.
+  ${knowledgeSection || 'None'}
 
 - Images (if any):
-Visual aids or references that provide additional context for task generation.
-  ${imagesSection}`;
+Visual aids or references that provide additional context for evaluation.
+  ${imagesSection || 'None'}`;
   }
 
   /**
-   * Constructs the system prompt for task generation
-   * @param workItem The work item to generate tasks for
+   * Constructs the system prompt for work item generation. Epics generate Features, Features generate User Stories, and User Stories generate Tasks.
+   * @param workItem The work item to generate child work items for
    * @param params Inference parameters that may include custom prompts
-   * @returns A formatted prompt string for task generation
+   * @returns A formatted prompt string for work item generation
    */
-  private async buildTaskGenerationSystemPrompt(
+  private async buildWorkItemGenerationSystemPrompt(
     workItem: WorkItem,
     params: BedrockInferenceParams
   ): Promise<SystemContentBlock[]> {
-    const defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing work items into clear, actionable, and appropriately sized tasks.
+    let defaultPrompt = '';
+
+    switch (workItem.workItemType) {
+      case 'User Story':
+        defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a User Story into clear, actionable, and appropriately sized Tasks.
 **Instructions**
-- Your task is to break down the provided work item into a sequence of tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
-- Ensure each task has a title and a comprehensive description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
-- Avoid creating duplicate tasks if they already exist.
-- Do NOT create any tasks for analysis, investigation, testing, or deployment.`;
+- Your task is to break down the provided User Story into a sequence of Tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
+- Ensure each Task has a title and a description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
+- Avoid creating duplicate Tasks if they already exist.
+- Do NOT create any Tasks for analysis, investigation, testing, or deployment.`;
+        break;
+      case 'Feature':
+        defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a Feature into clear, actionable, and appropriately sized User Stories.
+**Instructions**
+- Your task is to break down the provided Feature into a sequence of User Stories that are clear and deliver business value.
+- Ensure each User Story has a title, description, and acceptance criterial.
+- Avoid creating duplicate User Stories if they already exist.`;
+        break;
+      case 'Epic':
+        defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing an Epic into clear, actionable, and appropriately sized Features.
+**Instructions**
+- Your task is to break down the provided Epic into a sequence of Features that are clear and deliver business value.
+- Ensure each Feature has a title and a comprehensive description.
+- Avoid creating duplicate Features if they already exist.`;
+        break;
+    }
 
     // Get base prompt (either custom override or default)
     const basePrompt = (await this.resolvePrompt(workItem, params.prompt)) || defaultPrompt;
 
-    const system: SystemContentBlock[] = [
-      {
-        text: `${basePrompt}\n
+    const system: SystemContentBlock[] = [];
+    switch (workItem.workItemType) {
+      case 'User Story':
+        system.push({
+          text: `${basePrompt}\n
 **Output Rules**
 - ONLY return a JSON object with the following structure:
-  - "tasks": array of task objects, each with:
+  - "workItems": array of task objects, each with:
     - "title": string (task title, prefixed with order, e.g., "1. Task Title")
     - "description": string (detailed task description with HTML formatting)
 - DO NOT output any text outside of the JSON object.`,
-      },
-    ];
+        });
+        break;
+      case 'Feature':
+        system.push({
+          text: `${basePrompt}\n
+**Output Rules**
+- ONLY return a JSON object with the following structure:
+  - "workItems": array of user story objects, each with:
+    - "title": string (user story title, prefixed with order, e.g., "1. User Story Title")
+    - "description": string (detailed user story description with HTML formatting)
+    - "acceptanceCriteria": string (detailed acceptance criteria with HTML formatting)
+- DO NOT output any text outside of the JSON object.`,
+        });
+        break;
+      case 'Epic':
+        system.push({
+          text: `${basePrompt}\n
+**Output Rules**
+- ONLY return a JSON object with the following structure:
+  - "workItems": array of feature objects, each with:
+    - "title": string (feature title, prefixed with order, e.g., "1. Feature Title")
+    - "description": string (detailed feature description with HTML formatting)
+    - "successCriteria": string (detailed success criteria with HTML formatting)
+- DO NOT output any text outside of the JSON object.`,
+        });
+        break;
+    }
 
     return system;
   }
 
   /**
-   * Constructs the user prompt for task generation with all relevant context
-   * @param workItem The work item to generate tasks for
-   * @param existingTasks Array of existing tasks to avoid duplication
+   * Constructs the user prompt for work item generation with all relevant context
+   * @param workItem The work item to generate child work items for
+   * @param existingChildWorkItems Array of existing child work items to avoid duplication
    * @param knowledgeContext Relevant knowledge base documents to provide technical context
-   * @param feedbackContext Optional feedback insights to guide task generation
-   * @returns A formatted prompt string for task generation
+   * @param feedbackContext Optional feedback insights to guide work item generation
+   * @returns A formatted prompt string for work item generation
    */
-  private async buildTaskGenerationUserPrompt(
+  private async buildWorkItemGenerationUserPrompt(
     workItem: WorkItem,
-    existingTasks: Task[],
+    existingChildWorkItems: WorkItem[],
     knowledgeContext: BedrockKnowledgeDocument[],
     feedbackContext?: string
   ): Promise<string> {
@@ -622,19 +758,99 @@ Visual aids or references that provide additional context for task generation.
         ? `${knowledgeContext.map((doc) => `- ${doc.content.substring(0, 500)}...`).join('\n')}`
         : '';
 
+    // Build criteria section based on work item type
+    let criteriaSection = '';
+    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+      criteriaSection = `\n  - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
+    } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
+      criteriaSection = `\n  - Success Criteria: ${workItem.successCriteria}`;
+    }
+
+    // Add type-specific fields
+    let typeSpecificFields = '';
+    if (isEpic(workItem)) {
+      const epicFields = [];
+      if (workItem.objective) epicFields.push(`  - Objective: ${workItem.objective}`);
+      if (workItem.addressedRisks) epicFields.push(`  - Addressed Risks: ${workItem.addressedRisks}`);
+      if (workItem.pursueRisk) epicFields.push(`  - Pursue Risk: ${workItem.pursueRisk}`);
+      if (workItem.mostRecentUpdate) epicFields.push(`  - Most Recent Update: ${workItem.mostRecentUpdate}`);
+      if (workItem.outstandingActionItems)
+        epicFields.push(`  - Outstanding Action Items: ${workItem.outstandingActionItems}`);
+      if (epicFields.length > 0) {
+        typeSpecificFields = `\n${epicFields.join('\n')}`;
+      }
+    } else if (isFeature(workItem) && workItem.businessDeliverable) {
+      typeSpecificFields = `\n  - Business Deliverable: ${workItem.businessDeliverable}`;
+    } else if (isUserStory(workItem) && workItem.importance) {
+      typeSpecificFields = `\n  - Importance: ${workItem.importance}`;
+    }
+
+    const childWorkItemType = `${getExpectedChildWorkItemType(workItem.workItemType, true) || 'child work items'}`;
+
+    // Build the existing child work items list with type-specific details
+    let existingChildWorkItemsList = 'None';
+    if (existingChildWorkItems.length > 0) {
+      if (childWorkItemType === 'Feature') {
+        existingChildWorkItemsList = existingChildWorkItems
+          .map((item, i) => {
+            const featureItem = item as Feature;
+            let details = `${i + 1}. ${item.title}`;
+            if (featureItem.businessDeliverable) {
+              details += `\n   Business Deliverable: ${featureItem.businessDeliverable}`;
+            }
+            if (featureItem.successCriteria) {
+              details += `\n   Success Criteria: ${featureItem.successCriteria}`;
+            }
+            return details;
+          })
+          .join('\n\n');
+      } else if (childWorkItemType === 'User Story') {
+        existingChildWorkItemsList = existingChildWorkItems
+          .map((item, i) => {
+            const userStoryItem = item as UserStory;
+            let details = `${i + 1}. ${item.title}`;
+            if (item.description) {
+              details += `\n   Description: ${item.description}`;
+            }
+            if (userStoryItem.acceptanceCriteria) {
+              details += `\n   Acceptance Criteria: ${userStoryItem.acceptanceCriteria}`;
+            }
+            if (userStoryItem.importance) {
+              details += `\n   Importance: ${userStoryItem.importance}`;
+            }
+            return details;
+          })
+          .join('\n\n');
+      } else {
+        existingChildWorkItemsList = existingChildWorkItems
+          .map((item, i) => {
+            let details = `${i + 1}. ${item.title}`;
+            if (item.description) {
+              details += `\n   Description: ${item.description}`;
+            }
+            return details;
+          })
+          .join('\n\n');
+      }
+    }
+
     return `**Context**
 - Work item:
 Use this information to understand the scope and expectation to generate relevant tasks.
+  - Work Item Type: ${workItem.workItemType}
   - Title: ${workItem.title}
-  - Description: ${workItem.description}
-  - Acceptance Criteria: ${workItem.acceptanceCriteria}
+  - Description: ${workItem.description}${criteriaSection}${typeSpecificFields}
 
-- Existing tasks (if any):
-Current tasks already created for this user story. Avoid duplicating these; generate only missing or supplementary tasks for completeness.
-  ${existingTasks.length > 0 ? existingTasks.map((t, i) => `${i + 1}. ${t.title}`).join('\n') : 'None'}
+- Existing ${childWorkItemType} (if any):
+Current ${childWorkItemType} already created for this ${
+      workItem.workItemType
+    }. Avoid duplicating these; generate only missing or supplementary ${childWorkItemType} for completeness.
+  ${existingChildWorkItemsList}
 
 - Feedback or past learnings (if any):
-Previous user feedback relevant to this user story; such as tasks that were missed, or tasks that were removed or not relevant. Incorporate these insights to improve quality and relevance.
+Previous user feedback relevant to this ${
+      workItem.workItemType
+    }; such as tasks that were missed, or tasks that were removed or not relevant. Incorporate these insights to improve quality and relevance.
   ${feedbackContext || 'None'}
 
 - Images (if any):
@@ -827,13 +1043,13 @@ Extra domain knowledge, system information, or reference material to guide more 
   }
 
   /**
-   * Parses the Bedrock model response and extracts generated tasks
+   * Parses the Bedrock model response and extracts generated work items
    * @param response The raw response from the Bedrock Converse API
-   * @returns Array of parsed tasks with titles and descriptions
+   * @returns Array of parsed work items with titles and descriptions
    */
-  private parseTasks(response: any): Task[] {
+  private parseWorkItems(response: any): WorkItem[] {
     // Log the full response structure for debugging
-    this.logger.debug('Full Bedrock response structure for task parsing', {
+    this.logger.debug('Full Bedrock response structure for parsing', {
       hasOutput: !!response.output,
       hasMessage: !!response.output?.message,
       hasContent: !!response.output?.message?.content,
@@ -876,8 +1092,8 @@ Extra domain knowledge, system information, or reference material to guide more 
     }
 
     const parsedResponse = this.safeJsonParse(content);
-    if (!parsedResponse || !parsedResponse.tasks) {
-      this.logger.error('Failed to parse tasks from model response', {
+    if (!parsedResponse || !parsedResponse.workItems) {
+      this.logger.error('Failed to parse work items from model response', {
         rawContent: content,
         parsedResponse,
       });
@@ -885,11 +1101,11 @@ Extra domain knowledge, system information, or reference material to guide more 
     }
 
     this.logger.info('Received Bedrock model response', {
-      tasks: parsedResponse.tasks,
-      tasksCount: parsedResponse.tasks.length,
+      workItems: parsedResponse.workItems,
+      workItemsCount: parsedResponse.workItems.length,
     });
 
-    return parsedResponse.tasks;
+    return parsedResponse.workItems;
   }
 
   /**
@@ -916,7 +1132,7 @@ Extra domain knowledge, system information, or reference material to guide more 
   }
 
   /**
-   * Resolves the prompt to use for task generation with priority-based selection
+   * Resolves the prompt to use for work item generation with priority-based selection
    * Priority: 1) Parameter override, 2) Database config, 3) Default (undefined)
    * @param workItem The work item used for database prompt lookup
    * @param parameterPrompt Optional prompt override passed as parameter
@@ -925,23 +1141,29 @@ Extra domain knowledge, system information, or reference material to guide more 
   private async resolvePrompt(workItem: WorkItem, parameterPrompt?: string): Promise<string | undefined> {
     // If a prompt was passed as a parameter, use it (highest priority)
     if (parameterPrompt) {
-      this.logger.info('⭐ Using prompt override for task generation', {
-        prompt: parameterPrompt,
-        source: 'parameter',
-      });
+      this.logger.info(
+        `⭐ Using prompt override for ${getExpectedChildWorkItemType(workItem.workItemType)} generation`,
+        {
+          prompt: parameterPrompt,
+          source: 'parameter',
+        }
+      );
       return parameterPrompt;
     }
 
     const databasePrompt = await this.getCustomPrompt(workItem);
     if (databasePrompt) {
-      this.logger.info('⭐ Using prompt override for task generation', {
-        prompt: databasePrompt,
-        source: 'database',
-      });
+      this.logger.info(
+        `⭐ Using prompt override for ${getExpectedChildWorkItemType(workItem.workItemType)} generation`,
+        {
+          prompt: databasePrompt,
+          source: 'database',
+        }
+      );
       return databasePrompt;
     }
 
-    // No override found, will use default prompt in buildTaskGenerationPrompt
+    // No override found, will use default prompt in buildWorkItemGenerationPrompt
     this.logger.debug('No prompt override found, using default prompt');
     return undefined;
   }
@@ -1067,6 +1289,11 @@ Extra domain knowledge, system information, or reference material to guide more 
    * Build feedback context for the prompt
    */
   private async buildFeedbackContext(workItem: WorkItem): Promise<string> {
+    if (workItem.workItemType !== 'User Story') {
+      this.logger.warn('⚠️ Feedback context is currently only available for User Story work items');
+      return '';
+    }
+
     const feedbackExamples = await this.getFeedbackExamples(workItem);
     if (!feedbackExamples) {
       return '';
@@ -1154,16 +1381,16 @@ ${insights}`);
     if (enhancements.length > 0) {
       this.logger.debug('🔀 Added feedback context for task generation', {
         successfulExamples: feedbackExamples?.successfulExamples?.length || 0,
-        succcessfulExamplesSample: feedbackExamples?.successfulExamples.toString().substring(0, 200),
+        succcessfulExamplesSample: JSON.stringify(feedbackExamples?.successfulExamples).substring(0, 200),
 
         antiPatterns: feedbackExamples?.antiPatterns?.length || 0,
-        antiPatternsSample: feedbackExamples?.antiPatterns.toString().substring(0, 200),
+        antiPatternsSample: JSON.stringify(feedbackExamples?.antiPatterns).substring(0, 200),
 
         feedbackInsights: feedbackExamples?.insights?.length || 0,
-        feedbackInsightsSample: feedbackExamples?.insights.toString().substring(0, 200),
+        feedbackInsightsSample: JSON.stringify(feedbackExamples?.insights).substring(0, 200),
 
         feedbackPatternsUsed: feedbackExamples?.patterns?.length || 0,
-        feedbackPatternsSample: feedbackExamples?.patterns.toString().substring(0, 200),
+        feedbackPatternsSample: JSON.stringify(feedbackExamples?.patterns).substring(0, 200),
       });
     }
 

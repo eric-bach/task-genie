@@ -592,6 +592,7 @@ async function getParentWorkItemContext(workItemId: number, taskId: number, task
 
     const workItemContext: WorkItem = {
       workItemId: workItem.workItemId,
+      workItemType: 'User Story',
       title: workItem?.title || getFieldValue(taskFields['System.Title']) || '',
       description: workItem?.description || getFieldValue(taskFields['System.Description']) || '',
       acceptanceCriteria: workItem?.acceptanceCriteria || '',
@@ -628,6 +629,7 @@ async function getParentWorkItemContext(workItemId: number, taskId: number, task
 function getFallbackContext(workItemId: number, taskFields: Fields): WorkItem {
   return {
     workItemId,
+    workItemType: 'User Story',
     title: getFieldValue(taskFields['System.Title']) || '',
     description: getFieldValue(taskFields['System.Description']) || '',
     acceptanceCriteria: '',

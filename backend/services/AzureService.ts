@@ -1,5 +1,13 @@
 import { Logger } from '@aws-lambda-powertools/logger';
-import { Task, WorkItem } from '../types/azureDevOps';
+import {
+  Task,
+  WorkItem,
+  UserStory,
+  Epic,
+  Feature,
+  BaseWorkItem,
+  getExpectedChildWorkItemType,
+} from '../types/azureDevOps';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
@@ -330,20 +338,30 @@ export class AzureService {
   }
 
   /**
-   * Retrieves all tasks associated with a specific work item
-   * @param workItem The work item to fetch tasks for
-   * @returns Array of tasks associated with the work item
+   * Retrieves child work items associated with a specific work item based on Azure DevOps hierarchy
+   * - Epic -> Features
+   * - Feature -> User Stories
+   * - User Story -> Tasks
+   * @param workItem The parent work item to fetch children for
+   * @returns Array of child work items with their complete type-specific information
    */
-  public async getTasksForWorkItem(workItem: WorkItem): Promise<Task[]> {
-    this.logger.info(`⚙️ Fetching tasks for work item ${workItem.workItemId}`);
+  public async getChildWorkItems(workItem: WorkItem): Promise<WorkItem[]> {
+    this.logger.info(
+      `⚙️ Fetching child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+        workItem.workItemId
+      }`
+    );
 
     try {
-      // Get tasks
-      const tasks: Task[] = [];
+      const childItems: WorkItem[] = [];
 
       if (workItem.workItemId <= 0) {
-        this.logger.info(`No existing tasks for work item ${workItem.workItemId}`);
-        return tasks;
+        this.logger.info(
+          `No existing child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+            workItem.workItemId
+          }`
+        );
+        return childItems;
       }
 
       // Get work item details including relations
@@ -365,115 +383,274 @@ export class AzureService {
 
       const data = await response.json();
 
-      // Extract tasks ids from relations
-      const taskIds: number[] = [];
+      // Extract child work item IDs from hierarchy relations
+      const childIds: number[] = [];
       if (data.relations && Array.isArray(data.relations)) {
         for (const relation of data.relations) {
           if (relation.rel === 'System.LinkTypes.Hierarchy-Forward' && relation.url) {
-            // Extract task ID from the URL
-            const taskId = relation.url.split('/').pop();
-            taskIds.push(taskId);
+            // Extract work item ID from the URL
+            const childId = relation.url.split('/').pop();
+            childIds.push(parseInt(childId, 10));
           }
         }
       }
 
-      // If there are no task IDs, return empty array early
-      if (taskIds.length === 0) {
-        this.logger.info(`No existing tasks for work item ${workItem.workItemId}`);
-        return tasks;
+      // If there are no child IDs, return empty array early
+      if (childIds.length === 0) {
+        this.logger.info(
+          `No existing child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+            workItem.workItemId
+          }`
+        );
+        return childItems;
       }
 
-      const tasksUrl = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitemsbatch?api-version=7.1`;
+      const childItemsUrl = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitemsbatch?api-version=7.1`;
 
       const body = JSON.stringify({
-        ids: taskIds,
-        fields: ['System.Id', 'System.Title', 'System.Description', 'System.WorkItemType', 'System.State'],
+        ids: childIds,
+        fields: [
+          'System.Id',
+          'System.Title',
+          'System.Description',
+          'System.WorkItemType',
+          'System.State',
+          // User Story specific fields
+          'Microsoft.VSTS.Common.AcceptanceCriteria',
+          'Custom.Importance',
+          // Epic specific fields
+          'Custom.SuccessCriteria',
+          'Custom.Objective',
+          'Custom.AddressedRisks',
+          'Custom.PursueRisk',
+          'Custom.MostRecentUpdate',
+          'Custom.OutstandingActionItems',
+          // Feature specific fields
+          'Custom.BusinessDeliverable',
+          // Common custom fields
+          'Custom.BusinessUnit',
+          'Custom.System',
+        ],
       });
 
-      const tasksResponse = await fetch(tasksUrl, {
+      const childItemsResponse = await fetch(childItemsUrl, {
         method: 'POST',
         headers,
         body,
       });
 
-      if (!tasksResponse.ok) {
-        throw new Error('Failed to get tasks');
+      if (!childItemsResponse.ok) {
+        throw new Error(
+          `Failed to get child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+            workItem.teamProject
+          } ${workItem.workItemId}`
+        );
       }
 
-      const tasksData = await tasksResponse.json();
+      const childItemsData = await childItemsResponse.json();
 
-      if (tasksData.value && Array.isArray(tasksData.value)) {
-        for (const taskItem of tasksData.value) {
-          // Ignore tasks that are closed/resolved/removed
+      // Determine expected child work item type
+      const expectedChildType = getExpectedChildWorkItemType(workItem.workItemType);
+
+      if (childItemsData.value && Array.isArray(childItemsData.value)) {
+        for (const childItem of childItemsData.value) {
+          const childWorkItemType = childItem.fields['System.WorkItemType'];
+
+          // Filter by expected child type (but be flexible to handle different configurations)
+          if (expectedChildType && childWorkItemType !== expectedChildType) {
+            this.logger.warn(
+              `Unexpected child work item type: expected ${expectedChildType}, found ${childWorkItemType}`,
+              {
+                parentType: workItem.workItemType,
+                parentId: workItem.workItemId,
+                childId: childItem.id,
+                childType: childWorkItemType,
+              }
+            );
+            // Continue processing rather than skipping, in case of custom configurations
+          }
+
+          // Ignore work items that are closed/resolved/removed
           if (
-            taskItem.fields['System.State'] == 'Removed' ||
-            taskItem.fields['System.State'] == 'Closed' ||
-            taskItem.fields['System.State'] == 'Resolved'
+            childItem.fields['System.State'] === 'Removed' ||
+            childItem.fields['System.State'] === 'Closed' ||
+            childItem.fields['System.State'] === 'Resolved'
           ) {
             continue;
           }
 
-          tasks.push({
-            taskId: taskItem.id,
-            title: taskItem.fields['System.Title'],
-            description: taskItem.fields['System.Description'],
-          });
+          // Create the appropriate WorkItem type based on the work item type
+          const workItemType = childItem.fields['System.WorkItemType'];
+          const baseWorkItem: BaseWorkItem = {
+            workItemId: childItem.id,
+            title: childItem.fields['System.Title'],
+            description: childItem.fields['System.Description'],
+            state: childItem.fields['System.State'],
+            tags: childItem.fields['System.Tags'] || '',
+            areaPath: childItem.fields['System.AreaPath'] || '',
+            iterationPath: childItem.fields['System.IterationPath'] || '',
+            businessUnit: childItem.fields['Custom.BusinessUnit'] || '',
+            system: childItem.fields['Custom.System'] || '',
+            teamProject: workItem.teamProject,
+            changedBy: childItem.fields['System.ChangedBy']?.displayName || '',
+          };
+
+          let childWorkItem: WorkItem;
+
+          switch (workItemType) {
+            case 'Epic':
+              childWorkItem = {
+                ...baseWorkItem,
+                workItemType: 'Epic',
+                successCriteria: childItem.fields['Custom.SuccessCriteria'],
+                objective: childItem.fields['Custom.Objective'],
+                addressedRisks: childItem.fields['Custom.AddressedRisks'],
+                pursueRisk: childItem.fields['Custom.PursueRisk'],
+                mostRecentUpdate: childItem.fields['Custom.MostRecentUpdate'],
+                outstandingActionItems: childItem.fields['Custom.OutstandingActionItems'],
+              } as Epic;
+              break;
+
+            case 'Feature':
+              childWorkItem = {
+                ...baseWorkItem,
+                workItemType: 'Feature',
+                successCriteria: childItem.fields['Custom.SuccessCriteria'],
+                businessDeliverable: childItem.fields['Custom.BusinessDeliverable'],
+              } as Feature;
+              break;
+
+            case 'User Story':
+              childWorkItem = {
+                ...baseWorkItem,
+                workItemType: 'User Story',
+                acceptanceCriteria: childItem.fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '',
+                importance: childItem.fields['Custom.Importance'],
+              } as UserStory;
+              break;
+
+            case 'Task':
+              childWorkItem = {
+                ...baseWorkItem,
+                workItemType: 'Task',
+              } as Task;
+              break;
+
+            default:
+              // Fall back to creating a basic Task for unknown types
+              childWorkItem = {
+                ...baseWorkItem,
+                workItemType: 'Task',
+              } as Task;
+              break;
+          }
+
+          childItems.push(childWorkItem);
         }
       }
 
-      this.logger.info(`📋 Found ${tasks.length} existing tasks for work item ${workItem.workItemId}`);
+      this.logger.info(
+        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+          workItem.workItemType
+        } ${workItem.workItemId}`,
+        {
+          expectedChildType,
+          actualChildren: childItems.map((item) => ({ id: item.workItemId, title: item.title })),
+        }
+      );
 
-      return tasks;
+      return childItems;
     } catch (error: any) {
-      this.logger.error('Failed to fetch tasks for work item', {
-        workItemId: workItem.workItemId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-      });
+      this.logger.error(
+        `Failed to fetch child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+          workItem.workItemType
+        } ${workItem.workItemId}`,
+        {
+          workItemType: workItem.workItemType,
+          workItemId: workItem.workItemId,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+        }
+      );
       throw error;
     }
   }
 
   /**
-   * Creates multiple tasks for a work item in Azure DevOps
-   * @param workItem The parent work item to create tasks for
-   * @param tasks Array of tasks to create
+   * Creates multiple child work items for a work item in Azure DevOps
+   * The type of child work items created depends on the parent type:
+   * - Epic -> Features
+   * - Feature -> User Stories
+   * - User Story -> Tasks
+   * @param workItem The parent work item to create children for
+   * @param childWorkItems Array of child work items to create
    */
-  public async createTasks(workItem: WorkItem, tasks: Task[]): Promise<void> {
-    this.logger.info(`⚙️ Creating ${tasks.length} total tasks`, { tasks: tasks });
+  public async createChildWorkItems(workItem: WorkItem, childWorkItems: WorkItem[]): Promise<void> {
+    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
+    const childTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true);
 
-    let taskId = 0;
+    this.logger.info(
+      `⚙️ Creating ${childWorkItems.length} ${childTypePlural} for ${workItem.workItemType} ${workItem.workItemId}`,
+      {
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        childType: childWorkItemType,
+        count: childWorkItems.length,
+        tasks: childWorkItems.map((t) => ({ title: t.title })),
+      }
+    );
+
+    let id = 0;
     let i = 0;
-    for (const task of tasks) {
-      this.logger.debug(`Creating task (${++i}/${tasks.length})`, { task: task });
+    for (const c of childWorkItems) {
+      this.logger.debug(`Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`, { task: c });
 
-      taskId = await this.createTask(workItem, task, i);
+      id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i);
 
       // Set task Id
-      task.taskId = taskId;
+      c.workItemId = id;
     }
 
-    this.logger.info(`All ${tasks.length} tasks successfully created`);
+    this.logger.info(
+      `✅ All ${childWorkItems.length} ${childTypePlural} successfully created for ${workItem.workItemType} ${workItem.workItemId}`,
+      {
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        childType: childWorkItemType,
+        createdIds: childWorkItems.map((t) => t.workItemId),
+      }
+    );
   }
 
   /**
-   * Creates a single task in Azure DevOps and links it to the parent work item
+   * Creates a single child work item in Azure DevOps and links it to the parent work item
+   * The type of child work item created depends on the parent type:
+   * - Epic -> Feature
+   * - Feature -> User Story
+   * - User Story -> Task
    * @param workItem The parent work item
-   * @param task The task to create
+   * @param task The child work item to create
    * @param i The task index (for logging purposes)
-   * @returns The ID of the created task
+   * @returns The ID of the created child work item
    */
-  public async createTask(workItem: WorkItem, task: Task, i: number): Promise<number> {
-    const taskFields = [
+  public async createChildWorkItem(
+    workItem: WorkItem,
+    childWorkItem: Feature | UserStory | Task,
+    i: number
+  ): Promise<number> {
+    // Determine the appropriate child work item type
+    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
+
+    const childWorkItemFields = [
       {
         op: 'add',
         path: '/fields/System.Title',
-        value: task.title,
+        value: childWorkItem.title,
       },
       {
         op: 'add',
         path: '/fields/System.Description',
-        value: task.description,
+        value: childWorkItem.description,
       },
       {
         op: 'add',
@@ -488,7 +665,7 @@ export class AzureService {
       {
         op: 'add',
         path: '/fields/System.WorkItemType',
-        value: 'Task',
+        value: childWorkItemType,
       },
       {
         op: 'add',
@@ -497,10 +674,44 @@ export class AzureService {
       },
     ];
 
-    try {
-      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$task?api-version=7.1`;
+    if (childWorkItemType === 'User Story') {
+      const c = childWorkItem as UserStory;
 
-      const body = JSON.stringify(taskFields);
+      // Add User Story specific fields
+      childWorkItemFields.push(
+        {
+          op: 'add',
+          path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
+          value: c.acceptanceCriteria || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.Importance',
+          value: c.importance || '',
+        }
+      );
+    } else if (childWorkItemType === 'Feature') {
+      const c = childWorkItem as Feature;
+      childWorkItemFields.push(
+        {
+          op: 'add',
+          path: '/fields/Custom.SuccessCriteria',
+          value: c.successCriteria || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.BusinessDeliverable',
+          value: c.businessDeliverable || '',
+        }
+      );
+    }
+
+    try {
+      // Use the appropriate endpoint template based on child work item type
+      const workItemTypeTemplate = childWorkItemType.replace(' ', '%20'); // URL encode spaces
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$${workItemTypeTemplate}?api-version=7.1`;
+
+      const body = JSON.stringify(childWorkItemFields);
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
@@ -514,19 +725,40 @@ export class AzureService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create task');
+        const errorText = await response.text();
+        this.logger.error(`Failed to create ${childWorkItemType}`, {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorText,
+          parentType: workItem.workItemType,
+          parentId: workItem.workItemId,
+        });
+        throw new Error(`Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      this.logger.info(`Created task ${data.id}`);
+      this.logger.info(`Created ${childWorkItemType} ${data.id} for ${workItem.workItemType} ${workItem.workItemId}`, {
+        childType: childWorkItemType,
+        childId: data.id,
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        title: childWorkItem.title,
+      });
 
       await this.linkTask(workItem.teamProject, workItem.workItemId, data.id);
 
       return data.id;
     } catch (error) {
-      this.logger.error('Error creating task', { error: error });
-      throw new Error('Error creating task');
+      this.logger.error(`Error creating ${childWorkItemType}`, {
+        error: error,
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        childType: childWorkItemType,
+      });
+      throw new Error(
+        `Error creating ${childWorkItemType}: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   }
 

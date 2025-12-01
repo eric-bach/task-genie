@@ -32,21 +32,26 @@ export class CloudWatchService {
     }
   }
 
-  async createIncompleteUserStoriesMetric() {
-    // Add IncompleteUserStoriesMetric metric
-    const incompleteUserStoriesMetric = {
-      MetricName: 'IncompleteUserStories',
+  async createIncompleteWorkItemMetric(workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+    // Add IncompleteWorkItems metric with work item type dimension
+    const incompleteWorkItemMetric = {
+      MetricName: 'IncompleteWorkItems',
       Dimensions: [
         {
-          Name: 'User Story',
-          Value: 'User Stories',
+          Name: 'WorkItemType',
+          Value: workItemType,
         },
       ],
       Unit: StandardUnit.Count,
       Value: 1,
     };
 
-    await this.createMetric(incompleteUserStoriesMetric);
+    await this.createMetric(incompleteWorkItemMetric);
+  }
+
+  // Keep the old method for backward compatibility
+  async createIncompleteUserStoriesMetric() {
+    await this.createIncompleteWorkItemMetric('User Story');
   }
 
   async createTaskGeneratedMetric(value: number) {

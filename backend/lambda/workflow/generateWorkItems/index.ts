@@ -3,22 +3,22 @@ import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 
-import { WorkItem } from '../../../types/azureDevOps';
+import { getExpectedChildWorkItemType, WorkItem } from '../../../types/azureDevOps';
 import { BedrockInferenceParams, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 import { BedrockService, BedrockServiceConfig } from '../../../services/BedrockService';
 import { AzureService } from '../../../services/AzureService';
 
 /**
- * Lambda function to define tasks for Azure DevOps work items using AWS Bedrock
+ * Lambda function to generate child work items for Azure DevOps work items (User Story, Epic, Feature) using AWS Bedrock
  *
  * Features:
- * - Breaks down work items into actionable tasks
- * - Includes images as context to Bedrock's multi-modal Claude models for task definition
+ * - Supports User Story, Epic, and Feature work item types
+ * - Breaks down work items into smaller, actionable child work items based on work item type
+ * - Includes images as context to Bedrock's multi-modal Claude models
  * - Retrieves relevant context from knowledge base
- * - Generates detailed task descriptions with technical guidance
  *
  * Environment Variables:
- * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for task generation
+ * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for work item generation
  * - AWS_BEDROCK_KNOWLEDGE_BASE_ID: Knowledge base ID for retrieving context
  * - FEEDBACK_FEATURE_ENABLED: Feature flag to enable/disable feedback learning (true/false)
  * - AZURE_DEVOPS_PAT_PARAMETER_NAME: Parameter Store parameter name containing Azure DevOps PAT
@@ -53,7 +53,7 @@ if (!FEEDBACK_TABLE_NAME) {
 const FEEDBACK_FEATURE_ENABLED = process.env.FEEDBACK_FEATURE_ENABLED === 'true';
 
 // Clients and services
-const logger = new Logger({ serviceName: 'defineTasks' });
+const logger = new Logger({ serviceName: 'generateWorkItems' });
 
 // Cache for dependencies
 let azureService: AzureService | null = null;
@@ -65,31 +65,41 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const { workItem, params, workItemStatus } = parseEventBody(event.body);
 
     const azureService = getAzureService();
-    const existingTasks = await azureService.getTasksForWorkItem(workItem);
+    const existingChildItems = await azureService.getChildWorkItems(workItem);
 
-    // Generate tasks
+    // Generate child work items
     const bedrock = getBedrockService();
-    const bedrockResponse = await bedrock.generateTasks(workItem, existingTasks, params);
+    const bedrockResponse = await bedrock.generateWorkItems(workItem, existingChildItems, params);
 
-    logger.info(`✅ Generated ${bedrockResponse.tasks.length} tasks for work item ${workItem.workItemId}`);
+    logger.info(
+      `✅ Generated ${bedrockResponse.workItems.length} child ${getExpectedChildWorkItemType(
+        workItem.workItemType,
+        true
+      )} for ${workItem.workItemType} ${workItem.workItemId}`,
+      {
+        workItemType: workItem.workItemType,
+        childItemsGenerated: bedrockResponse.workItems.length,
+        existingChildItems: existingChildItems.length,
+      }
+    );
 
     return {
       statusCode: 200,
       body: {
         workItem,
-        tasks: bedrockResponse.tasks,
+        workItems: bedrockResponse.workItems,
         documents: bedrockResponse.documents,
         workItemStatus,
       },
     };
   } catch (error: any) {
-    logger.error('💣 Task generation failed', {
+    logger.error('💣 Work item generation failed', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
     });
 
     throw new Error(
-      `Task generation failed: ${JSON.stringify({
+      `Work item generation failed: ${JSON.stringify({
         statusCode: 500,
         error: error.message,
       })}`
@@ -142,7 +152,8 @@ const parseEventBody = (
 
   const { params = {}, workItem, workItemStatus } = body;
 
-  logger.info(`▶️ Starting processing of work item ${workItem.workItemId}`, {
+  logger.info(`▶️ Starting processing of ${workItem.workItemType} ${workItem.workItemId}`, {
+    workItemType: workItem.workItemType,
     title: workItem.title,
     areaPath: workItem.areaPath,
     iterationPath: workItem.iterationPath,

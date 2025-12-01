@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task } from '../../../types/azureDevOps';
+import { WorkItem, getExpectedChildWorkItemType } from '../../../types/azureDevOps';
 import { BedrockKnowledgeDocument, BedrockResponse } from '../../../types/bedrock';
 import { AzureService } from '../../../services/AzureService';
 import { CloudWatchService } from '../../../services/CloudWatchService';
@@ -12,7 +12,7 @@ if (AZURE_DEVOPS_ORGANIZATION === undefined) {
   throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
 }
 
-export const logger = new Logger({ serviceName: 'createTasks' });
+export const logger = new Logger({ serviceName: 'createWorkItems' });
 
 // Cache for dependencies
 let azureService: AzureService | null = null;
@@ -23,24 +23,28 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const body = validateEventBody(event.body);
 
     // Parse work item
-    const { workItem, tasks, documents, workItemStatus } = parseEventBody(body);
+    const { workItem, workItems, documents, workItemStatus } = parseEventBody(body);
 
-    // Create tasks
+    // Create child work items
     const azureService = getAzureService();
-    await azureService.createTasks(workItem, tasks);
+    await azureService.createChildWorkItems(workItem, workItems);
 
     // Add CloudWatch metrics
     const cloudWatchService = new CloudWatchService();
-    await cloudWatchService.createTaskGeneratedMetric(tasks.length);
+    await cloudWatchService.createTaskGeneratedMetric(workItems.length);
     await cloudWatchService.createUserStoriesUpdatedMetric();
 
-    logger.info(`✅ Created ${tasks.length} tasks for work item ${workItem.workItemId}`);
+    const childWorkItemTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true) || 'Work Items';
+
+    logger.info(
+      `✅ Created ${workItems.length} ${childWorkItemTypePlural} for ${workItem.workItemType} ${workItem.workItemId}`
+    );
 
     return {
       statusCode: 200,
       body: {
         workItem,
-        tasks,
+        workItems,
         documents,
         workItemStatus,
       },
@@ -49,7 +53,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     logger.error('💣 An unexpected error occurred', { error: error });
 
     throw new Error(
-      `Could not create tasks: ${JSON.stringify({
+      `Could not create work items: ${JSON.stringify({
         statusCode: 500,
         error: error.message,
       })}`
@@ -78,17 +82,27 @@ const validateEventBody = (body: any) => {
 
 const parseEventBody = (
   body: any
-): { workItem: WorkItem; documents: BedrockKnowledgeDocument[]; tasks: Task[]; workItemStatus: BedrockResponse } => {
-  const { workItem, tasks, documents, workItemStatus } = body;
+): {
+  workItem: WorkItem;
+  documents: BedrockKnowledgeDocument[];
+  workItems: WorkItem[];
+  workItemStatus: BedrockResponse;
+} => {
+  const { workItem, workItems, documents, workItemStatus } = body;
 
-  logger.info(`▶️ Creating ${tasks.length} tasks for work item ${workItem.workItemId}`, {
-    workItem,
-    tasks,
-    documents,
-    workItemStatus,
-  });
+  logger.info(
+    `▶️ Creating ${workItems.length} ${getExpectedChildWorkItemType(workItem.workItemType, true) || 'Work Items'} for ${
+      workItem.workItemType
+    } ${workItem.workItemId}`,
+    {
+      workItem,
+      workItems,
+      documents,
+      workItemStatus,
+    }
+  );
 
-  return { workItem, tasks, documents, workItemStatus };
+  return { workItem, workItems, documents, workItemStatus };
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

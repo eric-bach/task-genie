@@ -1,5 +1,5 @@
 {
-  "name": "sendResponse",
+  "name": "create-work-items",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -16,8 +16,6 @@
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.14.0",
-    "@aws-sdk/client-dynamodb": "^3.864.0",
-    "@aws-sdk/lib-dynamodb": "^3.864.0",
     "@middy/core": "^6.0.0",
     "aws-lambda": "^1.0.7"
   }
