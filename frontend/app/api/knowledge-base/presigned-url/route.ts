@@ -6,12 +6,16 @@ export async function GET(request: NextRequest) {
 
     // Get the file name from query parameters
     const { searchParams } = new URL(request.url);
+    const workItemType = searchParams.get('workItemType');
     const areaPath = searchParams.get('areaPath');
     const businessUnit = searchParams.get('businessUnit');
     const system = searchParams.get('system');
     const fileName = searchParams.get('fileName');
     const username = searchParams.get('username');
 
+    if (!workItemType) {
+      return NextResponse.json({ error: 'workItemType parameter is required' }, { status: 400 });
+    }
     if (!areaPath) {
       return NextResponse.json({ error: 'areaPath parameter is required' }, { status: 400 });
     }
@@ -19,7 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'fileName parameter is required' }, { status: 400 });
     }
 
-    console.log('File details:', { fileName, areaPath, businessUnit, system, username });
+    console.log('File details:', { fileName, workItemType, areaPath, businessUnit, system, username });
 
     // Get the API Gateway URL from environment variable
     const API_GATEWAY_URL = process.env.NEXT_PUBLIC_API_GATEWAY_URL;
@@ -34,6 +38,7 @@ export async function GET(request: NextRequest) {
 
     // Build query parameters, only including those that are provided
     const backendParams = new URLSearchParams({
+      workItemType: workItemType,
       areaPath: areaPath,
       fileName: fileName,
     });

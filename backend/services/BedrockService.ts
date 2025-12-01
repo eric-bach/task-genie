@@ -97,7 +97,7 @@ export class BedrockService {
 
       // Step 1: Try to retrieve relevant documents from Knowledge Base
       const query = this.buildWorkItemEvaluationKnowledgeQuery(workItem);
-      const filters = this.buildWorkItemEvaluationFilters();
+      const filters = this.buildWorkItemEvaluationFilters(workItem.workItemType);
       const knowledgeContext = await this.retrieveKnowledgeContext(query, filters);
 
       // Step 2: Use direct model inference with any retrieved context
@@ -290,13 +290,23 @@ export class BedrockService {
    * Creates search filters for work item evaluation knowledge base queries
    * @returns Filter object configured to find agile process documentation
    */
-  private buildWorkItemEvaluationFilters(): any {
+  private buildWorkItemEvaluationFilters(workItemType: string): any {
     return {
       filter: {
-        equals: {
-          key: 'areaPath',
-          value: 'agile-process',
-        },
+        andAll: [
+          {
+            equals: {
+              key: 'workItemType',
+              value: workItemType,
+            },
+          },
+          {
+            equals: {
+              key: 'areaPath',
+              value: 'agile-process',
+            },
+          },
+        ],
       },
     };
   }
@@ -308,6 +318,12 @@ export class BedrockService {
    */
   private buildWorkItemBreakdownFilters(workItem: WorkItem): any {
     const filterConditions = [];
+
+    if (workItem.workItemType) {
+      filterConditions.push({
+        equals: { key: 'workItemType', value: workItem.workItemType },
+      });
+    }
 
     if (workItem.areaPath) {
       filterConditions.push({
@@ -1170,7 +1186,7 @@ Extra domain knowledge, system information, or reference material to guide more 
 
   /**
    * Retrieves a custom prompt from the DynamoDB config table based on work item context
-   * @param workItem The work item containing area path, business unit, and system information
+   * @param workItem The work item containing work item type, area path, business unit, and system information
    * @returns Custom prompt string if found, undefined otherwise
    */
   private async getCustomPrompt(workItem: WorkItem): Promise<string | undefined> {
@@ -1179,8 +1195,10 @@ Extra domain knowledge, system information, or reference material to guide more 
       return undefined;
     }
 
-    // Construct the adoKey from workItem properties
-    const adoKey = `${workItem.areaPath}#${workItem.businessUnit || ''}#${workItem.system || ''}`;
+    // Construct the adoKey from workItem properties including workItemType
+    const adoKey = `${workItem.workItemType.replace(' ', '')}#${workItem.areaPath}#${workItem.businessUnit || ''}#${
+      workItem.system || ''
+    }`;
 
     const input = {
       TableName: this.config.configTableName,

@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
+import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS, WORK_ITEM_TYPES } from '@/lib/constants';
 
 // Define accepted file types and max size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -41,6 +41,7 @@ interface MetadataPayload {
   s3Key: string;
   s3Bucket: string;
   uploadedAt: string;
+  workItemType: string;
   areaPath: string;
   businessUnit?: string;
   system?: string;
@@ -53,6 +54,7 @@ interface KnowledgeDocument {
   size: number;
   sizeFormatted: string;
   lastModified: string;
+  workItemType?: string;
   areaPath?: string;
   businessUnit?: string;
   system?: string;
@@ -62,6 +64,7 @@ interface KnowledgeDocument {
 const formSchema = z
   .object({
     mode: z.enum(['userStory', 'taskGeneration']),
+    workItemType: z.string().optional(),
     areaPath: z.string().optional(),
     businessUnit: z.string().optional(),
     system: z.string().optional(),
@@ -78,6 +81,14 @@ const formSchema = z
       }, 'Only PDF, Word, Text, and Markdown files are allowed'),
   })
   .superRefine((data, ctx) => {
+    if (!data.workItemType || data.workItemType.trim() === '') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Select the Work Item Type from the AMA ADO user story template',
+        path: ['workItemType'],
+      });
+    }
+
     // Only validate dropdown fields for taskGeneration mode
     if (data.mode === 'taskGeneration') {
       if (!data.areaPath || data.areaPath.trim() === '') {
@@ -87,6 +98,7 @@ const formSchema = z
           path: ['areaPath'],
         });
       }
+
       if (!data.businessUnit || data.businessUnit.trim() === '') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -133,6 +145,7 @@ export default function Knowledge() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       mode: 'taskGeneration',
+      workItemType: undefined,
       areaPath: undefined,
       businessUnit: undefined,
       system: undefined,
@@ -297,10 +310,12 @@ export default function Knowledge() {
 
       // Step 1: Get presigned URL
       // For User Story mode, use area path only; for Task Generation mode, use selected values
+      const workItemType = data.workItemType || '';
       const areaPath = data.mode === 'userStory' ? 'agile-process' : data.areaPath || '';
 
       // Build query parameters - only include businessUnit and system for Task Generation mode
       const queryParams = new URLSearchParams({
+        workItemType: workItemType,
         areaPath: areaPath,
         fileName: file.name,
       });
@@ -365,6 +380,7 @@ export default function Knowledge() {
         s3Key: key,
         s3Bucket: bucket,
         uploadedAt: new Date().toISOString(),
+        workItemType: workItemType,
         areaPath: areaPath,
         username: user?.email || '',
       };
@@ -382,6 +398,7 @@ export default function Knowledge() {
       // Reset form with proper cleanup
       form.reset({
         mode: data.mode, // Preserve the current mode instead of defaulting to 'userStory'
+        workItemType: undefined,
         areaPath: undefined,
         businessUnit: undefined,
         system: undefined,
@@ -460,6 +477,31 @@ export default function Knowledge() {
                         ? 'User story evaluation documents will be applied organization-wide for all user stories.'
                         : 'Task generation documents are specific to each team and will only be used for individual Azure DevOps boards matching the Area Path, Business Unit, and System.'}
                     </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='workItemType'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Work Item Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder='Select a work item type' />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {WORK_ITEM_TYPES.map((workItemType) => (
+                          <SelectItem key={workItemType} value={workItemType}>
+                            {workItemType}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -716,7 +758,8 @@ export default function Knowledge() {
                             <div className='max-w-x'>
                               <p className='font-medium truncate'>{doc.fileName}</p>
                               <p className='text-xs text-muted-foreground truncate'>
-                                {doc.areaPath || '-'} / {doc.businessUnit || '-'} / {doc.system || '-'}
+                                {doc.workItemType} / {doc.areaPath || '-'} / {doc.businessUnit || '-'} /{' '}
+                                {doc.system || '-'}
                               </p>
                             </div>
                           </div>

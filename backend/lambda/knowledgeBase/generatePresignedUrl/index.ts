@@ -15,11 +15,29 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION });
 export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
   try {
     // Extract query parameters
+    const workItemType = event.queryStringParameters?.workItemType;
     const areaPath = event.queryStringParameters?.areaPath;
     const businessUnit = event.queryStringParameters?.businessUnit;
     const system = event.queryStringParameters?.system;
     const fileName = event.queryStringParameters?.fileName;
     const username = event.queryStringParameters?.username;
+
+    if (!workItemType) {
+      logger.error('workItemType parameter is required');
+
+      return {
+        statusCode: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+        body: JSON.stringify({
+          error: 'workItemType parameter is required',
+        }),
+      };
+    }
 
     if (!areaPath) {
       logger.error('areaPath parameter is required');
@@ -76,7 +94,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
 
     // Create the S3 key with metadata-specific path
     // Build path components, filtering out null/undefined values
-    const pathComponents = [areaPath, businessUnit, system].filter(Boolean);
+    const pathComponents = [workItemType, areaPath, businessUnit, system].filter(Boolean);
     const key = `${pathComponents.join('/')}/${fileName}`;
 
     // Determine mode based on areaPath
@@ -91,6 +109,13 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
     // Create metadata content based on query parameters
     const metadata = {
       metadataAttributes: {
+        workItemType: {
+          value: {
+            type: 'STRING',
+            stringValue: workItemType,
+          },
+          includeForEmbedding: true,
+        },
         areaPath: {
           value: {
             type: 'STRING',
@@ -155,6 +180,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
         Key: key,
         ContentType: 'application/octet-stream', // Generic content type, will be overridden by the client
         Tagging: [
+          `workItemType=${encodeURIComponent(sanitizeTagValue(workItemType))}`,
           `areaPath=${encodeURIComponent(sanitizeTagValue(areaPath))}`,
           `mode=${encodeURIComponent(mode)}`,
           businessUnit ? `businessUnit=${encodeURIComponent(sanitizeTagValue(businessUnit))}` : '',

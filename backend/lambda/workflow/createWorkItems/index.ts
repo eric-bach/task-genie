@@ -29,12 +29,13 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const azureService = getAzureService();
     await azureService.createChildWorkItems(workItem, workItems);
 
+    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Work Item';
+    const childWorkItemTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true) || 'Work Items';
+
     // Add CloudWatch metrics
     const cloudWatchService = new CloudWatchService();
-    await cloudWatchService.createWorkItemGeneratedMetric(workItems.length, workItems[0].workItemType);
+    await cloudWatchService.createWorkItemGeneratedMetric(workItems.length, childWorkItemType);
     await cloudWatchService.createWorkItemUpdatedMetric(workItem.workItemType);
-
-    const childWorkItemTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true) || 'Work Items';
 
     logger.info(
       `✅ Created ${workItems.length} ${childWorkItemTypePlural} for ${workItem.workItemType} ${workItem.workItemId}`

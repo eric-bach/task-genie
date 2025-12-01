@@ -49,7 +49,7 @@ export class CloudWatchService {
     await this.createMetric(incompleteWorkItemMetric);
   }
 
-  async createWorkItemGeneratedMetric(value: number, workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+  async createWorkItemGeneratedMetric(value: number, workItemType: string) {
     const workItemGeneratedMetric = {
       MetricName: `${workItemType.replace(' ', '')}Generated`,
       Dimensions: [

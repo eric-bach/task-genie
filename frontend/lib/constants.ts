@@ -6,3 +6,4 @@ export const AREA_PATHS = [
 ];
 export const BUSINESS_UNITS = ['IT', 'Membership', 'Registries', 'Travel'];
 export const SYSTEMS = ['iMIS', 'Omni-Admin – Service Queuing', 'Omni-POS'];
+export const WORK_ITEM_TYPES = ['Epic', 'Feature', 'User Story'];

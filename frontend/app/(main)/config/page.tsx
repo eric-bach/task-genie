@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
+import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS, WORK_ITEM_TYPES } from '@/lib/constants';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -29,6 +29,7 @@ import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
 
 interface ConfigItem {
   adoKey: string;
+  workItemType: string;
   areaPath: string;
   businessUnit: string;
   system: string;
@@ -58,6 +59,7 @@ export default function ConfigPage() {
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [workItemType, setWorkItemType] = useState('');
   const [areaPath, setAreaPath] = useState('');
   const [businessUnit, setBusinessUnit] = useState('');
   const [system, setSystem] = useState('');
@@ -120,6 +122,7 @@ export default function ConfigPage() {
 
   const openNew = () => {
     setEditing(null);
+    setWorkItemType('');
     setAreaPath('');
     setBusinessUnit('');
     setSystem('');
@@ -129,6 +132,7 @@ export default function ConfigPage() {
 
   const openEdit = (item: ConfigItem) => {
     setEditing(item);
+    setWorkItemType(item.workItemType);
     setAreaPath(item.areaPath);
     setBusinessUnit(item.businessUnit);
     setSystem(item.system);
@@ -149,7 +153,7 @@ export default function ConfigPage() {
       }
     } else {
       // In create mode, validate all fields
-      if (!areaPath || !businessUnit || !system || !prompt) {
+      if (!workItemType || !areaPath || !businessUnit || !system || !prompt) {
         toast.error('Please fill in all fields.');
         return;
       }
@@ -159,7 +163,7 @@ export default function ConfigPage() {
       const resp = await fetch('/api/config', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ areaPath, businessUnit, system, prompt, username: email }),
+        body: JSON.stringify({ workItemType, areaPath, businessUnit, system, prompt, username: email }),
       });
       if (!resp.ok) throw new Error(await resp.text());
       setShowSheet(false);
@@ -243,6 +247,7 @@ export default function ConfigPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className='whitespace-nowrap'>Work Item Type</TableHead>
                   <TableHead className='whitespace-nowrap'>Area</TableHead>
                   <TableHead className='whitespace-nowrap'>Business Unit</TableHead>
                   <TableHead className='whitespace-nowrap'>System</TableHead>
@@ -261,6 +266,7 @@ export default function ConfigPage() {
                 ) : (
                   items.map((it) => (
                     <TableRow key={it.adoKey}>
+                      <TableCell className='whitespace-nowrap'>{it.workItemType || '-'}</TableCell>
                       <TableCell className='whitespace-nowrap'>{it.areaPath || '-'}</TableCell>
                       <TableCell className='whitespace-nowrap'>{it.businessUnit || '-'}</TableCell>
                       <TableCell className='whitespace-nowrap'>{it.system || '-'}</TableCell>
@@ -332,6 +338,23 @@ export default function ConfigPage() {
           </DialogHeader>
           <div className='flex-1 overflow-y-auto mt-2 space-y-4 pr-2'>
             <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+              <div>
+                <Label htmlFor='workItemType' className='pb-2'>
+                  Work Item Type
+                </Label>
+                <Select value={workItemType} onValueChange={(v) => setWorkItemType(v)} disabled={!!editing}>
+                  <SelectTrigger id='workItemType'>
+                    <SelectValue placeholder='Select a work item type' />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WORK_ITEM_TYPES.map((wit) => (
+                      <SelectItem key={wit} value={wit}>
+                        {wit}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label htmlFor='areaPath' className='pb-2'>
                   Area Path
@@ -417,7 +440,8 @@ export default function ConfigPage() {
             <p className='text-muted-foreground mb-4'>
               Are you sure you want to delete the prompt override for{' '}
               <span className='font-medium text-foreground'>
-                {itemToDelete.areaPath} / {itemToDelete.businessUnit} / {itemToDelete.system}
+                {itemToDelete.workItemType} / {itemToDelete.areaPath} / {itemToDelete.businessUnit} /{' '}
+                {itemToDelete.system}
               </span>
               ? This action cannot be undone.
             </p>

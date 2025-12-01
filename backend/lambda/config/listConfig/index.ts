@@ -33,6 +33,7 @@ export const lambdaHandler = async (event: any) => {
       areaPath: it.areaPath?.S,
       businessUnit: it.businessUnit?.S,
       system: it.system?.S,
+      workItemType: it.workItemType?.S,
       prompt: it.prompt?.S,
       createdAt: it.createdAt?.S,
       createdBy: it.createdBy?.S,
