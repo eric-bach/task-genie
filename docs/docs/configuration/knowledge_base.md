@@ -4,16 +4,16 @@ sidebar_position: 1
 
 # Knowledge Base
 
-**Task Genie** leverages Amazon Bedrock Knowledge Bases with S3 Vectors to provide organizational and project context for highly accurate task breakdown. The system supports two distinct knowledge base types, each serving different purposes in the Agile workflow: **Agile (User Story Evaluation)** and **Project (Task Generation)**.
+**Task Genie** leverages Amazon Bedrock Knowledge Bases with S3 Vectors to provide organizational and project context for highly accurate work item breakdown. The system supports two distinct knowledge base types, each serving different purposes in the Agile workflow: **Agile (Work Item Evaluation)** and **Project (Work Item Generation)**.
 
 ## Knowledge Base Types
 
 **Task Genie** uses Retrieval-Augmented Generation (RAG) to combine AI capabilities with your organization's specific knowledge, ensuring generated tasks and evaluations are contextually relevant and aligned with your team's practices.
 
-| Knowledge Base Type               | Purpose                                                    | Scope                 | When Applied                 |
-| --------------------------------- | ---------------------------------------------------------- | --------------------- | ---------------------------- |
-| **Agile (User Story Evaluation)** | Improve user story quality assessment                      | Organization-wide     | During user story evaluation |
-| **Project (Task Generation)**     | Enhance task breakdown with technical and business context | Team/Project specific | During task generation       |
+| Knowledge Base Type                | Purpose                                                         | Scope                 | When Applied                |
+| ---------------------------------- | --------------------------------------------------------------- | --------------------- | --------------------------- |
+| **Agile (Work Item Evaluation)**   | Improve user story quality assessment                           | Organization-wide     | During work item evaluation |
+| **Project (Work Item Generation)** | Enhance work item breakdown with technical and business context | Team/Project specific | During work item generation |
 
 ---
 

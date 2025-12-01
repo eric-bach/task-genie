@@ -91,8 +91,8 @@ const lambdaHandler = async (event: any, context: Context) => {
       });
 
       // Create CloudWatch metric
-      const cloudWatchClient = new CloudWatchService();
-      await cloudWatchClient.createIncompleteWorkItemMetric(workItem.workItemType);
+      const cloudWatchService = new CloudWatchService();
+      await cloudWatchService.createIncompleteWorkItemMetric(workItem.workItemType);
 
       statusCode = 412;
     } else {

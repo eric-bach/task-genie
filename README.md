@@ -29,7 +29,8 @@
 </div>
 
 <div align="center">
-  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure user story completeness and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.</strong>
+  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure work items (Epic, Feature, User Story) are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.</strong><br />
+  Task Genie follows Azure DevOps hierarchy where Epics are broken down into Features, Features into User Stories, and User Stories into Tasks.
 </div>
 
 <br>
@@ -45,15 +46,15 @@
 
 ## ✨ Features
 
-### 🔍 User Story Validation
+### 🔍 Work Item Validation
 
-- Ensures user stories follow best practices
-- Identifies missing components in user stories
+- Ensures Epics, Features, and User Stories follow best practices
+- Identifies missing components in Epics, Features, and User Stories
 - Provides suggestions to improve clarity and completeness
 
-### 📋 Task Breakdown
+### 📋 Work Item Breakdown
 
-- Automatically decomposes validated user stories into smaller, actionable tasks
+- Automatically decomposes validated Epics, Features, and User Stories into smaller, actionable work items
 - Understands images within user stories as context in task breakdown process
 - Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
 - Learns from user feedback on generated tasks to improve future task generation action using RAG
@@ -66,7 +67,7 @@
 ### 🔗 Azure DevOps Boards Integration
 
 - Multiple, seamless integration options with Azure DevOps Boards (Extension or Service Hooks)
-- Automatically updates work items, tasks, and comments
+- Automatically updates work items and comments
 - Built-in dashboards to visualize performance and effectiveness of task generation
 
 <div align="center">
@@ -163,7 +164,8 @@ The backend is deployed using GitHub Actions with the following pipelines:
   - Validates CloudFormation templates
   - Runs security scans
 - **Staging Deployment** (`deploy-staging.yml`) - Automatically deploys to staging on `main` branch pushes
-- **Production Deployment** (`deploy-production.yml`) - Manual deployment only with confirmation
+- **Production Deployment** (`deploy-production.yml`) - Manual deployment through GitHub Actions
+  ![Deploy](/images/deploy_prod.png)
 
 **One-time Setup for Automated Deployment:**
 
@@ -391,6 +393,7 @@ To setup the task feedback which will be used as supplemental information in the
 - Work item created
 - Work item updated
 - Work item deleted
+
   ![Tasks Service Hooks](/images/service_hooks_tasks.png)
 
 1. **Access Project Settings**

@@ -49,42 +49,35 @@ export class CloudWatchService {
     await this.createMetric(incompleteWorkItemMetric);
   }
 
-  // Keep the old method for backward compatibility
-  async createIncompleteUserStoriesMetric() {
-    await this.createIncompleteWorkItemMetric('User Story');
-  }
-
-  async createTaskGeneratedMetric(value: number) {
-    // Add TasksGenerated metric
-    const tasksGeneratedMetric = {
-      MetricName: 'TasksGenerated',
+  async createWorkItemGeneratedMetric(value: number, workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+    const workItemGeneratedMetric = {
+      MetricName: `${workItemType.replace(' ', '')}Generated`,
       Dimensions: [
         {
-          Name: 'Tasks',
-          Value: 'Tasks',
+          Name: 'WorkItemType',
+          Value: workItemType,
         },
       ],
       Unit: StandardUnit.Count,
       Value: value,
     };
 
-    await this.createMetric(tasksGeneratedMetric);
+    await this.createMetric(workItemGeneratedMetric);
   }
 
-  async createUserStoriesUpdatedMetric() {
-    // Add UserStoriesUpdated metric
-    const userStoriesUpdatedMetric = {
-      MetricName: 'UserStoriesUpdated',
+  async createWorkItemUpdatedMetric(workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+    const workItemUpdatedMetric = {
+      MetricName: `${workItemType.replace(' ', '')}Updated`,
       Dimensions: [
         {
-          Name: 'User Story',
-          Value: 'User Stories',
+          Name: 'WorkItemType',
+          Value: workItemType,
         },
       ],
       Unit: StandardUnit.Count,
       Value: 1,
     };
 
-    await this.createMetric(userStoriesUpdatedMetric);
+    await this.createMetric(workItemUpdatedMetric);
   }
 }

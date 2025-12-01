@@ -23,7 +23,7 @@ Both integration methods provide the same functionality and feature set.
 
 ## Method 1: Azure DevOps Extension
 
-The [Task Genie Azure DevOps Extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) provides the quickest and most user-friendly way to get started with Task Genie. It adds a `Generate Tasks` button directly to your User Story work item forms that can be used to trigger **Task Genie**.
+The [Task Genie Azure DevOps Extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) provides the quickest and most user-friendly way to get started with Task Genie. It adds a `Generate Tasks` button directly to your User Story work item forms that can be used to trigger **Task Genie**. The extension can also be installed on Epic and Feature work item forms.
 
 ![Extension](../../static/img/azure_devops_user_story.png)
 
