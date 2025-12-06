@@ -4,10 +4,10 @@ import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task } from '../../../types/azureDevOps';
+import { WorkItem, isUserStory, isEpic, isFeature } from '../../../types/azureDevOps';
 import { BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
-const logger = new Logger({ serviceName: 'sendResponse' });
+const logger = new Logger({ serviceName: 'finalizeResponse' });
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient, {
   marshallOptions: {
@@ -21,10 +21,10 @@ const lambdaHandler = async (event: any, context: Context) => {
     event = validateEvent(event);
 
     // Parse work item
-    const { executionId: executionId, workItem, tasks, workItemStatus } = parseEvent(event);
+    const { executionId: executionId, workItem, workItems, workItemStatus } = parseEvent(event);
 
     // Save response to DynamoDB
-    await saveResponseToDynamoDB(executionId, workItem, tasks, workItemStatus);
+    await saveResponseToDynamoDB(executionId, workItem, workItems, workItemStatus);
 
     logger.info(`✅ Completed execution workflow for work item ${workItem.workItemId}`);
 
@@ -34,7 +34,7 @@ const lambdaHandler = async (event: any, context: Context) => {
         isValidWorkItem: event.statusCode === 200 || event.statusCode === 204,
         isModified: workItem.workItemId > 0 && event.statusCode !== 204,
         workItem,
-        tasks,
+        workItems,
         workItemStatus,
       },
     };
@@ -65,28 +65,72 @@ const validateEvent = (event: any) => {
 
 const parseEvent = (
   event: any
-): { executionId: string; workItem: WorkItem; tasks: Task[]; workItemStatus: BedrockWorkItemEvaluationResponse } => {
-  const { workItem, tasks, workItemStatus } = event.body;
+): {
+  executionId: string;
+  workItem: WorkItem;
+  workItems: WorkItem[];
+  workItemStatus: BedrockWorkItemEvaluationResponse;
+} => {
+  const { workItem, workItems, workItemStatus } = event.body;
 
   // Use executionId as the executionId for storage
   const executionArn = event.executionArn.split(':');
   const executionId = executionArn.slice(7).join(':') || '';
 
-  logger.info(`▶️ Received work item ${workItem.workItemId}`, {
+  logger.info(`▶️ Received ${workItem.workItemType} ${workItem.workItemId}`, {
     executionArn,
     executionId,
     workItem,
-    tasks,
+    workItems,
     workItemStatus,
   });
 
-  return { executionId, workItem, tasks, workItemStatus };
+  return { executionId, workItem, workItems, workItemStatus };
+};
+
+/**
+ * Extracts type-specific fields from a work item for DynamoDB storage
+ */
+const extractWorkItemFields = (workItem: WorkItem) => {
+  const baseFields = {
+    id: workItem.workItemId,
+    title: workItem.title || '',
+    description: workItem.description || '',
+    workItemType: workItem.workItemType,
+  };
+
+  if (isUserStory(workItem)) {
+    return {
+      ...baseFields,
+      acceptanceCriteria: workItem.acceptanceCriteria || '',
+      importance: workItem.importance || '',
+    };
+  } else if (isEpic(workItem)) {
+    return {
+      ...baseFields,
+      successCriteria: workItem.successCriteria || '',
+      objective: workItem.objective || '',
+      addressedRisks: workItem.addressedRisks || '',
+      pursueRisk: workItem.pursueRisk || '',
+      mostRecentUpdate: workItem.mostRecentUpdate || '',
+      outstandingActionItems: workItem.outstandingActionItems || '',
+    };
+  } else if (isFeature(workItem)) {
+    return {
+      ...baseFields,
+      successCriteria: workItem.successCriteria || '',
+      businessDeliverable: workItem.businessDeliverable || '',
+    };
+  } else {
+    // Task or unknown type
+    return baseFields;
+  }
 };
 
 const saveResponseToDynamoDB = async (
   executionId: string,
   workItem: WorkItem,
-  tasks: Task[],
+  workItems: WorkItem[],
   workItemStatus: BedrockWorkItemEvaluationResponse
 ) => {
   const tableName = process.env.TABLE_NAME;
@@ -109,20 +153,10 @@ const saveResponseToDynamoDB = async (
     workItemId: workItem.workItemId,
     workItemStatus: workItemStatus.pass,
     workItemComment: workItemStatus.comment || '', // Provide default for undefined
-    workItem: {
-      id: workItem.workItemId,
-      title: workItem.title || '', // Provide default for undefined
-      description: workItem.description || '', // Provide default for undefined
-      acceptanceCriteria: workItem.acceptanceCriteria || '', // Provide default for undefined
-    },
-    tasksCount: tasks?.length || 0,
-    taskIds: tasks?.map((task) => task.taskId) || [],
-    tasks:
-      tasks?.map((task) => ({
-        ...(task.taskId && { id: task.taskId }), // Only include if defined
-        title: task.title || '', // Provide default for undefined
-        description: task.description || '', // Provide default for undefined
-      })) || [],
+    workItem: extractWorkItemFields(workItem),
+    workItemsCount: workItems?.length || 0,
+    workItemIds: workItems?.map((workItem) => workItem.workItemId) || [],
+    workItems: workItems?.map((w) => extractWorkItemFields(w)) || [],
     changedBy: workItem.changedBy || '', // Provide default for undefined
   };
 

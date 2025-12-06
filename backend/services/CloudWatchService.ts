@@ -32,54 +32,52 @@ export class CloudWatchService {
     }
   }
 
-  async createIncompleteUserStoriesMetric() {
-    // Add IncompleteUserStoriesMetric metric
-    const incompleteUserStoriesMetric = {
-      MetricName: 'IncompleteUserStories',
+  async createIncompleteWorkItemMetric(workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+    // Add IncompleteWorkItems metric with work item type dimension
+    const incompleteWorkItemMetric = {
+      MetricName: 'IncompleteWorkItems',
       Dimensions: [
         {
-          Name: 'User Story',
-          Value: 'User Stories',
+          Name: 'WorkItemType',
+          Value: workItemType,
         },
       ],
       Unit: StandardUnit.Count,
       Value: 1,
     };
 
-    await this.createMetric(incompleteUserStoriesMetric);
+    await this.createMetric(incompleteWorkItemMetric);
   }
 
-  async createTaskGeneratedMetric(value: number) {
-    // Add TasksGenerated metric
-    const tasksGeneratedMetric = {
-      MetricName: 'TasksGenerated',
+  async createWorkItemGeneratedMetric(value: number, workItemType: string) {
+    const workItemGeneratedMetric = {
+      MetricName: `${workItemType.replace(' ', '')}Generated`,
       Dimensions: [
         {
-          Name: 'Tasks',
-          Value: 'Tasks',
+          Name: 'WorkItemType',
+          Value: workItemType,
         },
       ],
       Unit: StandardUnit.Count,
       Value: value,
     };
 
-    await this.createMetric(tasksGeneratedMetric);
+    await this.createMetric(workItemGeneratedMetric);
   }
 
-  async createUserStoriesUpdatedMetric() {
-    // Add UserStoriesUpdated metric
-    const userStoriesUpdatedMetric = {
-      MetricName: 'UserStoriesUpdated',
+  async createWorkItemUpdatedMetric(workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+    const workItemUpdatedMetric = {
+      MetricName: `${workItemType.replace(' ', '')}Updated`,
       Dimensions: [
         {
-          Name: 'User Story',
-          Value: 'User Stories',
+          Name: 'WorkItemType',
+          Value: workItemType,
         },
       ],
       Unit: StandardUnit.Count,
       Value: 1,
     };
 
-    await this.createMetric(userStoriesUpdatedMetric);
+    await this.createMetric(workItemUpdatedMetric);
   }
 }

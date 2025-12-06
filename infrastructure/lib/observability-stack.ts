@@ -35,15 +35,27 @@ export class ObservabilityStack extends Stack {
      * Lookup properties
      */
     const stateMachine = StateMachine.fromStateMachineArn(this, 'StateMachine', props.params.stateMachineArn);
-    const evaluateUserStoryFunction = Function.fromFunctionArn(
+    const evaluateWorkItemFunction = Function.fromFunctionArn(
       this,
-      'EvaluateUserStory',
-      props.params.evaluateUserStoryFunctionArn
+      'EvaluateWorkItem',
+      props.params.evaluateWorkItemFunctionArn
     );
-    const defineTasksFunction = Function.fromFunctionArn(this, 'DefineTasks', props.params.defineTasksFunctionArn);
-    const createTasksFunction = Function.fromFunctionArn(this, 'CreateTasks', props.params.createTasksFunctionArn);
+    const generateWorkItemsFunction = Function.fromFunctionArn(
+      this,
+      'GenerateWorkItems',
+      props.params.generateWorkItemsFunctionArn
+    );
+    const createWorkItemsFunction = Function.fromFunctionArn(
+      this,
+      'CreateWorkItems',
+      props.params.createWorkItemsFunctionArn
+    );
     const addCommentFunction = Function.fromFunctionArn(this, 'AddComment', props.params.addCommentFunctionArn);
-    const sendResponseFunction = Function.fromFunctionArn(this, 'SendResponse', props.params.sendResponseFunctionArn);
+    const finalizeResponseFunction = Function.fromFunctionArn(
+      this,
+      'FinalizeResponse',
+      props.params.finalizeResponseFunctionArn
+    );
     const apiGwAccessLogGroup = LogGroup.fromLogGroupArn(
       this,
       'ApiGwAccessLogGroup',
@@ -133,19 +145,19 @@ export class ObservabilityStack extends Stack {
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
           statistic: 'p99',
-          dimensionsMap: { FunctionName: evaluateUserStoryFunction.functionName },
+          dimensionsMap: { FunctionName: evaluateWorkItemFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
           statistic: 'p99',
-          dimensionsMap: { FunctionName: defineTasksFunction.functionName },
+          dimensionsMap: { FunctionName: generateWorkItemsFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
           statistic: 'p99',
-          dimensionsMap: { FunctionName: createTasksFunction.functionName },
+          dimensionsMap: { FunctionName: createWorkItemsFunction.functionName },
         }),
         new Metric({
           namespace: 'AWS/Lambda',
@@ -157,7 +169,7 @@ export class ObservabilityStack extends Stack {
           namespace: 'AWS/Lambda',
           metricName: 'Duration',
           statistic: 'p99',
-          dimensionsMap: { FunctionName: sendResponseFunction.functionName },
+          dimensionsMap: { FunctionName: finalizeResponseFunction.functionName },
         }),
       ],
       sparkline: false,
@@ -249,13 +261,13 @@ export class ObservabilityStack extends Stack {
     const unhandledErrorLogs = new LogQueryWidget({
       title: 'Unhandled Error Logs',
       logGroupNames: [
-        `/aws/lambda/${evaluateUserStoryFunction.functionName}`,
-        `/aws/lambda/${defineTasksFunction.functionName}`,
-        `/aws/lambda/${createTasksFunction.functionName}`,
+        `/aws/lambda/${evaluateWorkItemFunction.functionName}`,
+        `/aws/lambda/${generateWorkItemsFunction.functionName}`,
+        `/aws/lambda/${createWorkItemsFunction.functionName}`,
         `/aws/lambda/${addCommentFunction.functionName}`,
-        `/aws/lambda/${sendResponseFunction.functionName}`,
+        `/aws/lambda/${finalizeResponseFunction.functionName}`,
       ],
-      queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}' | SOURCE '/aws/lambda/${defineTasksFunction.functionName}' | SOURCE '/aws/lambda/${createTasksFunction.functionName}' | SOURCE '/aws/lambda/${addCommentFunction.functionName}' | SOURCE '/aws/lambda/${sendResponseFunction.functionName}'
+      queryString: `SOURCE '/aws/lambda/${evaluateWorkItemFunction.functionName}' | SOURCE '/aws/lambda/${generateWorkItemsFunction.functionName}' | SOURCE '/aws/lambda/${createWorkItemsFunction.functionName}' | SOURCE '/aws/lambda/${addCommentFunction.functionName}' | SOURCE '/aws/lambda/${finalizeResponseFunction.functionName}'
 | fields @timestamp, @message, @logStream 
 | filter level like /ERROR/
 | filter @message not like /Work item \\d+ does not meet requirements/
@@ -268,8 +280,8 @@ export class ObservabilityStack extends Stack {
 
     const incompleteUserStories = new LogQueryWidget({
       title: 'Incomplete User Stories',
-      logGroupNames: [`/aws/lambda/${evaluateUserStoryFunction.functionName}`],
-      queryString: `SOURCE '/aws/lambda/${evaluateUserStoryFunction.functionName}'
+      logGroupNames: [`/aws/lambda/${evaluateWorkItemFunction.functionName}`],
+      queryString: `SOURCE '/aws/lambda/${evaluateWorkItemFunction.functionName}'
 | fields @timestamp, @message, @logStream 
 | filter @message like /Work item \\d+ does not meet requirements/ and @message not like /Work item 0\\s+does not meet requirements/
 | parse @message /Work item (?<workItemId>[0-9]+) does not meet requirements/

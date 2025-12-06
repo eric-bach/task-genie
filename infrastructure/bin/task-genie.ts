@@ -37,11 +37,11 @@ export interface AppStackProps extends BaseStackProps {
 export interface ObservabilityStackProps extends BaseStackProps {
   params: {
     stateMachineArn: string;
-    evaluateUserStoryFunctionArn: string;
-    defineTasksFunctionArn: string;
-    createTasksFunctionArn: string;
+    evaluateWorkItemFunctionArn: string;
+    generateWorkItemsFunctionArn: string;
+    createWorkItemsFunctionArn: string;
     addCommentFunctionArn: string;
-    sendResponseFunctionArn: string;
+    finalizeResponseFunctionArn: string;
     trackTaskFeedbackFunctionArn: string;
     apiGwAccessLogGroupArn: string;
     apiName: string;
@@ -92,11 +92,11 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
   ...baseProps,
   params: {
     stateMachineArn: appProps.stateMachineArn,
-    evaluateUserStoryFunctionArn: appProps.evaluateUserStoryFunctionArn,
-    defineTasksFunctionArn: appProps.defineTasksFunctionArn,
-    createTasksFunctionArn: appProps.createTasksFunctionArn,
+    evaluateWorkItemFunctionArn: appProps.evaluateWorkItemFunctionArn,
+    generateWorkItemsFunctionArn: appProps.generateWorkItemsFunctionArn,
+    createWorkItemsFunctionArn: appProps.createWorkItemsFunctionArn,
     addCommentFunctionArn: appProps.addCommentFunctionArn,
-    sendResponseFunctionArn: appProps.sendResponseFunctionArn,
+    finalizeResponseFunctionArn: appProps.finalizeResponseFunctionArn,
     trackTaskFeedbackFunctionArn: appProps.trackTaskFeedbackFunctionArn,
     apiGwAccessLogGroupArn: appProps.apiGwAccessLogGroupArn,
     apiName: appProps.apiName,

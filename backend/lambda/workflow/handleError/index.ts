@@ -114,11 +114,12 @@ const parseErrorEvent = (
     const fields = event.resource.revision?.fields;
     workItem = {
       workItemId: event.resource.workItemId,
+      workItemType: 'User Story',
       teamProject: fields?.['System.TeamProject'] || 'Unknown',
       areaPath: fields?.['System.AreaPath'] || '',
       iterationPath: fields?.['System.IterationPath'] || '',
-      businessUnit: fields?.['Custom.BusinessUnit'] || fields?.['Custom.BusinessUnit2'],
-      system: fields?.['Custom.System'] || fields?.['Custom.System2'],
+      businessUnit: fields?.['Custom.BusinessUnit'] || '',
+      system: fields?.['Custom.System'] || '',
       changedBy: extractUserFromChangedBy(fields?.['System.ChangedBy'] || 'Unknown'),
       title: fields?.['System.Title'] || 'Unknown',
       description: fields?.['System.Description'] || '',

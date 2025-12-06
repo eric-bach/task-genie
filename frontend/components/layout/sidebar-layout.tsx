@@ -1,10 +1,10 @@
-import { AuthUser } from 'aws-amplify/auth';
+import { UserAttributeKey } from 'aws-amplify/auth';
 import { AuthEventData } from '@aws-amplify/ui';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/app-sidebar';
 
 type LayoutProps = {
-  user: AuthUser | undefined;
+  user: Partial<Record<UserAttributeKey, string>> | null;
   signOut: ((data?: AuthEventData | undefined) => void) | undefined;
   children: React.ReactNode;
 };

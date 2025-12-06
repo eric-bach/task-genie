@@ -10,6 +10,7 @@ interface UpsertRequestBody {
   areaPath: string;
   businessUnit: string;
   system: string;
+  workItemType: string; // Epic, Feature, User Story
   prompt: string;
   username: string; // user's email
 }
@@ -38,17 +39,25 @@ export const lambdaHandler = async (event: any) => {
 
     logger.info('▶️ Updating config item', { item: body });
 
-    if (!body || !body.areaPath || !body.businessUnit || !body.system || !body.prompt || !body.username) {
+    if (
+      !body ||
+      !body.workItemType ||
+      !body.areaPath ||
+      !body.businessUnit ||
+      !body.system ||
+      !body.prompt ||
+      !body.username
+    ) {
       return {
         statusCode: 400,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: 'Missing required fields: areaPath, businessUnit, system, prompt, username',
+          message: 'Missing required fields: workItemType, areaPath, businessUnit, system, prompt, username',
         }),
       };
     }
 
-    const adoKey = `${body.areaPath}#${body.businessUnit}#${body.system}`;
+    const adoKey = `${body.workItemType}#${body.areaPath}#${body.businessUnit}#${body.system}`;
 
     const nowIso = new Date().toISOString();
 
@@ -58,9 +67,10 @@ export const lambdaHandler = async (event: any) => {
         adoKey: { S: adoKey },
       },
       UpdateExpression:
-        'SET #prompt = :prompt, #areaPath = :areaPath, #businessUnit = :businessUnit, #system = :system, #updatedAt = :updatedAt, #updatedBy = :updatedBy, #createdAt = if_not_exists(#createdAt, :createdAt), #createdBy = if_not_exists(#createdBy, :createdBy)',
+        'SET #prompt = :prompt, #workItemType = :workItemType, #areaPath = :areaPath, #businessUnit = :businessUnit, #system = :system, #updatedAt = :updatedAt, #updatedBy = :updatedBy, #createdAt = if_not_exists(#createdAt, :createdAt), #createdBy = if_not_exists(#createdBy, :createdBy)',
       ExpressionAttributeNames: {
         '#prompt': 'prompt',
+        '#workItemType': 'workItemType',
         '#areaPath': 'areaPath',
         '#businessUnit': 'businessUnit',
         '#system': 'system',
@@ -71,6 +81,7 @@ export const lambdaHandler = async (event: any) => {
       },
       ExpressionAttributeValues: {
         ':prompt': { S: body.prompt },
+        ':workItemType': { S: body.workItemType },
         ':areaPath': { S: body.areaPath },
         ':businessUnit': { S: body.businessUnit },
         ':system': { S: body.system },
@@ -86,6 +97,7 @@ export const lambdaHandler = async (event: any) => {
 
     const responseBody = {
       adoKey,
+      workItemType: body.workItemType,
       areaPath: body.areaPath,
       businessUnit: body.businessUnit,
       system: body.system,

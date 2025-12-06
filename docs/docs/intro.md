@@ -4,23 +4,23 @@ sidebar_position: 1
 
 # Introduction
 
-Welcome to **Task Genie** - an AI-powered assistant that combines the power of AI with Azure DevOps integration to solve common challenges in sprint planning and story management.
+Welcome to **Task Genie** - an AI-powered assistant that combines the power of AI with Azure DevOps integration to solve common challenges in the Agile process to improve feature breakdown, sprint planning, and story management.
 
 ## What is Task Genie?
 
-**Task Genie** integrates with **Azure DevOps Boards** and uses the most advanced foundation models to ensure user stories are well-defined and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.
+**Task Genie** integrates with **Azure DevOps Boards** and uses the most advanced foundation models to ensure epics, features, and user stories are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.
 
 By leveraging Retrieval-Augmented Generation (RAG) and providing prompt customization, **Task Genie** can be tailored to any Agile use case. See the **Configuration** section for more details.
 
 ## Key Problems Task Genie Solves
 
-### 🎯 **Incomplete User Stories**
+### 🎯 **Incomplete Work Items**
 
-Many user stories lack essential components like clear acceptance criteria, proper context, or technical details. **Task Genie** validates your stories against Agile best practices and identifies missing elements.
+Many epics, features, and user stories lack essential components like clear descriptions, success criteria, proper context, or technical details. **Task Genie** validates your work items against Agile best practices and identifies missing elements.
 
-### 📋 **Manual Task Breakdown**
+### 📋 **Manual Work Item Breakdown**
 
-Breaking down user stories into actionable tasks is time-consuming and often inconsistent. **Task Genie** automates this process while maintaining alignment with Agile methodologies.
+Breaking down epics, features, and user stories into actionable work items is time-consuming and often inconsistent. **Task Genie** automates this process while maintaining alignment with Agile methodologies.
 
 ### 🔄 **Context Loss**
 
@@ -34,19 +34,19 @@ Without proper insights into story quality and task generation patterns, teams s
 
 **Task Genie** operates through a serverless architecture on AWS, orchestrated by Step Functions, and with Amazon Bedrock for reliable and scalable AI processing:
 
-### 🔍 **User Story Evalutation Agent**
+### 🔍 **Work Item Evalutation Agent**
 
-1. **Automated Analysis**: When a user story is created or updated in Azure DevOps, Task Genie automatically analyzes its completeness
+1. **Automated Analysis**: When a epic, feature, or user story is created or updated in Azure DevOps, Task Genie automatically analyzes its completeness
 2. **Best Practice Validation**: Checks for essential components like user personas, acceptance criteria, and clear descriptions
 3. **Contextual Enhancement**: Uses organizational knowledge base to identify missing technical or domain-specific details
 4. **Improvement Suggestions**: Provides actionable recommendations to enhance story quality
 
-### 🤖 **Task Generation Agent**
+### 🤖 **Work item Generation Agent**
 
-1. **Intelligent Decomposition**: Breaks down validated user stories into smaller, actionable development tasks
+1. **Intelligent Decomposition**: Breaks down validated epics, feature, and user stories into smaller, actionable development work items
 2. **Context-Aware**: Incorporates technical requirements, architectural patterns, and team conventions
-3. **Agile-Compliant**: Ensures tasks follow Agile principles and can be completed within sprint timeframes
-4. **Automatic Integration**: Creates tasks directly in Azure DevOps with proper linking and categorization
+3. **Agile-Compliant**: Ensures work items follow Agile principles and can be completed within sprint timeframes
+4. **Automatic Integration**: Creates work items directly in Azure DevOps with proper linking and categorization
 
 ## Architecture Overview
 
@@ -79,7 +79,7 @@ Task Genie is built on a modern, serverless architecture that ensures scalabilit
 
 ### **Option 1: Azure DevOps Extension**
 
-Install the [Task Genie extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) directly from the Azure DevOps marketplace to include a button on you User Story forms to trigger **Task Genie**
+Install the [Task Genie extension](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) directly from the Azure DevOps marketplace to include a button on you Epic, Feature, and User Story forms to trigger **Task Genie**
 
 ![Extension](../static/img/azure_devops_user_story.png)
 

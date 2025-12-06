@@ -2,7 +2,7 @@ import { Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
-import { WorkItem, Task } from '../../../types/azureDevOps';
+import { getExpectedChildWorkItemType, WorkItem } from '../../../types/azureDevOps';
 import { AzureService } from '../../../services/AzureService';
 import { BedrockKnowledgeDocument, BedrockWorkItemEvaluationResponse } from '../../../types/bedrock';
 
@@ -22,10 +22,10 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     validateEvent(event);
 
     // Parse event
-    const { workItem, tasks, documents, workItemStatus } = parseEvent(event);
+    const { workItem, workItems, documents, workItemStatus } = parseEvent(event);
 
     // Generate comment
-    const comment = workItemStatus.pass ? generateComment(workItem, tasks, documents) : workItemStatus.comment;
+    const comment = workItemStatus.pass ? generateComment(workItem, workItems, documents) : workItemStatus.comment;
 
     // Add comment
     const azureService = getAzureService();
@@ -36,13 +36,13 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
       await azureService.addTag(workItem.teamProject, workItem.workItemId, 'Task Genie');
     }
 
-    logger.info(`✅ Added comment to work item ${workItem.workItemId}`);
+    logger.info(`✅ Added comment to ${workItem.workItemType} ${workItem.workItemId}`);
 
     return {
       statusCode: 200,
       body: {
         workItem,
-        tasks,
+        workItems,
         workItemStatus,
       },
     };
@@ -79,28 +79,35 @@ const parseEvent = (
   event: Record<string, any>
 ): {
   workItem: WorkItem;
-  tasks: Task[];
+  workItems: WorkItem[];
   documents: BedrockKnowledgeDocument[];
   workItemStatus: BedrockWorkItemEvaluationResponse;
 } => {
   const body = event.body;
 
-  let { workItem, tasks, documents, workItemStatus } = body;
-  tasks = tasks ?? [];
+  let { workItem, workItems, documents, workItemStatus } = body;
+  workItems = workItems ?? [];
 
-  logger.info(`▶️ Received work item ${workItem.workItemId} and ${tasks.length} tasks`, {
-    workItem,
-    tasks,
-    documents,
-    workItemStatus,
-  });
+  logger.info(
+    `▶️ Received ${workItem.workItemType} ${workItem.workItemId} with ${
+      workItems.length
+    } ${getExpectedChildWorkItemType(workItem.workItemType, true)}`,
+    {
+      workItem,
+      workItems,
+      documents,
+      workItemStatus,
+    }
+  );
 
-  return { workItem, tasks, documents, workItemStatus };
+  return { workItem, workItems, documents, workItemStatus };
 };
 
-const generateComment = (workItem: WorkItem, tasks: Task[], documents: BedrockKnowledgeDocument[]): string => {
-  const comment = `<br />✅ Successfully generated ${tasks.length} tasks for work item ${workItem.workItemId}`;
-
+const generateComment = (workItem: WorkItem, workItems: WorkItem[], documents: BedrockKnowledgeDocument[]): string => {
+  const comment = `<br />✅ Successfully generated ${workItems.length} ${getExpectedChildWorkItemType(
+    workItem.workItemType,
+    true
+  )} for ${workItem.workItemType} ${workItem.workItemId}`;
   if (documents.length > 0) {
     const sources = documents
       .map((doc) => {

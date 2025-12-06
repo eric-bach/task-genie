@@ -1,7 +1,7 @@
 # Task Genie
 
 <div align="center">
-  <img src="docs/logo.jpg" alt="Task Genie" width="120">
+  <img src="images/logo.jpg" alt="Task Genie" width="120">
 </div>
 
 <div align="center">
@@ -29,7 +29,8 @@
 </div>
 
 <div align="center">
-  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure user story completeness and automatically breaks them down into actionable tasks, streamlining the Agile process and enhancing developer productivity.</strong>
+  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure work items (Epic, Feature, User Story) are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.</strong><br />
+  Task Genie follows Azure DevOps hierarchy where Epics are broken down into Features, Features into User Stories, and User Stories into Tasks.
 </div>
 
 <br>
@@ -45,32 +46,32 @@
 
 ## ✨ Features
 
-### 🔍 User Story Validation
+### 🔍 Work Item Validation
 
-- Ensures user stories follow best practices
-- Identifies missing components in user stories
+- Ensures Epics, Features, and User Stories follow best practices
+- Identifies missing components in Epics, Features, and User Stories
 - Provides suggestions to improve clarity and completeness
 
-### 📋 Task Breakdown
+### 📋 Work Item Breakdown
 
-- Automatically decomposes validated user stories into smaller, actionable tasks
+- Automatically decomposes validated Epics, Features, and User Stories into smaller, actionable work items
 - Understands images within user stories as context in task breakdown process
 - Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
 - Learns from user feedback on generated tasks to improve future task generation action using RAG
 - Ability to fully customize the AI prompt for mutliple workflows
 
 <div align="center">
-  <img src="docs/ui.png" alt="Task Genie UI" width="800">
+  <img src="images/ui.png" alt="Task Genie UI" width="800">
 </div>
 
 ### 🔗 Azure DevOps Boards Integration
 
 - Multiple, seamless integration options with Azure DevOps Boards (Extension or Service Hooks)
-- Automatically updates work items, tasks, and comments
+- Automatically updates work items and comments
 - Built-in dashboards to visualize performance and effectiveness of task generation
 
 <div align="center">
-  <img src="docs/dashboard.png" alt="Dashboard" width="800">
+  <img src="images/dashboard.png" alt="Dashboard" width="800">
 </div>
 
 ## 🏗️ Architecture
@@ -78,13 +79,13 @@
 The architecture is deployed in AWS using a **serverless model** with **Step Functions** orchestrating the AI workflow. Integration with Azure DevOps is done through **Service Hooks** for each board.
 
 <div align="center">
-  <img src="docs/architecture_v2.png" alt="Architecture Diagram" width="800">
+  <img src="images/architecture_v2.png" alt="Architecture Diagram" width="800">
 </div>
 
 A state machine, leveraging **AWS Step Functions**, orchestrates the workflow for the interaction with the LLM.
 
 <div align="center">
-  <img src="docs/state_machine.png" alt="State Machine" width="600">
+  <img src="images/state_machine.png" alt="State Machine" width="600">
 </div>
 
 ### 🛠️ Technology Stack
@@ -147,7 +148,7 @@ Estimated monthly costs (USD) for running in AWS:
    - Uncheck `Send email invites`
 
 <div align="center">
-  <img src="docs/service_principal.png" alt="Azure DevOps Service Principal" width="480">
+  <img src="images/service_principal.png" alt="Azure DevOps Service Principal" width="480">
 </div>
 
 ## 🔧 Deployment
@@ -163,7 +164,8 @@ The backend is deployed using GitHub Actions with the following pipelines:
   - Validates CloudFormation templates
   - Runs security scans
 - **Staging Deployment** (`deploy-staging.yml`) - Automatically deploys to staging on `main` branch pushes
-- **Production Deployment** (`deploy-production.yml`) - Manual deployment only with confirmation
+- **Production Deployment** (`deploy-production.yml`) - Manual deployment through GitHub Actions
+  ![Deploy](/images/deploy_prod.png)
 
 **One-time Setup for Automated Deployment:**
 
@@ -196,19 +198,22 @@ The backend is deployed using GitHub Actions with the following pipelines:
 
    **Required Secrets:**
 
-   - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
    - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
    - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
    - `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
-   - `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
    - `AWS_BEDROCK_MODEL_ID`: Bedrock model ID
 
    **Environment-Specific Secrets:**
    For **staging** and **production** environments:
 
-   - `AWS_ROLE_ARN`
-   - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`
-   - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`
+   - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
+   - `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
+   - `AWS_ROLE_ARN`: AWS IAM role for Github Actions deployment
+   - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`: Amazon Bedrock Knowledge Base ID
+   - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`: Amazon Bedrock Knowledge Base Data Source ID
+   - `AWS_CERTIFICATE_ARN`: ARN of the AWS Certificate used for the Docusarus Cloudfront Distribution
+   - `DOCS_DOMAIN_NAME`: domain name of the Docusarus website
+   - `FEEDBACK_FEATURE_ENABLED`: true or false to toggle Adapative Feedback feature
 
 #### Option 2: Manual Deployment (CDK)
 
@@ -225,6 +230,8 @@ The backend is deployed using GitHub Actions with the following pipelines:
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
+   AWS_CERTIFICATE_ARN=
+   DOCS_DOMAIN_NAME=
    FEEDBACK_FEATURE_ENABLED=
    ```
 
@@ -248,7 +255,7 @@ The backend is deployed using GitHub Actions with the following pipelines:
    - Set the Chunking strategy to `Semantic chunking` with `Max token size for a chunk` = 150
 
    <div align="center">
-     <img src="docs/kb_chunking.png" alt="Chunking Strategy" width="600">
+     <img src="images/kb_chunking.png" alt="Chunking Strategy" width="600">
    </div>
 
    - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from step 3
@@ -282,9 +289,12 @@ The frontend is deployed using **AWS Amplify Console**.
    ```env
    NEXT_PUBLIC_COGNITO_USER_POOL_ID=
    NEXT_PUBLIC_COGNITO_CLIENT_ID=
+   NEXT_PUBLIC_DOMAIN=
+   NEXT_PUBLIC_REDIRECT_SIGNIN_URL=
+   NEXT_PUBLIC_REDIRECT_SIGNOUT_URL=
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
-   NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+   NEXT_PUBLIC_DOCS_URL=
    ```
 
 #### Local Development
@@ -296,9 +306,12 @@ The frontend is deployed using **AWS Amplify Console**.
    ```env
    NEXT_PUBLIC_COGNITO_USER_POOL_ID=
    NEXT_PUBLIC_COGNITO_CLIENT_ID=
+   NEXT_PUBLIC_DOMAIN=
+   NEXT_PUBLIC_REDIRECT_SIGNIN_URL=http://localhost:3000/dashboard
+   NEXT_PUBLIC_REDIRECT_SIGNOUT_URL=http://localhost:3000
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
-   NEXT_PUBLIC_TURNSTILE_SITE_KEY=
+   NEXT_PUBLIC_DOCS_URL=
    ```
 
 2. **Install Dependencies**
@@ -327,12 +340,12 @@ The frontend is deployed using **AWS Amplify Console**.
    - Click on the Process to edit
    - Click on `User Story`
    - Click `Add custom control` and select the ~Task Genie Button (AMA)`
-     ![](/docs/custom_control.png)
+     ![](/images/custom_control.png)
    - Click `Options` and set the API URL and API Key to the values in the AWS environment
-     ![](/docs/custom_control_options.png)
+     ![](/images/custom_control_options.png)
 
 3. The `Generate Tasks` button should now appear on any User Stories using the Process
-   ![](/docs/azure_devops_user_story.png)
+   ![](/images/azure_devops_user_story.png)
 
 #### Option 2: Azure DevOps Service Hooks
 
@@ -344,7 +357,7 @@ The integration with Azure DevOps leverages **Service Hooks** and requires **4 S
 - Work item updated (acceptance criteria)
 
 <div align="center">
-  <img src="docs/service_hooks.png" alt="Service Hooks Configuration" width="700">
+  <img src="images/service_hooks.png" alt="Service Hooks Configuration" width="700">
 </div>
 
 > ⚠️ **Important**: When the title, acceptance criteria, and description are updated simultaneously, it will trigger 3 times, resulting in 3x the number of tasks being generated. This is a limitation of Azure DevOps, not Task Genie.
@@ -380,7 +393,8 @@ To setup the task feedback which will be used as supplemental information in the
 - Work item created
 - Work item updated
 - Work item deleted
-  ![Tasks Service Hooks](/docs/service_hooks_tasks.png)
+
+  ![Tasks Service Hooks](/images/service_hooks_tasks.png)
 
 1. **Access Project Settings**
 

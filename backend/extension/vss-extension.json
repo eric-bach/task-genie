@@ -2,9 +2,9 @@
   "manifestVersion": 1,
   "id": "task-genie",
   "publisher": "AMA",
-  "version": "1.0.40",
+  "version": "1.1.2",
   "name": "Task Genie",
-  "description": "Agile extension to generate tasks from user stories using AI.",
+  "description": "Agile extension to generate child work items from Epics, Features, and User Stories using AI.",
   "public": false,
   "categories": ["Azure Boards"],
   "targets": [
@@ -31,7 +31,7 @@
       "type": "ms.vss-work-web.work-item-form-control",
       "targets": ["ms.vss-work-web.work-item-form"],
       "properties": {
-        "name": "Task Genie Button",
+        "name": "Task Genie",
         "uri": "user-story-button.html",
         "height": 80,
         "inputs": [

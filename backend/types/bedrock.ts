@@ -1,4 +1,4 @@
-import { Task } from './azureDevOps';
+import { WorkItem } from './azureDevOps';
 
 export interface BedrockInferenceParams {
   prompt?: string;
@@ -19,12 +19,12 @@ export interface BedrockWorkItemEvaluationResponse {
   comment: string;
 }
 
-export interface BedrockTaskGenerationResponse {
-  tasks: Task[];
+export interface BedrockWorkItemGenerationResponse {
+  workItems: WorkItem[];
   documents: BedrockKnowledgeDocument[];
 }
 
 export interface BedrockResponse {
-  tasks: Task[];
+  workItems: WorkItem[];
   documents: BedrockKnowledgeDocument[];
 }

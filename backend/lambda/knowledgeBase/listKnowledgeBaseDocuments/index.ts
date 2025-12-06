@@ -17,6 +17,7 @@ interface KnowledgeDocument {
   size: number;
   sizeFormatted: string;
   lastModified: string;
+  workItemType?: string;
   areaPath?: string;
   businessUnit?: string;
   system?: string;
@@ -147,6 +148,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
           const fileName = key.split('/').pop() || key;
 
           // Retrieve file size and metadata attributes from S3
+          let workItemType: string | undefined;
           let areaPath: string | undefined;
           let businessUnit: string | undefined;
           let system: string | undefined;
@@ -159,6 +161,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
           // First, try to read attributes from S3 object tags; if missing, fallback to metadata.json; then path parsing
           try {
             const tagAttrs = await getTagAttributes(bucketName, key);
+            workItemType = tagAttrs.workItemType;
             areaPath = tagAttrs.areaPath;
             businessUnit = tagAttrs.businessUnit;
             system = tagAttrs.system;
@@ -167,6 +170,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
             // If any are missing, try metadata.json as a secondary source
             if (!areaPath || !businessUnit || !system) {
               const metaAttrs = await getMetadataAttributes(bucketName, key);
+              workItemType = workItemType || metaAttrs.workItemType;
               areaPath = areaPath || metaAttrs.areaPath;
               businessUnit = businessUnit || metaAttrs.businessUnit;
               system = system || metaAttrs.system;
@@ -174,18 +178,21 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
             }
 
             logger.debug(`Extracted metadata attributes for ${key}`, {
-              attributes: { areaPath, businessUnit, system, username },
+              attributes: { workItemType, areaPath, businessUnit, system, username },
             });
           } catch (metadataError) {
             logger.warn(`Failed to get metadata attributes for ${key}`, { error: metadataError });
             const pathParts = key.split('/');
-            if (pathParts.length > 1) {
-              areaPath = pathParts[0];
+            if (pathParts.length > 0) {
+              workItemType = pathParts[0];
+              if (pathParts.length > 1) {
+                areaPath = pathParts[1];
+              }
               if (pathParts.length > 2) {
-                businessUnit = pathParts[1];
+                businessUnit = pathParts[2];
               }
               if (pathParts.length > 3) {
-                system = pathParts[2];
+                system = pathParts[3];
               }
             }
           }
@@ -196,6 +203,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
             size: fileSize, // Actual file size from S3
             sizeFormatted: formatFileSize(fileSize), // Human-readable file size
             lastModified: lastModified || docDetail.updatedAt?.toISOString() || '', // Use S3 LastModified, fallback to Bedrock updatedAt
+            workItemType,
             areaPath,
             businessUnit,
             system,
@@ -314,6 +322,7 @@ async function getMetadataAttributes(
   bucketName: string,
   key: string
 ): Promise<{
+  workItemType?: string;
   areaPath?: string;
   businessUnit?: string;
   system?: string;
@@ -337,6 +346,7 @@ async function getTagAttributes(
   bucketName: string,
   key: string
 ): Promise<{
+  workItemType?: string;
   areaPath?: string;
   businessUnit?: string;
   system?: string;
@@ -354,6 +364,7 @@ async function getTagAttributes(
     }
 
     return {
+      workItemType: tagMap['workItemType'],
       areaPath: tagMap['areaPath'],
       businessUnit: tagMap['businessUnit'],
       system: tagMap['system'],
@@ -367,30 +378,34 @@ async function getTagAttributes(
 
 // Helper function to test metadata parsing
 function parseMetadata(metadata: any): {
+  workItemType?: string;
   areaPath?: string;
   businessUnit?: string;
   system?: string;
   username?: string;
 } {
+  let workItemType: string | undefined;
   let areaPath: string | undefined;
   let businessUnit: string | undefined;
   let system: string | undefined;
   let username: string | undefined;
 
   if (metadata.metadataAttributes) {
+    workItemType = metadata.metadataAttributes.workItemType?.value?.stringValue;
     areaPath = metadata.metadataAttributes.areaPath?.value?.stringValue;
     businessUnit = metadata.metadataAttributes.businessUnit?.value?.stringValue;
     system = metadata.metadataAttributes.system?.value?.stringValue;
     username = metadata.metadataAttributes.username?.value?.stringValue;
   } else {
     // Fallback to direct properties for backward compatibility
+    workItemType = metadata.workItemType;
     areaPath = metadata.areaPath;
     businessUnit = metadata.businessUnit;
     system = metadata.system;
     username = metadata.username;
   }
 
-  return { areaPath, businessUnit, system, username };
+  return { workItemType, areaPath, businessUnit, system, username };
 }
 
 // Helper function to format file size in human-readable format

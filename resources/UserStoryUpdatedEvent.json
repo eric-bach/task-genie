@@ -1,0 +1,140 @@
+{
+  "subscriptionId": "dcd481d1-6b08-4cca-b665-cced6f6eb4ec",
+  "notificationId": 187,
+  "id": "f56b941e-7037-40b3-b54a-09d4a9f3afc0",
+  "eventType": "workitem.updated",
+  "publisherId": "tfs",
+  "message": {
+    "text": "User Story #28382 (As a product manager, I can upload design mockup images to user stories) updated by Eric Bach\r\n(https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28382)",
+    "html": "<a href=\"https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&amp;id=28382\">User Story #28382</a> (As a product manager, I can upload design mockup images to user stories) updated by Eric Bach",
+    "markdown": "[User Story #28382](https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28382) (As a product manager, I can upload design mockup images to user stories) updated by Eric Bach"
+  },
+  "detailedMessage": {
+    "text": "User Story #28382 (As a product manager, I can upload design mockup images to user stories) updated by Eric Bach\r\n(https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28382)\r\n\r\n",
+    "html": "<a href=\"https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&amp;id=28382\">User Story #28382</a> (As a product manager, I can upload design mockup images to user stories) updated by Eric Bach<ul></ul>",
+    "markdown": "[User Story #28382](https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28382) (As a product manager, I can upload design mockup images to user stories) updated by Eric Bach\r\n\r\n"
+  },
+  "resource": {
+    "id": 375,
+    "workItemId": 28382,
+    "rev": 235,
+    "revisedBy": {
+      "id": "106428b2-814e-67e9-8784-a9e2852e6cc8",
+      "name": "Eric Bach <Eric.Bach@ama.ab.ca>",
+      "displayName": "Eric Bach",
+      "url": "https://spsprodcus2.vssps.visualstudio.com/A488c13a3-0101-480d-8548-f2a36f45d723/_apis/Identities/106428b2-814e-67e9-8784-a9e2852e6cc8",
+      "_links": {
+        "avatar": {
+          "href": "https://amaabca.visualstudio.com/_apis/GraphProfile/MemberAvatars/aad.MTA2NDI4YjItODE0ZS03N2U5LTg3ODQtYTllMjg1MmU2Y2M4"
+        }
+      },
+      "uniqueName": "Eric.Bach@ama.ab.ca",
+      "imageUrl": "https://amaabca.visualstudio.com/_apis/GraphProfile/MemberAvatars/aad.MTA2NDI4YjItODE0ZS03N2U5LTg3ODQtYTllMjg1MmU2Y2M4",
+      "descriptor": "aad.MTA2NDI4YjItODE0ZS03N2U5LTg3ODQtYTllMjg1MmU2Y2M4"
+    },
+    "revisedDate": "9999-01-01T00:00:00Z",
+    "fields": {
+      "System.Rev": {
+        "oldValue": 234,
+        "newValue": 235
+      },
+      "System.AuthorizedDate": {
+        "oldValue": "2025-11-27T17:06:53.583Z",
+        "newValue": "2025-11-27T17:07:33.473Z"
+      },
+      "System.RevisedDate": {
+        "oldValue": "2025-11-27T17:07:33.473Z",
+        "newValue": "9999-01-01T00:00:00Z"
+      },
+      "System.ChangedDate": {
+        "oldValue": "2025-11-27T17:06:53.583Z",
+        "newValue": "2025-11-27T17:07:33.473Z"
+      },
+      "System.Watermark": {
+        "oldValue": 248308,
+        "newValue": 248309
+      },
+      "System.Description": {
+        "oldValue": "<div>As a product manager, I want to upload one design mockup image (PNG/JPG, max 5MB) to a user story so that developers have visual context when implementing features. The image should be stored in AWS S3 and displayed as a thumbnail in the story description with the ability to view full size. </div>",
+        "newValue": "<div>As a product manager, I want to upload one design mockup image (PNG/JPG, max 5MB) to a user story so that developers have visual context when implementing features. The image should be stored in AWS S3 and displayed as a thumbnail in the story description with the ability to view full size </div>"
+      }
+    },
+    "_links": {
+      "self": {
+        "href": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382/updates/375"
+      },
+      "workItemUpdates": {
+        "href": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382/updates"
+      },
+      "parent": {
+        "href": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382"
+      },
+      "html": {
+        "href": "https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28382"
+      }
+    },
+    "url": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382/updates/375",
+    "revision": {
+      "id": 28382,
+      "rev": 235,
+      "fields": {
+        "System.AreaPath": "eric-test",
+        "System.TeamProject": "eric-test",
+        "System.IterationPath": "eric-test",
+        "System.WorkItemType": "User Story",
+        "System.State": "New",
+        "System.Reason": "New",
+        "System.CreatedDate": "2025-11-27T17:00:29.953Z",
+        "System.CreatedBy": "Eric Bach <Eric.Bach@ama.ab.ca>",
+        "System.ChangedDate": "2025-11-27T17:07:33.473Z",
+        "System.ChangedBy": "Eric Bach <Eric.Bach@ama.ab.ca>",
+        "System.CommentCount": 229,
+        "System.Title": "As a product manager, I can upload design mockup images to user stories",
+        "System.BoardColumn": "New",
+        "System.BoardColumnDone": false,
+        "Microsoft.VSTS.Common.StateChangeDate": "2025-11-27T17:00:29.953Z",
+        "Microsoft.VSTS.Common.Priority": 2,
+        "Microsoft.VSTS.Common.ValueArea": "Business",
+        "Custom.BusinessUnit": "Membership",
+        "WEF_08A39B00F6B8482D93DF51A904C03D5C_Kanban.Column": "New",
+        "WEF_08A39B00F6B8482D93DF51A904C03D5C_Kanban.Column.Done": false,
+        "Custom.System": "iMIS",
+        "System.Description": "<div>As a product manager, I want to upload one design mockup image (PNG/JPG, max 5MB) to a user story so that developers have visual context when implementing features. The image should be stored in AWS S3 and displayed as a thumbnail in the story description with the ability to view full size </div>",
+        "Microsoft.VSTS.Common.AcceptanceCriteria": "- Given I am editing a user story, when I click the 'Add Image' button, then a file picker opens accepting only PNG/JPG files<br>- Given I select a valid image ≤5MB, when I upload it, then it appears as a thumbnail with upload progress indicator<br>- Given I select a file &gt;5MB or wrong format, when I attempt upload, then I see error message 'File must be PNG or JPG format and under 5MB'<br>- Given an image is uploaded successfully, when I save the story, then the thumbnail displays in the description with proper alt text<br>- Given a story contains an image, when any team member views it, then the image loads within 3 seconds",
+        "System.Tags": "Task Genie"
+      },
+      "multilineFieldsFormat": {
+        "System.Description": "html",
+        "Microsoft.VSTS.Common.AcceptanceCriteria": "html"
+      },
+      "_links": {
+        "self": {
+          "href": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382/revisions/235"
+        },
+        "workItemRevisions": {
+          "href": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382/revisions"
+        },
+        "parent": {
+          "href": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382"
+        }
+      },
+      "url": "https://amaabca.visualstudio.com/5ee5ba13-49ef-4a6c-bb2d-0f988196e57a/_apis/wit/workItems/28382/revisions/235"
+    }
+  },
+  "resourceVersion": "1.0",
+  "resourceContainers": {
+    "collection": {
+      "id": "2611555a-946b-425b-a73b-3c2fe4c9afec",
+      "baseUrl": "https://amaabca.visualstudio.com/"
+    },
+    "account": {
+      "id": "488c13a3-0101-480d-8548-f2a36f45d723",
+      "baseUrl": "https://amaabca.visualstudio.com/"
+    },
+    "project": {
+      "id": "5ee5ba13-49ef-4a6c-bb2d-0f988196e57a",
+      "baseUrl": "https://amaabca.visualstudio.com/"
+    }
+  },
+  "createdDate": "2025-11-27T17:07:39.710519Z"
+}
