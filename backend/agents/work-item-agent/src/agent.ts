@@ -30,6 +30,20 @@ const generateWorkItems = tool({
   },
 })
 
+const finalizeResponse = tool({
+  name: 'finalize_response',
+  description: 'Finalize the response to the work item.',
+  // Zod schema for letter counter input validation
+  inputSchema: z
+    .object({
+      workItem: z.string().describe('The work item to evaluate'),
+    })
+    .required(),
+  callback: (input) => {
+    return {workItems: [], response: 'Good'}
+  },
+})
+
 const model = new BedrockModel({
   region: 'us-west-2',
   modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
@@ -45,12 +59,11 @@ const agent = new Agent({
 **Instructions:**
 - Use the 'evaluate-work-item' agent to evaluate the work item.
 - Use the 'generate-work-items' agent to generate child work items.
+- Always call the 'finalize-response' agent to finalize the response that will be returned to the user.
 **Output Rules:**
-- Return a JSON object with the following structure:
-  - "pass": boolean (true if the work item is good enough to proceed, false only if it is seriously incomplete or confusing)
-  - if "pass" is false, include a "comment" field (string) with a clear explanation of what's missing or unclear, and provide an example of a higher-quality work item type that would pass. If you have multiple feedback points, use line breaks and indentations with HTML tags.
-- Only output the JSON object, no extra text outside it.`,
-tools: [evaluateWorkItem, generateWorkItems]
+- Return the response that you receive from the 'finalize-response' agent.
+- Do not include any additional content outside of that response.`,
+tools: [evaluateWorkItem, generateWorkItems, finalizeResponse]
 })
 
 // Ask the agent a question that uses the available tools
