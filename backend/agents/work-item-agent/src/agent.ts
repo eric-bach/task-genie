@@ -1,58 +1,47 @@
 // Define a custom tool as a TypeScript function
-import { Agent, BedrockModel, tool } from '@strands-agents/sdk'
-import z from 'zod'
-
-const evaluateWorkItem = tool({
-  name: 'evaluate_work_item',
-  description: 'Evaluate that the work item is well-defined and complete based on the work item type (Epic, Feature, User Story). Only if the work item is well-defined, generate child work items to break down the work item into smaller, more manageable pieces.',
-  // Zod schema for letter counter input validation
-  inputSchema: z
-    .object({
-      workItem: z.string().describe('The work item to evaluate'),
-    })
-    .required(),
-  callback: (input) => {
-    return {pass: true}
-  },
-})
+import { Agent, BedrockModel, tool } from "@strands-agents/sdk";
+import { evaluateWorkItem } from "../../evaluate-work-item/src/agent";
+import z from "zod";
+import { USER_STORY_CREATED_EVENT } from "../events/events";
 
 const generateWorkItems = tool({
-  name: 'generate_work_items',
-  description: 'Generate child work items to break down the work item into smaller, more manageable pieces.',
+  name: "generate_work_items",
+  description:
+    "Generate child work items to break down the work item into smaller, more manageable pieces.",
   // Zod schema for letter counter input validation
   inputSchema: z
     .object({
-      workItem: z.string().describe('The work item to evaluate'),
+      workItem: z.string().describe("The work item to evaluate"),
     })
     .required(),
   callback: (input) => {
-    return {workItems: []}
+    return { workItems: [] };
   },
-})
+});
 
 const finalizeResponse = tool({
-  name: 'finalize_response',
-  description: 'Finalize the response to the work item.',
+  name: "finalize_response",
+  description: "Finalize the response to the work item.",
   // Zod schema for letter counter input validation
   inputSchema: z
     .object({
-      workItem: z.string().describe('The work item to evaluate'),
+      workItem: z.string().describe("The work item to evaluate"),
     })
     .required(),
   callback: (input) => {
-    return {workItems: [], response: 'Good'}
+    return { workItems: [], response: "Good" };
   },
-})
+});
 
 const model = new BedrockModel({
-  region: 'us-west-2',
-  modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
-})
+  region: "us-west-2",
+  modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+});
 
 // Create an agent with tools with our custom letterCounter tool
 const agent = new Agent({
-  model, 
-  systemPrompt:`You are an AI assistant that evaluate and decomposes Azure DevOps work items into smaller child work items. Evaluate that the work item is well-defined and complete based on the work item type (Epic, Feature, User Story). Only if the work item is well-defined, generate child work items to break down the work item into smaller, more manageable pieces.
+  model,
+  systemPrompt: `You are an AI assistant that evaluate and decomposes Azure DevOps work items into smaller child work items. Evaluate that the work item is well-defined and complete based on the work item type (Epic, Feature, User Story). Only if the work item is well-defined, generate child work items to break down the work item into smaller, more manageable pieces.
 - A work item type of 'Epic' will generate 'Feature' work items.
 - A work item type of 'Feature' will generate 'User Story' work items.
 - A work item type of 'User Story' will generate 'Task' work items.
@@ -63,14 +52,14 @@ const agent = new Agent({
 **Output Rules:**
 - Return the response that you receive from the 'finalize-response' agent.
 - Do not include any additional content outside of that response.`,
-tools: [evaluateWorkItem, generateWorkItems, finalizeResponse]
-})
+  tools: [evaluateWorkItem, generateWorkItems, finalizeResponse],
+});
 
 // Ask the agent a question that uses the available tools
 async function main() {
-  const message = `Evalute this user story: "As a user, I want to be able to search for products by name so that I can find the product I am looking for."`
-  const result = await agent.invoke(message)
-  console.log(result.lastMessage)
+  const message = `Evalute this work item: ${USER_STORY_CREATED_EVENT}`;
+  const result = await agent.invoke(message);
+  console.log(result.lastMessage);
 }
 
-main().catch(console.error)
+main().catch(console.error);
