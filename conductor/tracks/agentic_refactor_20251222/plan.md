@@ -25,9 +25,9 @@ This plan outlines the phases and tasks required to refactor the existing orches
 
 ## Phase 3: Refactor Core Logic into Agent Tools
 
-*   [ ] Task: Refactor the `evaluateWorkItem` function logic into a dedicated agent tool.
-*   [ ] Task: Refactor the `generateWorkItems` function logic into a dedicated agent tool.
-*   [ ] Task: Integrate the new tools (`AzureService`, `BedrockService`, `evaluateWorkItem`, `generateWorkItems`, etc.) into the main agent loop to replicate the original Step Function workflow.
+*   [x] Task: Refactor the `evaluateWorkItem` function logic into a dedicated agent tool.
+*   [x] Task: Refactor the `generateWorkItems` function logic into a dedicated agent tool.
+*   [x] Task: Integrate the new tools (`AzureService`, `BedrockService`, `evaluateWorkItem`, `generateWorkItems`, etc.) into the main agent loop to replicate the original Step Function workflow.
 *   [ ] Task: Conductor - User Manual Verification 'Refactor Core Logic into Agent Tools' (Protocol in workflow.md)
 
 ---

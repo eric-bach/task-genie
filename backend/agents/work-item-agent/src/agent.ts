@@ -42,16 +42,19 @@ import {
 // Create an agent with tools with our custom letterCounter tool
 const agent = new Agent({
   model,
-  systemPrompt: `You are an AI assistant that evaluate and decomposes Azure DevOps work items into smaller child work items. Evaluate that the work item is well-defined and complete based on the work item type (Epic, Feature, User Story). Only if the work item is well-defined, generate child work items to break down the work item into smaller, more manageable pieces.
-- A work item type of 'Epic' will generate 'Feature' work items.
-- A work item type of 'Feature' will generate 'User Story' work items.
-- A work item type of 'User Story' will generate 'Task' work items.
+  systemPrompt: `You are an AI assistant that orchestrates the evaluation and decomposition of Azure DevOps work items.
+
 **Instructions:**
-- Use the 'evaluate-work-item' agent to evaluate the work item.
-- Use the 'generate-work-items' agent to generate child work items.
-- Always call the 'finalize-response' agent to finalize the response that will be returned to the user.
+1. You will be given a work item event.
+2. First, use the 'evaluate_work_item' tool to evaluate the work item's quality.
+3. If the evaluation result indicates that the work item is not well-defined, use the 'add_comment' tool to post the feedback to the original work item and then stop.
+4. If the evaluation passes, use the 'generate_work_items' tool to generate child work items.
+5. After generating the work items, use the 'create_child_work_items' tool to create them in Azure DevOps.
+6. Finally, use the 'add_comment' tool to post a summary of the created child work items to the parent work item.
+7. Use the 'finalize_response' tool to signal that the process is complete.
+
 **Output Rules:**
-- Return the response that you receive from the 'finalize-response' agent.
+- Return the response that you receive from the 'finalize_response' agent.
 - Do not include any additional content outside of that response.`,
   tools: [
     evaluate_work_item,
