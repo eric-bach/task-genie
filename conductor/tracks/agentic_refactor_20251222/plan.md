@@ -14,7 +14,7 @@ This plan outlines the phases and tasks required to refactor the existing orches
 
 ---
 
-## Phase 2: Refactor Services into Agent Tools
+## Phase 2: Refactor Services into Agent Tools [checkpoint: 0a4a0ee]
 
 *   [x] Task: Refactor `AzureService.ts` into a set of agent tools for interacting with Azure DevOps.
 *   [x] Task: Refactor `BedrockService.ts` into a set of agent tools for interacting with Amazon Bedrock.
