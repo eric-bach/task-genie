@@ -1,7 +1,7 @@
 // Define a custom tool as a TypeScript function
-import { Agent, BedrockModel, tool } from "@strands-agents/sdk";
-import z from "zod";
-import { USER_STORY_CREATED_EVENT } from "../events/events";
+import { Agent, BedrockModel, tool } from '@strands-agents/sdk';
+import z from 'zod';
+import { USER_STORY_CREATED_EVENT } from '../events/events';
 import {
   get_work_item,
   add_comment,
@@ -15,22 +15,22 @@ import {
 } from "./tools/bedrock-tools";
 
 const finalizeResponse = tool({
-  name: "finalize_response",
-  description: "Finalize the response to the work item.",
+  name: 'finalize_response',
+  description: 'Finalize the response to the work item.',
   // Zod schema for letter counter input validation
   inputSchema: z
     .object({
-      workItem: z.string().describe("The work item to evaluate"),
+      workItem: z.string().describe('The work item to evaluate'),
     })
     .required(),
   callback: (input) => {
-    return { workItems: [], response: "Good" };
+    return { workItems: [], response: 'Good' };
   },
 });
 
 const model = new BedrockModel({
-  region: "us-west-2",
-  modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
+  region: 'us-west-2',
+  modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
 });
 
 import {
