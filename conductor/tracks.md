@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-## [ ] Track: Implement Core Agentic Architecture with Strands Agents and Amazon AgentCore
+## [~] Track: Implement Core Agentic Architecture with Strands Agents and Amazon AgentCore
 *Link: [./conductor/tracks/agentic_refactor_20251222/](./conductor/tracks/agentic_refactor_20251222/)*

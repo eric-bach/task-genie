@@ -1,23 +1,18 @@
 // Define a custom tool as a TypeScript function
 import { Agent, BedrockModel, tool } from "@strands-agents/sdk";
-import { evaluateWorkItem } from "../../evaluate-work-item/src/agent";
 import z from "zod";
 import { USER_STORY_CREATED_EVENT } from "../events/events";
-
-const generateWorkItems = tool({
-  name: "generate_work_items",
-  description:
-    "Generate child work items to break down the work item into smaller, more manageable pieces.",
-  // Zod schema for letter counter input validation
-  inputSchema: z
-    .object({
-      workItem: z.string().describe("The work item to evaluate"),
-    })
-    .required(),
-  callback: (input) => {
-    return { workItems: [] };
-  },
-});
+import {
+  get_work_item,
+  add_comment,
+  add_tag,
+  get_child_work_items,
+  create_child_work_items,
+} from "./tools/azure-devops-tools";
+import {
+  evaluate_work_item,
+  generate_work_items,
+} from "./tools/bedrock-tools";
 
 const finalizeResponse = tool({
   name: "finalize_response",
@@ -38,6 +33,12 @@ const model = new BedrockModel({
   modelId: "us.anthropic.claude-sonnet-4-5-20250929-v1:0",
 });
 
+import {
+  create_incomplete_work_item_metric,
+  create_work_item_generated_metric,
+  create_work_item_updated_metric,
+} from "./tools/cloudwatch-tools";
+
 // Create an agent with tools with our custom letterCounter tool
 const agent = new Agent({
   model,
@@ -52,14 +53,26 @@ const agent = new Agent({
 **Output Rules:**
 - Return the response that you receive from the 'finalize-response' agent.
 - Do not include any additional content outside of that response.`,
-  tools: [evaluateWorkItem, generateWorkItems, finalizeResponse],
+  tools: [
+    evaluate_work_item,
+    generate_work_items,
+    finalizeResponse,
+    get_work_item,
+    add_comment,
+    add_tag,
+    get_child_work_items,
+    create_child_work_items,
+    create_incomplete_work_item_metric,
+    create_work_item_generated_metric,
+    create_work_item_updated_metric,
+  ],
 });
 
-// Ask the agent a question that uses the available tools
-async function main() {
-  const message = `Evalute this work item: ${USER_STORY_CREATED_EVENT}`;
+// This handler can be called by a Lambda, etc.
+export const handler = async (event: any): Promise<any> => {
+  // The event payload will contain the work item details.
+  const message = `Evaluate this work item: ${JSON.stringify(event)}`;
   const result = await agent.invoke(message);
   console.log(result.lastMessage);
-}
-
-main().catch(console.error);
+  return result.lastMessage;
+};
