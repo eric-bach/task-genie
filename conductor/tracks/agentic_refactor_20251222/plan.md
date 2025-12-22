@@ -34,9 +34,9 @@ This plan outlines the phases and tasks required to refactor the existing orches
 
 ## Phase 4: Integration and Deployment
 
-*   [ ] Task: Create a new Lambda function or modify the existing service hook entry point to trigger the new agent instead of the Step Function.
-*   [ ] Task: Configure the necessary IAM roles and permissions for the new agent.
-*   [ ] Task: Write/update the AWS CDK scripts to deploy the new agentic service.
+*   [x] Task: Create a new Lambda function or modify the existing service hook entry point to trigger the new agent instead of the Step Function.
+*   [x] Task: Configure the necessary IAM roles and permissions for the new agent.
+*   [x] Task: Write/update the AWS CDK scripts to deploy the new agentic service.
 *   [ ] Task: Deploy the new stack to the staging environment.
 *   [ ] Task: Conductor - User Manual Verification 'Integration and Deployment' (Protocol in workflow.md)
 
