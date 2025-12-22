@@ -23,7 +23,7 @@ This plan outlines the phases and tasks required to refactor the existing orches
 
 ---
 
-## Phase 3: Refactor Core Logic into Agent Tools
+## Phase 3: Refactor Core Logic into Agent Tools [checkpoint: 18c32c5]
 
 *   [x] Task: Refactor the `evaluateWorkItem` function logic into a dedicated agent tool.
 *   [x] Task: Refactor the `generateWorkItems` function logic into a dedicated agent tool.
