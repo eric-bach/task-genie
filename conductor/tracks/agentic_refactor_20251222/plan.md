@@ -4,26 +4,34 @@ This plan outlines the phases and tasks required to refactor the existing orches
 
 ---
 
-## Phase 1: Project Setup & Initial Agent Scaffolding
+## Phase 1: Adapt Existing Agent & Dependencies
 
-*   [ ] Task: Set up a new project/module for the agent within the existing monorepo structure.
-*   [ ] Task: Add dependencies for Strands Agents and Amazon AgentCore.
-*   [ ] Task: Create the main agent entry point and basic agent loop structure.
-*   [ ] Task: Conductor - User Manual Verification 'Project Setup & Initial Agent Scaffolding' (Protocol in workflow.md)
-
----
-
-## Phase 2: Re-implementing the Core Logic
-
-*   [ ] Task: Implement the "work item validation" logic within an agent state/tool.
-*   [ ] Task: Implement the "Bedrock LLM interaction" logic within an agent state/tool.
-*   [ ] Task: Implement the "Azure DevOps update" logic (e.g., creating child items) within an agent state/tool.
-*   [ ] Task: Integrate these pieces of logic into the main agent loop to replicate the existing workflow.
-*   [ ] Task: Conductor - User Manual Verification 'Re-implementing the Core Logic' (Protocol in workflow.md)
+*   [ ] Task: Review the existing `work-item-agent` and identify the main entry point and structure.
+*   [ ] Task: Add/update dependencies for Strands Agents and Amazon AgentCore in `work-item-agent/package.json`.
+*   [ ] Task: Modify the existing agent structure to conform to the basic Strands Agents agent loop.
+*   [ ] Task: Conductor - User Manual Verification 'Adapt Existing Agent & Dependencies' (Protocol in workflow.md)
 
 ---
 
-## Phase 3: Integration and Deployment
+## Phase 2: Refactor Services into Agent Tools
+
+*   [ ] Task: Refactor `AzureService.ts` into a set of agent tools for interacting with Azure DevOps.
+*   [ ] Task: Refactor `BedrockService.ts` into a set of agent tools for interacting with Amazon Bedrock.
+*   [ ] Task: Refactor `CloudWatchService.ts` into a set of agent tools for logging and monitoring.
+*   [ ] Task: Conductor - User Manual Verification 'Refactor Services into Agent Tools' (Protocol in workflow.md)
+
+---
+
+## Phase 3: Refactor Core Logic into Agent Tools
+
+*   [ ] Task: Refactor the `evaluateWorkItem` function logic into a dedicated agent tool.
+*   [ ] Task: Refactor the `generateWorkItems` function logic into a dedicated agent tool.
+*   [ ] Task: Integrate the new tools (`AzureService`, `BedrockService`, `evaluateWorkItem`, `generateWorkItems`, etc.) into the main agent loop to replicate the original Step Function workflow.
+*   [ ] Task: Conductor - User Manual Verification 'Refactor Core Logic into Agent Tools' (Protocol in workflow.md)
+
+---
+
+## Phase 4: Integration and Deployment
 
 *   [ ] Task: Create a new Lambda function or modify the existing service hook entry point to trigger the new agent instead of the Step Function.
 *   [ ] Task: Configure the necessary IAM roles and permissions for the new agent.
@@ -33,7 +41,7 @@ This plan outlines the phases and tasks required to refactor the existing orches
 
 ---
 
-## Phase 4: End-to-End Testing and Validation
+## Phase 5: End-to-End Testing and Validation
 
 *   [ ] Task: Manually trigger the workflow with a sample Azure DevOps work item.
 *   [ ] Task: Verify that the agent executes the full workflow as expected by observing logs.
