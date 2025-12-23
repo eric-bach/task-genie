@@ -1,0 +1,84 @@
+{
+  "subscriptionId": "4f3eda3e-264c-475e-a27e-9a2ca6d6e169",
+  "notificationId": 1,
+  "id": "806987a5-7222-4eff-ae5a-c3657070d126",
+  "eventType": "workitem.created",
+  "publisherId": "tfs",
+  "message": {
+    "text": "Product Backlog Item #28783 (Test) created by Eric Bach\r\n(https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28783)",
+    "html": "<a href=\"https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&amp;id=28783\">Product Backlog Item #28783</a> (Test) created by Eric Bach",
+    "markdown": "[Product Backlog Item #28783](https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28783) (Test) created by Eric Bach"
+  },
+  "detailedMessage": {
+    "text": "Product Backlog Item #28783 (Test) created by Eric Bach\r\n(https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28783)\r\n\r\n- Area: eric-scrum-test\r\n- Iteration: eric-scrum-test\r\n- State: New\r\n",
+    "html": "<a href=\"https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&amp;id=28783\">Product Backlog Item #28783</a> (Test) created by Eric Bach<ul>\r\n<li>Area: eric-scrum-test</li>\r\n<li>Iteration: eric-scrum-test</li>\r\n<li>State: New</li></ul>",
+    "markdown": "[Product Backlog Item #28783](https://amaabca.visualstudio.com/web/wi.aspx?pcguid=2611555a-946b-425b-a73b-3c2fe4c9afec&id=28783) (Test) created by Eric Bach\r\n\r\n* Area: eric-scrum-test\r\n* Iteration: eric-scrum-test\r\n* State: New\r\n"
+  },
+  "resource": {
+    "id": 28783,
+    "rev": 1,
+    "fields": {
+      "System.AreaPath": "eric-scrum-test",
+      "System.TeamProject": "eric-scrum-test",
+      "System.IterationPath": "eric-scrum-test",
+      "System.WorkItemType": "Product Backlog Item",
+      "System.State": "New",
+      "System.Reason": "New backlog item",
+      "System.CreatedDate": "2025-12-23T19:54:22.357Z",
+      "System.CreatedBy": "Eric Bach <Eric.Bach@ama.ab.ca>",
+      "System.ChangedDate": "2025-12-23T19:54:22.357Z",
+      "System.ChangedBy": "Eric Bach <Eric.Bach@ama.ab.ca>",
+      "System.CommentCount": 0,
+      "System.Title": "Test",
+      "Microsoft.VSTS.Common.StateChangeDate": "2025-12-23T19:54:22.357Z",
+      "Microsoft.VSTS.Common.Priority": 2,
+      "Microsoft.VSTS.Common.ValueArea": "Business",
+      "System.Description": "<div>Test </div>",
+      "Microsoft.VSTS.Common.AcceptanceCriteria": "<div>Test </div>"
+    },
+    "multilineFieldsFormat": {
+      "System.Description": "html",
+      "Microsoft.VSTS.Common.AcceptanceCriteria": "html"
+    },
+    "_links": {
+      "self": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/workItems/28783"
+      },
+      "workItemUpdates": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/workItems/28783/updates"
+      },
+      "workItemRevisions": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/workItems/28783/revisions"
+      },
+      "workItemComments": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/workItems/28783/comments"
+      },
+      "html": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_workitems/edit/28783"
+      },
+      "workItemType": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/workItemTypes/Product%20Backlog%20Item"
+      },
+      "fields": {
+        "href": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/fields"
+      }
+    },
+    "url": "https://amaabca.visualstudio.com/a0db09e1-7bc8-43f3-9005-5e6280f180c9/_apis/wit/workItems/28783"
+  },
+  "resourceVersion": "1.0",
+  "resourceContainers": {
+    "collection": {
+      "id": "2611555a-946b-425b-a73b-3c2fe4c9afec",
+      "baseUrl": "https://amaabca.visualstudio.com/"
+    },
+    "account": {
+      "id": "488c13a3-0101-480d-8548-f2a36f45d723",
+      "baseUrl": "https://amaabca.visualstudio.com/"
+    },
+    "project": {
+      "id": "a0db09e1-7bc8-43f3-9005-5e6280f180c9",
+      "baseUrl": "https://amaabca.visualstudio.com/"
+    }
+  },
+  "createdDate": "2025-12-23T19:54:29.5440683Z"
+}

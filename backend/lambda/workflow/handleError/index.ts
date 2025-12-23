@@ -120,6 +120,8 @@ const parseErrorEvent = (
       iterationPath: fields?.['System.IterationPath'] || '',
       businessUnit: fields?.['Custom.BusinessUnit'] || '',
       system: fields?.['Custom.System'] || '',
+      releaseNotes: fields?.['Custom.ReleaseNotes'] || '',
+      qaNotes: fields?.['Custom.QANotes'] || '',
       changedBy: extractUserFromChangedBy(fields?.['System.ChangedBy'] || 'Unknown'),
       title: fields?.['System.Title'] || 'Unknown',
       description: fields?.['System.Description'] || '',

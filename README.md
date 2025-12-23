@@ -29,8 +29,8 @@
 </div>
 
 <div align="center">
-  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure work items (Epic, Feature, User Story) are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.</strong><br />
-  Task Genie follows Azure DevOps hierarchy where Epics are broken down into Features, Features into User Stories, and User Stories into Tasks.
+  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure work items (Epic, Feature, User Story, Product Backlog Item) are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.</strong><br />
+  Task Genie follows Azure DevOps hierarchy where Epics are broken down into Features, Features into User Stories, and User Stories and Product Backlog Items into Tasks.
 </div>
 
 <br>
@@ -48,13 +48,13 @@
 
 ### 🔍 Work Item Validation
 
-- Ensures Epics, Features, and User Stories follow best practices
-- Identifies missing components in Epics, Features, and User Stories
+- Ensures Epics, Features, User Stories, and Product Backlog Items follow best practices
+- Identifies missing components in Epics, Features, User Stories, and Product Backlog Items
 - Provides suggestions to improve clarity and completeness
 
 ### 📋 Work Item Breakdown
 
-- Automatically decomposes validated Epics, Features, and User Stories into smaller, actionable work items
+- Automatically decomposes validated Epics, Features, User Stories, and Product Backlog Items into smaller, actionable work items
 - Understands images within user stories as context in task breakdown process
 - Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
 - Learns from user feedback on generated tasks to improve future task generation action using RAG

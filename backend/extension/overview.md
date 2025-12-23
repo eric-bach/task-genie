@@ -4,7 +4,7 @@ Transform your Azure DevOps workflow with intelligent work item validation and a
 
 ## 🚀 What is Task Genie?
 
-Task Genie is a powerful Azure DevOps extension that integrates AI capabilities directly into your Boards interface, helping teams create better work items and automatically break them down into their appropriate child work items (Epic → Features, Feature → User Stories, User Story → Tasks).
+Task Genie is a powerful Azure DevOps extension that integrates AI capabilities directly into your Boards interface, helping teams create better work items and automatically break them down into their appropriate child work items (Epic → Features, Feature → User Stories, User Story/Product Backlog Item → Tasks).
 
 ![Task Genie Extension](azure_devops_extension.png)
 
@@ -12,15 +12,15 @@ Task Genie is a powerful Azure DevOps extension that integrates AI capabilities 
 
 ### 🔍 **Smart Work Item Validation**
 
-- **Quality Assurance**: Automatically validates Epics, Features, and User Stories against Agile best practices
+- **Quality Assurance**: Automatically validates Epics, Features, User Stories, and Product Backlog Items against Agile best practices
 - **Completeness Check**: Ensures all necessary details are included before work items enter development
-- **Type-Specific Validation**: Applies appropriate criteria based on work item type (Epic success criteria, Feature deliverables, User Story acceptance criteria)
+- **Type-Specific Validation**: Applies appropriate criteria based on work item type (Epic success criteria, Feature deliverables, User Story/Product Backlog Item acceptance criteria)
 
 ### 🤖 **AI-Powered Child Work Item Generation**
 
-- **Hierarchical Breakdown**: Automatically generates appropriate child work items (Epic → Features, Feature → User Stories, User Story → Tasks)
+- **Hierarchical Breakdown**: Automatically generates appropriate child work items (Epic → Features, Feature → User Stories, User Story/Product Backlog Item → Tasks)
 - **Context-Aware**: Leverages work item type-specific fields and organizational knowledge
-- **Intelligent Analysis**: Understands Epic objectives, Feature deliverables, and User Story acceptance criteria
+- **Intelligent Analysis**: Understands Epic objectives, Feature deliverables, and User Story/Product Backlog Item acceptance criteria
 
 ### ⚡ **Seamless Integration**
 
@@ -30,7 +30,7 @@ Task Genie is a powerful Azure DevOps extension that integrates AI capabilities 
 
 ### 🎯 **Productivity Benefits**
 
-- **Faster Planning**: Reduce time spent breaking down Epics into Features, Features into User Stories, and User Stories into Tasks
+- **Faster Planning**: Reduce time spent breaking down Epics into Features, Features into User Stories, and User Stories/Product Backlog Items into Tasks
 - **Improved Hierarchy**: Ensure proper work item hierarchy and relationships
 - **Enhanced Quality**: Better-defined work items with type-specific criteria lead to more predictable delivery
 - **Reduced Manual Effort**: Let AI handle the complex work of hierarchical decomposition
@@ -39,12 +39,12 @@ Task Genie is a powerful Azure DevOps extension that integrates AI capabilities 
 
 1. **Install the Extension**: Add Task Genie to your Azure DevOps organization
 2. **Configure API Settings**: Set up your Task Genie API URL and key in the extension settings
-3. **Start Creating**: Open any Epic, Feature, or User Story and use the Task Genie button to validate and generate child work items
+3. **Start Creating**: Open any Epic, Feature, User Story, or Product Backlog Item and use the Task Genie button to validate and generate child work items
 4. **Customize**: Adjust settings to match your team's workflow and preferences
 
 ## 🏢 Perfect for Teams Who Want To:
 
-- ✅ Improve Epic, Feature, and User Story quality and completeness
+- ✅ Improve Epic, Feature, User Story, and Product Backlog Item quality and completeness
 - ✅ Accelerate planning at all levels of the work hierarchy
 - ✅ Ensure consistent breakdown patterns across the team
 - ✅ Leverage AI to enhance Agile processes at scale

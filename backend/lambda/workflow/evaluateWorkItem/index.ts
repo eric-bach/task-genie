@@ -6,9 +6,11 @@ import {
   WorkItemRequest,
   WorkItemImage,
   WorkItem,
+  ProductBacklogItem,
   UserStory,
   Epic,
   Feature,
+  isProductBacklogItem,
   isUserStory,
   isEpic,
   isFeature,
@@ -185,7 +187,7 @@ const validateWorkItem = (resource: any) => {
 
   // Validate work item type is supported
   const workItemType = fields['System.WorkItemType'];
-  const supportedTypes = ['User Story', 'Epic', 'Feature'];
+  const supportedTypes = ['Product Backlog Item', 'User Story', 'Epic', 'Feature'];
   if (!supportedTypes.includes(workItemType)) {
     throw new InvalidWorkItemError(
       'Unsupported work item type',
@@ -195,13 +197,19 @@ const validateWorkItem = (resource: any) => {
   }
 
   // Type-specific validation
-  if (workItemType === 'User Story') {
+  if (isProductBacklogItem(workItemType)) {
+    // Product Backlog Item should have acceptance criteria (but make it optional to be lenient)
+    if (!fields['Microsoft.VSTS.Common.AcceptanceCriteria']) {
+      logger.warn('Product Backlog Item is missing acceptance criteria', { workItemId: resource.workItemId || resource.id });
+    }
+  }
+  if (isUserStory(workItemType)) {
     // User Story should have acceptance criteria (but make it optional to be lenient)
     if (!fields['Microsoft.VSTS.Common.AcceptanceCriteria']) {
       logger.warn('User Story is missing acceptance criteria', { workItemId: resource.workItemId || resource.id });
     }
   }
-  if (workItemType === 'Epic' || workItemType === 'Feature') {
+  if (isEpic(workItemType) || isFeature(workItemType)) {
     // Epic and Feature should have success criteria (but make it optional to be lenient)
     if (!fields['Custom.SuccessCriteria']) {
       logger.warn(`${workItemType} is missing success criteria`, { workItemId: resource.workItemId || resource.id });
@@ -265,7 +273,7 @@ const parseEvent = (event: any): WorkItemRequest => {
   const { params, resource } = event;
   const workItemId = resource.workItemId || resource.id;
   const fields = resource.revision?.fields || resource.fields;
-  const workItemType = fields['System.WorkItemType'] as 'User Story' | 'Epic' | 'Feature';
+  const workItemType = fields['System.WorkItemType'] as 'Product Backlog Item' | 'User Story' | 'Epic' | 'Feature';
 
   const tagsString = sanitizeField(fields['System.Tags'] ?? '');
   const tags = tagsString ? tagsString.split(';').map((tag: string) => tag.trim()) : [];
@@ -277,7 +285,7 @@ const parseEvent = (event: any): WorkItemRequest => {
   let rawCriteriaContent = '';
   const allImages: WorkItemImage[] = [];
 
-  if (workItemType === 'User Story') {
+  if (workItemType === 'Product Backlog Item' || workItemType === 'User Story') {
     rawCriteriaContent = fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '';
   } else if (workItemType === 'Epic' || workItemType === 'Feature') {
     rawCriteriaContent = fields['Custom.SuccessCriteria'] || '';
@@ -287,7 +295,7 @@ const parseEvent = (event: any): WorkItemRequest => {
   const descriptionImages = extractImageUrls(rawDescription, 'Description');
   const criteriaImages = extractImageUrls(
     rawCriteriaContent,
-    workItemType === 'User Story' ? 'AcceptanceCriteria' : 'SuccessCriteria'
+    workItemType === 'Product Backlog Item' || workItemType === 'User Story' ? 'AcceptanceCriteria' : 'SuccessCriteria'
   );
   allImages.push(...descriptionImages, ...criteriaImages);
 
@@ -303,8 +311,10 @@ const parseEvent = (event: any): WorkItemRequest => {
     teamProject: sanitizeField(fields['System.TeamProject']),
     areaPath: sanitizeField(fields['System.AreaPath']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
-    businessUnit: sanitizeField(fields['Custom.BusinessUnit']), // Custom Field
-    system: sanitizeField(fields['Custom.System']), // Custom Field
+    businessUnit: fields['Custom.BusinessUnit'] ? sanitizeField(fields['Custom.BusinessUnit']) : undefined, // Custom Field
+    system: fields['Custom.System'] ? sanitizeField(fields['Custom.System']) : undefined, // Custom Field
+    releaseNotes: fields['Custom.ReleaseNotes'] ? sanitizeField(fields['Custom.ReleaseNotes']) : undefined, // Custom Field
+    qaNotes: fields['Custom.QANotes'] ? sanitizeField(fields['Custom.QANotes']) : undefined, // Custom Field
     changedBy: sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim(),
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(rawDescription),
@@ -314,7 +324,14 @@ const parseEvent = (event: any): WorkItemRequest => {
 
   // Create type-specific work item
   let workItem: WorkItem;
-  if (workItemType === 'User Story') {
+  if (workItemType === 'Product Backlog Item') {
+    workItem = {
+      ...baseWorkItem,
+      workItemType: 'Product Backlog Item',
+      acceptanceCriteria: sanitizeField(rawCriteriaContent),
+      importance: fields['Custom.Importance'] ? sanitizeField(fields['Custom.Importance']) : undefined,
+    } as ProductBacklogItem;
+  } else if (workItemType === 'User Story') {
     workItem = {
       ...baseWorkItem,
       workItemType: 'User Story',
@@ -355,6 +372,8 @@ const parseEvent = (event: any): WorkItemRequest => {
     areaPath: workItem.areaPath,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
+    releaseNotes: workItem.releaseNotes,
+    qaNotes: workItem.qaNotes,
     iterationPath: workItem.iterationPath,
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
@@ -363,9 +382,10 @@ const parseEvent = (event: any): WorkItemRequest => {
   return { params: params ?? {}, workItem };
 };
 
-const sanitizeField = (fieldValue: any): string => {
+const sanitizeField = (fieldValue: any, fieldName?: string): string => {
   if (typeof fieldValue !== 'string') {
-    throw new Error('Invalid field value: expected a string.');
+    const fieldContext = fieldName ? ` for field '${fieldName}'` : '';
+    throw new Error(`Invalid field value${fieldContext}: expected a string, got ${typeof fieldValue} (${fieldValue}).`);
   }
   return fieldValue.replace(/<[^>]*>/g, '').trim();
 };

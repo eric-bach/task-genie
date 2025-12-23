@@ -102,9 +102,7 @@ export class AppStack extends Stack {
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
-        {
-          managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
-        },
+        ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'),
       ],
       policyStatements: [
         new PolicyStatement({
@@ -134,9 +132,7 @@ export class AppStack extends Stack {
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [
-        {
-          managedPolicyArn: 'arn:aws:iam::aws:policy/AmazonBedrockFullAccess',
-        },
+        ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'),
       ],
       policyStatements: [
         new PolicyStatement({
