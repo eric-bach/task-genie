@@ -25,8 +25,8 @@ const finalizeResponse = tool({
 });
 
 const model = new BedrockModel({
-  region: 'us-west-2',
-  modelId: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+  region: process.env.AWS_REGION || 'us-west-2',
+  modelId: process.env.AWS_BEDROCK_MODEL_ID || '',
 });
 
 import {

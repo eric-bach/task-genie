@@ -5,10 +5,14 @@ import { WorkItemSchema, BedrockInferenceParamsSchema } from './schemas';
 
 const bedrockService = new BedrockService({
   region: process.env.AWS_REGION || 'us-west-2',
-  modelId:
-    process.env.AWS_BEDROCK_MODEL_ID ||
-    'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+  modelId: process.env.AWS_BEDROCK_MODEL_ID || '',
   knowledgeBaseId: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+  maxKnowledgeDocuments: 3,
+  maxImageSize: 5,
+  maxImages: 3,
+  configTableName: process.env.CONFIG_TABLE_NAME || '',
+  feedbackTableName: process.env.FEEDBACK_TABLE_NAME || '',
+  feedbackFeatureEnabled: process.env.FEEDBACK_FEATURE_ENABLED ? true : false,
 });
 
 export const evaluate_work_item = tool({
@@ -48,8 +52,8 @@ export const generate_work_items = tool({
     try {
       // @ts-ignore
       const result = await bedrockService.generateWorkItems(
-        workItem,
-        existingChildWorkItems,
+        workItem as any,
+        existingChildWorkItems as any,
         params
       );
       return JSON.stringify(result);

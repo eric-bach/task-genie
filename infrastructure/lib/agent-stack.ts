@@ -59,6 +59,22 @@ export class AgentStack extends Stack {
       runtimeName: 'workItemAgent',
       executionRole: role,
       agentRuntimeArtifact: workItemAgentArtifact,
+      environmentVariables: {
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
+        AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
+        AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
+        AZURE_DEVOPS_CLIENT_SECRET:
+          process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
+        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID:
+          process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID:
+          process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        CONFIG_TABLE_NAME: process.env.CONFIG_TABLE_NAME || '',
+        FEEDBACK_TABLE_NAME: process.env.FEEDBACK_TABLE_NAME || '',
+        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || '',
+      },
     });
   }
 }
