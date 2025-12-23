@@ -15,6 +15,7 @@ import { AgentStackProps } from '../bin/task-genie';
 
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
 
 dotenv.config();
 
@@ -48,7 +49,10 @@ export class AgentStack extends Stack {
     );
 
     const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(
-      path.join(__dirname, '..', '..', 'backend', 'agents', 'work-item-agent')
+      path.join(__dirname, '..', '..', 'backend', 'agents', 'work-item-agent'),
+      {
+        platform: Platform.LINUX_ARM64,
+      }
     );
 
     const workItemAgent = new Runtime(this, 'WorkItemAgent', {

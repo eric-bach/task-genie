@@ -153,6 +153,27 @@ export class AppStack extends Stack {
     );
     azureDevOpsCredentialsSecret.grantRead(workItemAgentHostFunction);
 
+    const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
+      functionName: `${props.appName}-poll-execution-${props.envName}`,
+      entry: path.resolve(
+        __dirname,
+        '../../backend/lambda/workflow/pollExecution/index.ts'
+      ),
+      memorySize: 384,
+      timeout: Duration.seconds(5),
+      environment: {
+        TABLE_NAME: resultsTable.tableName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['dynamodb:GetItem'],
+          resources: [resultsTable.tableArn],
+        }),
+      ],
+    });
+    resultsTable.grantReadData(pollExecutionFunction);
+
     const syncKnowledgeBaseFunction = new TaskGenieLambda(
       this,
       'SyncKnowledgeBase',
