@@ -211,13 +211,20 @@ export class DataStack extends Stack {
         },
       }
     );
-    // const vectorIndex = new CfnIndex(this, 'KnowledgeBaseVectorIndex', {
-    //   indexName: `${props.appName}-vector-index-${props.envName}`,
-    //   vectorBucketName: vectorStoreBucket.vectorBucketName, // The CfnVectorBucket from before
-    //   dataType: 'float32',
-    //   dimension: 1024, // REQUIRED: Titan Text Embeddings v2 is 1024
-    //   distanceMetric: 'cosine', // Recommended for Titan embeddings
-    // });
+    const vectorIndex = new CfnIndex(this, 'KnowledgeBaseVectorIndex', {
+      indexName: `${props.appName}-vector-index-${props.envName}`,
+      vectorBucketName: vectorStoreBucket.vectorBucketName,
+      dataType: 'float32',
+      dimension: 1024,
+      distanceMetric: 'euclidean',
+      metadataConfiguration: {
+        nonFilterableMetadataKeys: [
+          'AMAZON_BEDROCK_TEXT',
+          'AMAZON_BEDROCK_METADATA',
+        ],
+      },
+    });
+    vectorIndex.node.addDependency(vectorStoreBucket);
 
     /*
      * Amazon Bedrock Knowledge Base
@@ -311,13 +318,11 @@ export class DataStack extends Stack {
         type: 'S3_VECTORS',
         s3VectorsConfiguration: {
           vectorBucketArn: vectorStoreBucket.attrVectorBucketArn,
-          // indexArn: vectorIndex.attrIndexArn,
-          // indexName: vectorIndex.indexName,
+          indexArn: vectorIndex.attrIndexArn,
         },
       },
     });
     knowledgeBase.node.addDependency(knowledgeBaseRole);
-    // knowledgeBase.node.addDependency(vectorIndex);
 
     const knowledgeBaseDataSource = new CfnDataSource(
       this,
