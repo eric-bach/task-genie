@@ -2,7 +2,6 @@
 import * as dotenv from 'dotenv';
 import { App, StackProps } from 'aws-cdk-lib';
 import { AppStack } from '../lib/app-stack';
-import { AgentStack } from '../lib/agent-stack';
 import { DataStack } from '../lib/data-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { GitHubActionsStack } from '../lib/github-actions-stack';
@@ -42,7 +41,6 @@ export interface ObservabilityStackProps extends BaseStackProps {
     apiName: string;
   };
 }
-export interface AgentStackProps extends BaseStackProps {}
 
 const app = new App();
 
@@ -83,10 +81,6 @@ const appProps = new AppStack(app, `${APP_NAME}-app-${ENV_NAME}`, {
     azureDevOpsCredentialsSecretName:
       dataProps.azureDevOpsCredentialsSecretName,
   },
-});
-
-new AgentStack(app, `${APP_NAME}-agent-${ENV_NAME}`, {
-  ...baseProps,
 });
 
 new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {

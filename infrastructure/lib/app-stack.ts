@@ -36,6 +36,11 @@ import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { LogGroup, LogRetention, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
+import {
+  AgentRuntimeArtifact,
+  Runtime,
+} from '@aws-cdk/aws-bedrock-agentcore-alpha';
 import { AppStackProps } from '../bin/task-genie';
 import { TaskGenieLambda } from './constructs/lambda';
 
@@ -99,34 +104,74 @@ export class AppStack extends Stack {
     );
 
     /*
+     * Amazon Bedrock AgentCore
+     */
+
+    const role = new Role(this, 'AgentRole', {
+      assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
+    });
+
+    role.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        resources: ['*'],
+      })
+    );
+
+    role.addManagedPolicy(
+      ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess')
+    );
+
+    const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(
+      path.join(__dirname, '..', '..', 'backend', 'agents', 'work-item-agent'),
+      {
+        platform: Platform.LINUX_ARM64,
+      }
+    );
+
+    const workItemAgent = new Runtime(this, 'WorkItemAgent', {
+      runtimeName: 'workItemAgent',
+      executionRole: role,
+      agentRuntimeArtifact: workItemAgentArtifact,
+      environmentVariables: {
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
+        AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
+        AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
+        AZURE_DEVOPS_CLIENT_SECRET:
+          process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
+        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID:
+          process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID:
+          process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        CONFIG_TABLE_NAME: process.env.CONFIG_TABLE_NAME || '',
+        FEEDBACK_TABLE_NAME: process.env.FEEDBACK_TABLE_NAME || '',
+        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || '',
+      },
+    });
+
+    /*
      * AWS Lambda
      */
 
-    const workItemAgentHostFunction = new TaskGenieLambda(
+    const workItemAgentProxyFunction = new TaskGenieLambda(
       this,
-      'WorkItemAgentHost',
+      'WorkItemAgentProxy',
       {
-        functionName: `${props.appName}-work-item-agent-host-${props.envName}`,
+        functionName: `${props.appName}-work-item-agent-proxy-${props.envName}`,
         entry: path.resolve(
           __dirname,
-          '../../backend/agents/work-item-agent/src/agent.ts'
+          '../../backend/lambda/proxy/agent/index.ts'
         ),
         handler: 'handler',
         memorySize: 1024,
         timeout: Duration.minutes(5),
         environment: {
-          AWS_ACCOUNT_ID: this.account,
-          AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AZURE_DEVOPS_CREDENTIALS_SECRET_NAME:
-            azureDevOpsCredentialsSecretName,
-          AZURE_DEVOPS_ORGANIZATION:
-            process.env.AZURE_DEVOPS_ORGANIZATION || '',
-          CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
-          FEEDBACK_TABLE_NAME: feedbackTable.tableName,
-          FEEDBACK_FEATURE_ENABLED:
-            process.env.FEEDBACK_FEATURE_ENABLED || 'false',
+          BEDROCK_AGENTCORE_RUNTIME_ARN: workItemAgent.agentRuntimeArn,
           POWERTOOLS_LOG_LEVEL: 'DEBUG',
         },
         managedPolicies: [
@@ -151,7 +196,7 @@ export class AppStack extends Stack {
         ],
       }
     );
-    azureDevOpsCredentialsSecret.grantRead(workItemAgentHostFunction);
+    azureDevOpsCredentialsSecret.grantRead(workItemAgentProxyFunction);
 
     const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
       functionName: `${props.appName}-poll-execution-${props.envName}`,
@@ -513,7 +558,7 @@ export class AppStack extends Stack {
     const executionsResource = api.root.addResource('executions');
     executionsResource.addMethod(
       'POST',
-      new LambdaIntegration(workItemAgentHostFunction),
+      new LambdaIntegration(workItemAgentProxyFunction),
       {
         apiKeyRequired: true,
         methodResponses: [

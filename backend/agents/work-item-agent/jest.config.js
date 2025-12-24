@@ -1,19 +1,20 @@
 export default {
-  preset: "ts-jest",
-  testEnvironment: "node",
+  preset: 'ts-jest',
+  testEnvironment: 'node',
   transform: {
-    "^.+\\.tsx?$": [
-      "ts-jest",
+    '^.+\\.tsx?$': [
+      'ts-jest',
       {
         useESM: true,
       },
     ],
   },
-  setupFiles: ["<rootDir>/setupTests.ts"],
-  extensionsToTreatAsEsm: [".ts"],
+  extensionsToTreatAsEsm: ['.ts'],
+  roots: ['<rootDir>/src', '<rootDir>/../../services', '<rootDir>/../../types'],
+  setupFiles: ['<rootDir>/setupTests.ts'],
   moduleNameMapper: {
-    "^(\\.{1,2}/.*)\\.js$": "$1",
-    "^@/services/(.*)$": "<rootDir>/../../services/$1",
-    "^@/types/(.*)$": "<rootDir>/../../types/$1",
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+    '^@/services/(.*)$': '<rootDir>/../../services/$1',
+    '^@/types/(.*)$': '<rootDir>/../../types/$1',
   },
 };

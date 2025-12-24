@@ -68,8 +68,8 @@ const agent = new Agent({
 });
 
 // This handler can be called by a Lambda, etc.
+// This handler can be called by a Lambda, etc.
 export const handler = async (event: any): Promise<any> => {
-  // The event payload will contain the work item details.
   const message = `Evaluate this work item: ${JSON.stringify(event)}`;
   const result = await agent.invoke(message);
   console.log(result.lastMessage);
