@@ -12,22 +12,23 @@ import {
   UserPoolClient,
   UserPoolDomain,
 } from 'aws-cdk-lib/aws-cognito';
-import { Bucket, HttpMethods } from 'aws-cdk-lib/aws-s3';
+import {
+  Bucket,
+  BucketEncryption,
+  CfnBucket,
+  HttpMethods,
+} from 'aws-cdk-lib/aws-s3';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
-import { StringParameter } from 'aws-cdk-lib/aws-ssm';
-import { IpAddresses, IVpc, SubnetType, Vpc } from 'aws-cdk-lib/aws-ec2';
 import { DataStackProps } from '../bin/task-genie';
-import * as dotenv from 'dotenv';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
+import { CfnDataSource, CfnKnowledgeBase } from 'aws-cdk-lib/aws-bedrock';
+import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import * as dotenv from 'dotenv';
+import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
 
 dotenv.config();
 
 export class DataStack extends Stack {
-  // public vpc: IVpc;
-  // public cloudwatchVpcEndpointId: string;
-  // public bedrockVpcEndpointId: string;
-  // public bedrockAgentVpcEndpointId: string;
-  // public ssmVpcEndpointId: string;
   public configTableArn: string;
   public resultsTableArn: string;
   public feedbackTableArn: string;
@@ -191,6 +192,7 @@ export class DataStack extends Stack {
       versioned: true,
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      encryption: BucketEncryption.S3_MANAGED,
     });
     dataSourceBucket.addCorsRule({
       allowedMethods: [HttpMethods.PUT],
@@ -198,6 +200,150 @@ export class DataStack extends Stack {
       allowedHeaders: ['*'],
       maxAge: 3000,
     });
+
+    const vectorStoreBucket = new CfnVectorBucket(
+      this,
+      'KnowledgeBaseVectorStoreBucket',
+      {
+        vectorBucketName: `${props.appName}-vector-store-${props.envName}`,
+        encryptionConfiguration: {
+          sseType: 'AES256',
+        },
+      }
+    );
+    // const vectorIndex = new CfnIndex(this, 'KnowledgeBaseVectorIndex', {
+    //   indexName: `${props.appName}-vector-index-${props.envName}`,
+    //   vectorBucketName: vectorStoreBucket.vectorBucketName, // The CfnVectorBucket from before
+    //   dataType: 'float32',
+    //   dimension: 1024, // REQUIRED: Titan Text Embeddings v2 is 1024
+    //   distanceMetric: 'cosine', // Recommended for Titan embeddings
+    // });
+
+    /*
+     * Amazon Bedrock Knowledge Base
+     */
+
+    // Knowledge Base Service Role
+    const knowledgeBaseRole = new Role(
+      this,
+      'BedrockKnowledgeBaseServiceRole',
+      {
+        roleName: `${props.appName}-bedrock-knowledge-base-role-${props.envName}`,
+        assumedBy: new ServicePrincipal('bedrock.amazonaws.com', {
+          conditions: {
+            StringEquals: {
+              'aws:SourceAccount': this.account,
+            },
+            ArnLike: {
+              'aws:SourceArn': `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`,
+            },
+          },
+        }),
+      }
+    );
+    knowledgeBaseRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['bedrock:InvokeModel'],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        ],
+      })
+    );
+    knowledgeBaseRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['s3:GetObject'],
+        resources: [`${dataSourceBucket.bucketArn}/*`],
+      })
+    );
+    knowledgeBaseRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['s3:ListBucket'],
+        resources: [dataSourceBucket.bucketArn],
+      })
+    );
+    knowledgeBaseRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          's3vectors:GetIndex',
+          's3vectors:QueryVectors',
+          's3vectors:PutVectors',
+          's3vectors:GetVectors',
+          's3vectors:DeleteVectors',
+        ],
+        resources: [
+          `arn:aws:s3vectors:${this.region}:${this.account}:bucket/${vectorStoreBucket.vectorBucketName}`,
+          `arn:aws:s3vectors:${this.region}:${this.account}:bucket/${vectorStoreBucket.vectorBucketName}/*`,
+        ],
+      })
+    );
+    knowledgeBaseRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:DeleteObject',
+        ],
+        resources: [
+          `arn:aws:s3:::${vectorStoreBucket.vectorBucketName}`,
+          `arn:aws:s3:::${vectorStoreBucket.vectorBucketName}/*`,
+        ],
+      })
+    );
+    knowledgeBaseRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['bedrock:GetInferenceProfile', 'bedrock:InvokeModel'],
+        resources: ['arn:aws:bedrock:*'],
+      })
+    );
+
+    const knowledgeBase = new CfnKnowledgeBase(this, 'KnowledgeBase', {
+      name: `${props.appName}-knowledge-base-${props.envName}`,
+      description: 'Knowledge base for Task Genie application',
+      roleArn: knowledgeBaseRole.roleArn,
+      knowledgeBaseConfiguration: {
+        type: 'VECTOR',
+        vectorKnowledgeBaseConfiguration: {
+          embeddingModelArn: `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        },
+      },
+      storageConfiguration: {
+        type: 'S3_VECTORS',
+        s3VectorsConfiguration: {
+          vectorBucketArn: vectorStoreBucket.attrVectorBucketArn,
+          // indexArn: vectorIndex.attrIndexArn,
+          // indexName: vectorIndex.indexName,
+        },
+      },
+    });
+    knowledgeBase.node.addDependency(knowledgeBaseRole);
+    // knowledgeBase.node.addDependency(vectorIndex);
+
+    const knowledgeBaseDataSource = new CfnDataSource(
+      this,
+      'S3KnowledgeBaseDataSource',
+      {
+        knowledgeBaseId: knowledgeBase.ref,
+        name: `${props.appName}-data-source-${props.envName}`,
+        description: 'S3 Data Source for Task Genie Knowledge Base',
+        dataSourceConfiguration: {
+          type: 'S3',
+          s3Configuration: {
+            bucketArn: dataSourceBucket.bucketArn,
+          },
+        },
+        vectorIngestionConfiguration: {
+          chunkingConfiguration: {
+            chunkingStrategy: 'SEMANTIC',
+            semanticChunkingConfiguration: {
+              breakpointPercentileThreshold: 90,
+              bufferSize: 1,
+              maxTokens: 512,
+            },
+          },
+        },
+      }
+    );
 
     /*
      * AWS Secrets Manager
@@ -224,72 +370,6 @@ export class DataStack extends Stack {
     });
 
     /*
-     * AWS VPC
-     */
-
-    // const vpc = new Vpc(this, 'TaskGenieVPC', {
-    //   ipAddresses: IpAddresses.cidr('10.1.0.0/16'),
-    //   natGateways: 1,
-    //   maxAzs: 1,
-    //   subnetConfiguration: [
-    //     {
-    //       cidrMask: 25,
-    //       name: `Public Subnet - ${props.appName}`,
-    //       subnetType: SubnetType.PUBLIC,
-    //     },
-    //     {
-    //       cidrMask: 25,
-    //       name: `Private Subnet - ${props.appName}`,
-    //       subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-    //     },
-    //   ],
-    //   restrictDefaultSecurityGroup: true,
-    // });
-
-    // // Interface VPC endpoint for CloudWatch Metrics
-    // const cloudwatchEndpoint = vpc.addInterfaceEndpoint('CloudWatchEndpoint', {
-    //   service: {
-    //     name: `com.amazonaws.${this.region}.monitoring`,
-    //     port: 443,
-    //   },
-    //   subnets: {
-    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-    //   },
-    // });
-
-    // // Interface VPC endpoint for Amazon Bedrock
-    // const bedrockEndpoint = vpc.addInterfaceEndpoint('BedrockEndpoint', {
-    //   service: {
-    //     name: `com.amazonaws.${this.region}.bedrock-runtime`,
-    //     port: 443,
-    //   },
-    //   subnets: {
-    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-    //   },
-    // });
-
-    // const bedrockAgentEndpoint = vpc.addInterfaceEndpoint('BedrockAgentEndpoint', {
-    //   service: {
-    //     name: `com.amazonaws.${this.region}.bedrock-agent-runtime`,
-    //     port: 443,
-    //   },
-    //   subnets: {
-    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-    //   },
-    // });
-
-    // // Interface VPC endpoint for SSM Parameter Store
-    // const ssmEndpoint = vpc.addInterfaceEndpoint('SSMEndpoint', {
-    //   service: {
-    //     name: `com.amazonaws.${this.region}.ssm`,
-    //     port: 443,
-    //   },
-    //   subnets: {
-    //     subnetType: SubnetType.PRIVATE_WITH_EGRESS,
-    //   },
-    // });
-
-    /*
      * Outputs
      */
 
@@ -303,15 +383,20 @@ export class DataStack extends Stack {
       exportName: `${props.appName}-cognito-user-pool-client-id-${props.envName}`,
     });
 
+    new CfnOutput(this, 'KnowledgeBaseId', {
+      value: knowledgeBase.ref,
+      exportName: `${props.appName}-knowledge-base-id-${props.envName}`,
+    });
+
+    new CfnOutput(this, 'KnowledgeBaseDataSourceId', {
+      value: knowledgeBaseDataSource.ref,
+      exportName: `${props.appName}-knowledge-base-data-source-id-${props.envName}`,
+    });
+
     /*
      * Properties
      */
 
-    // this.vpc = vpc;
-    // this.cloudwatchVpcEndpointId = cloudwatchEndpoint.vpcEndpointId;
-    // this.bedrockVpcEndpointId = bedrockEndpoint.vpcEndpointId;
-    // this.bedrockAgentVpcEndpointId = bedrockAgentEndpoint.vpcEndpointId;
-    // this.ssmVpcEndpointId = ssmEndpoint.vpcEndpointId;
     this.configTableArn = configTable.tableArn;
     this.resultsTableArn = resultsTable.tableArn;
     this.feedbackTableArn = feedbackTable.tableArn;

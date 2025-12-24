@@ -107,9 +107,6 @@ A state machine, leveraging **AWS Step Functions**, orchestrates the workflow fo
 > **Azure DevOps Service Hooks Limitation**  
 > Azure DevOps Service Hooks can only be configured to trigger on one or all fields when a work item is updated. When the Title, Description, and Acceptance Criteria of a work item are updated simultaneously, Task Genie will be triggered 3 times, resulting in 3x the number of tasks being generated.
 
-> **Amazon Bedrock Knowledge Bases**  
-> Task Genie uses S3 Vectors for the Knowledge Base Data Store, which is currently not supported in CloudFormation. The Bedrock Knowledge Base needs to be manually created in the console and the IDs need to be set in the `.env` file.
-
 ## 💰 Pricing
 
 Estimated monthly costs (USD) for running in AWS:
@@ -242,34 +239,6 @@ The backend is deployed using GitHub Actions with the following pipelines:
    ```
 
 3. **Deploy Infrastructure**
-
-   ```bash
-   npm run deploy
-   npm run deploy-prod
-   ```
-
-   > ⚠️ **Note**: Amazon S3 Vectors for Bedrock Knowledge Bases is not yet supported in CloudFormation/CDK. The Bedrock Knowledge Base needs to be manually created in the AWS console.
-
-4. **Create Bedrock Knowledge Base**
-
-   - Set the Chunking strategy to `Semantic chunking` with `Max token size for a chunk` = 150
-
-   <div align="center">
-     <img src="images/kb_chunking.png" alt="Chunking Strategy" width="600">
-   </div>
-
-   - Select `S3 Vectors` as the Data Source with the Knowledge Base Data Source Bucket from step 3
-
-5. **Update Environment Variables**
-
-   Update `/infrastructure/.env` with the created Bedrock Knowledge Base details:
-
-   ```env
-   AWS_BEDROCK_KNOWLEDGE_BASE_ID=your_kb_id
-   AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=your_data_source_id
-   ```
-
-6. **Re-deploy Backend**
 
    ```bash
    npm run deploy
