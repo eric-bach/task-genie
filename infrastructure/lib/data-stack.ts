@@ -1,6 +1,17 @@
-import { CfnOutput, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
+import {
+  CfnOutput,
+  Duration,
+  RemovalPolicy,
+  SecretValue,
+  Stack,
+} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
+import {
+  AccountRecovery,
+  UserPool,
+  UserPoolClient,
+  UserPoolDomain,
+} from 'aws-cdk-lib/aws-cognito';
 import { Bucket, HttpMethods } from 'aws-cdk-lib/aws-s3';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
@@ -196,10 +207,18 @@ export class DataStack extends Stack {
       secretName: `${props.appName}/${props.envName}/azure-devops-credentials`,
       description: 'Azure DevOps OAuth credentials',
       secretObjectValue: {
-        tenantId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_TENANT_ID || ''),
-        clientId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_ID || ''),
-        clientSecret: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_SECRET || ''),
-        scope: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_SCOPE || ''),
+        tenantId: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_TENANT_ID || ''
+        ),
+        clientId: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_CLIENT_ID || ''
+        ),
+        clientSecret: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_CLIENT_SECRET || ''
+        ),
+        scope: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_SCOPE || ''
+        ),
       },
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -276,12 +295,12 @@ export class DataStack extends Stack {
 
     new CfnOutput(this, 'CognitoUserPoolId', {
       value: userPool.userPoolId,
-      exportName: `${props.appName}-cognito-user-pool-id`,
+      exportName: `${props.appName}-cognito-user-pool-id-${props.envName}`,
     });
 
     new CfnOutput(this, 'CognitoUserPoolClientId', {
       value: userPoolClient.userPoolClientId,
-      exportName: `${props.appName}-cognito-user-pool-client-id`,
+      exportName: `${props.appName}-cognito-user-pool-client-id-${props.envName}`,
     });
 
     /*
