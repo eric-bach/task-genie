@@ -492,7 +492,7 @@ export class AppStack extends Stack {
 
     // API Gateway Access Log Group
     const apiGwAccessLogGroup = new LogGroup(this, 'ApiGwAccessLogGroup', {
-      logGroupName: `/aws/apigateway/${props.appName}-api-access-logs`,
+      logGroupName: `/aws/apigateway/${props.appName}-api-access-logs-${props.envName}`,
       retention: RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
     });

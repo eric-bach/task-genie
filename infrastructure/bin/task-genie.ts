@@ -56,11 +56,17 @@ const baseProps: BaseStackProps = {
   },
 };
 
-new GitHubActionsStack(app, `${APP_NAME}-github-actions-${ENV_NAME}`, {
-  ...baseProps,
-  appName: APP_NAME,
-  gitHubRepo: 'eric-bach/task-genie',
-});
+if (ENV_NAME === 'stage' || ENV_NAME === 'prod') {
+  new GitHubActionsStack(app, `${APP_NAME}-github-actions-${ENV_NAME}`, {
+    ...baseProps,
+    appName: APP_NAME,
+    gitHubRepo: 'eric-bach/task-genie',
+  });
+
+  new DocsStack(app, `${APP_NAME}-docs-${ENV_NAME}`, {
+    ...baseProps,
+  });
+}
 
 const dataProps = new DataStack(app, `${APP_NAME}-data-${ENV_NAME}`, {
   ...baseProps,
@@ -90,9 +96,4 @@ new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
     apiGwAccessLogGroupArn: appProps.apiGwAccessLogGroupArn,
     apiName: appProps.apiName,
   },
-});
-
-// Documentation Stack
-new DocsStack(app, `${APP_NAME}-docs-${ENV_NAME}`, {
-  ...baseProps,
 });

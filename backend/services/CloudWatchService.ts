@@ -32,7 +32,7 @@ export class CloudWatchService {
     }
   }
 
-  async createIncompleteWorkItemMetric(workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+  async createIncompleteWorkItemMetric(workItemType: 'Product Backlog Item' | 'User Story' | 'Epic' | 'Feature' | 'Task') {
     // Add IncompleteWorkItems metric with work item type dimension
     const incompleteWorkItemMetric = {
       MetricName: 'IncompleteWorkItems',
@@ -65,7 +65,7 @@ export class CloudWatchService {
     await this.createMetric(workItemGeneratedMetric);
   }
 
-  async createWorkItemUpdatedMetric(workItemType: 'User Story' | 'Epic' | 'Feature' | 'Task') {
+  async createWorkItemUpdatedMetric(workItemType: 'Product Backlog Item' | 'User Story' | 'Epic' | 'Feature' | 'Task') {
     const workItemUpdatedMetric = {
       MetricName: `${workItemType.replace(' ', '')}Updated`,
       Dimensions: [

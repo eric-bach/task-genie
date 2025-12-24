@@ -122,6 +122,9 @@
                   // Set button text based on work item type
                   let buttonText = 'Generate';
                   switch (workItemType) {
+                    case 'Product Backlog Item':
+                      buttonText = 'Generate Tasks';
+                      break;
                     case 'User Story':
                       buttonText = 'Generate Tasks';
                       break;
@@ -144,9 +147,20 @@
 
                   // Check if the area path matches any of the allowed pilot teams
                   const allowedAreaPaths = [
-                    'eric-test',
+                    'eric-agile-test',
+                    'eric-scrum-test',
+                    'eric-agile-dev',
+                    'eric-scrum-dev',
                     'AMA-Ent\\Software Development\\Orange Team',
                     'AMA-Ent\\Software Development\\Blue Team',
+                    'Digital Experience Dev\\Rewards and Registries',
+                    'Digital Experience Dev\\Rewards and Registries\\Dev',
+                    'Digital Experience Dev\\Membership and Automotive',
+                    'Digital Experience Dev\\Membership and Automotive\\Dev',
+                    'Digital Experience Dev\\Insurance and Corporate Purpose',
+                    'Digital Experience Dev\\Insurance and Corporate Purpose\\Dev',
+                    'Digital Experience Dev\\Travel',
+                    'Digital Experience Dev\\Travel\\Dev',
                   ];
 
                   if (!allowedAreaPaths.includes(areaPath)) {
@@ -201,6 +215,8 @@
                       // Common custom fields
                       'Custom.BusinessUnit',
                       'Custom.System',
+                      'Custom.ReleaseNotes',
+                      'Custom.QANotes'
                     ]);
 
                     // Call your REST API here
@@ -269,6 +285,8 @@
                         // Common custom fields
                         'Custom.BusinessUnit': fields['Custom.BusinessUnit'],
                         'Custom.System': fields['Custom.System'],
+                        'Custom.ReleaseNotes': fields['Custom.ReleaseNotes'],
+                        'Custom.QANotes': fields['Custom.QANotes'],
                       },
                     },
                   },

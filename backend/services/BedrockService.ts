@@ -23,6 +23,8 @@ import {
   UserStory,
   Feature,
   getExpectedChildWorkItemType,
+  isProductBacklogItem,
+  ProductBacklogItem,
 } from '../types/azureDevOps';
 import {
   BedrockInferenceParams,
@@ -121,7 +123,8 @@ export class BedrockService {
 
   /**
    * Generates work items using AI and knowledge base context. Epic work item types will generate Features,
-   * Feature work item types will generate User Stories, and User Story work item types will generate Tasks.
+   * Feature work item types will generate User Stories, Product Backlog Item or User Story work item types
+   * will generate Tasks.
    * @param workItem The parent work item to generate child work items for
    * @param existingChildWorkItems Array of child work items that already exist for this work item
    * @param params Optional inference parameters including custom prompts and model settings
@@ -254,7 +257,7 @@ export class BedrockService {
    */
   private buildWorkItemEvaluationKnowledgeQuery(workItem: WorkItem): string {
     let criteriaField = '';
-    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+     if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
       criteriaField = `\n    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
     } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
       criteriaField = `\n    - Success Criteria: ${workItem.successCriteria}`;
@@ -265,7 +268,7 @@ export class BedrockService {
     } process and guidelines that would help evaluate the following ${workItem.workItemType} is well-defined:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
-    - ${isUserStory(workItem) ? 'Acceptance Criteria' : 'Success Criteria'}: ${criteriaField}`;
+    - ${(isProductBacklogItem(workItem) || isUserStory(workItem)) ? 'Acceptance Criteria' : 'Success Criteria'}: ${criteriaField}`;
   }
 
   /**
@@ -275,7 +278,7 @@ export class BedrockService {
    */
   private buildWorkItemBreakdownKnowledgeQuery(workItem: WorkItem): string {
     let criteriaField = '';
-    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+    if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
       criteriaField = `\n    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
     } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
       criteriaField = `\n    - Success Criteria: ${workItem.successCriteria}`;
@@ -554,6 +557,13 @@ export class BedrockService {
     let evaluationCriteria = '';
 
     switch (workItem.workItemType) {
+      case 'Product Backlog Item':
+        evaluationCriteria = `- Evaluate the product backlog item based on the following criteria:
+  - It should generally state the user, the need, and the business value in some way.
+  - The acceptance criteria should provide guidance that is testable or verifiable, though it need not be exhaustive.
+  - The story should be appropriately sized for a development team to complete within a sprint.`;
+        break;
+
       case 'User Story':
         evaluationCriteria = `- Evaluate the user story based on the following criteria:
   - It should generally state the user, the need, and the business value in some way.
@@ -617,7 +627,7 @@ ${evaluationCriteria}
 
     // Build criteria section based on work item type
     let criteriaSection = '';
-    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+    if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
       criteriaSection = `\n  - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
     } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
       criteriaSection = `\n  - Success Criteria: ${workItem.successCriteria}`;
@@ -644,6 +654,15 @@ ${evaluationCriteria}
       featureFieldsSection = `\n  - Business Deliverable: ${workItem.businessDeliverable}`;
     }
 
+    // Add Product Backlog Item-specific fields
+    let productBacklogItemFieldsSection = '';
+    if (isProductBacklogItem(workItem)) {
+      const productBacklogItemFields = [];
+      if (workItem.releaseNotes) productBacklogItemFields.push(`  - Release Notes: ${workItem.releaseNotes}`);
+      if (workItem.qaNotes) productBacklogItemFields.push(`  - QA Notes: ${workItem.qaNotes}`);
+    
+    }
+
     // Add User Story-specific fields
     let userStoryFieldsSection = '';
     if (isUserStory(workItem) && workItem.importance) {
@@ -657,7 +676,7 @@ Use this information to understand the scope and expectation for evaluation.
   - Title: ${workItem.title}
   - Description: ${workItem.description}
   ${criteriaSection}
-  ${epicFieldsSection}${featureFieldsSection}${userStoryFieldsSection}
+  ${epicFieldsSection}${featureFieldsSection}${productBacklogItemFieldsSection}${userStoryFieldsSection}
       
 - Additional contextual knowledge (if any):
 Extra domain knowledge, system information, or reference material to guide more context-aware and accurate evaluation.
@@ -681,6 +700,14 @@ Visual aids or references that provide additional context for evaluation.
     let defaultPrompt = '';
 
     switch (workItem.workItemType) {
+      case 'Product Backlog Item':
+        defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a Product Backlog Item into clear, actionable, and appropriately sized Tasks.
+**Instructions**
+- Your task is to break down the provided Product Backlog Item into a sequence of Tasks that are clear and actionable for developers to work on. Each task should be independent and deployable.
+- Ensure each Task has a title and a description that guides the developer (why, what, how, technical details, references to relevant systems/APIs).
+- Avoid creating duplicate Tasks if they already exist.
+- Do NOT create any Tasks for analysis, investigation, testing, or deployment.`;
+        break;
       case 'User Story':
         defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a User Story into clear, actionable, and appropriately sized Tasks.
 **Instructions**
@@ -710,6 +737,17 @@ Visual aids or references that provide additional context for evaluation.
 
     const system: SystemContentBlock[] = [];
     switch (workItem.workItemType) {
+      case 'Product Backlog Item':
+        system.push({
+          text: `${basePrompt}\n
+**Output Rules**
+- ONLY return a JSON object with the following structure:
+  - "workItems": array of task objects, each with:
+    - "title": string (task title, prefixed with order, e.g., "1. Task Title")
+    - "description": string (detailed task description with HTML formatting)
+- DO NOT output any text outside of the JSON object.`,
+        });
+        break;
       case 'User Story':
         system.push({
           text: `${basePrompt}\n
@@ -776,7 +814,7 @@ Visual aids or references that provide additional context for evaluation.
 
     // Build criteria section based on work item type
     let criteriaSection = '';
-    if (isUserStory(workItem) && workItem.acceptanceCriteria) {
+    if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
       criteriaSection = `\n  - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
     } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
       criteriaSection = `\n  - Success Criteria: ${workItem.successCriteria}`;
@@ -797,7 +835,12 @@ Visual aids or references that provide additional context for evaluation.
       }
     } else if (isFeature(workItem) && workItem.businessDeliverable) {
       typeSpecificFields = `\n  - Business Deliverable: ${workItem.businessDeliverable}`;
-    } else if (isUserStory(workItem) && workItem.importance) {
+    } else if (isProductBacklogItem(workItem)) {
+      const productBacklogItemFields = [];
+      if (workItem.releaseNotes) productBacklogItemFields.push(`  - Release Notes: ${workItem.releaseNotes}`);
+      if (workItem.qaNotes) productBacklogItemFields.push(`  - QA Notes: ${workItem.qaNotes}`);
+    }
+    else if (isUserStory(workItem) && workItem.importance) {
       typeSpecificFields = `\n  - Importance: ${workItem.importance}`;
     }
 
@@ -816,6 +859,26 @@ Visual aids or references that provide additional context for evaluation.
             }
             if (featureItem.successCriteria) {
               details += `\n   Success Criteria: ${featureItem.successCriteria}`;
+            }
+            return details;
+          })
+          .join('\n\n');
+      } else if (childWorkItemType === 'Product Backlog Item') {
+        existingChildWorkItemsList = existingChildWorkItems
+          .map((item, i) => {
+            const productBacklogItem = item as ProductBacklogItem;
+            let details = `${i + 1}. ${item.title}`;
+            if (item.description) {
+              details += `\n   Description: ${item.description}`;
+            }
+            if (productBacklogItem.acceptanceCriteria) {
+              details += `\n   Acceptance Criteria: ${productBacklogItem.acceptanceCriteria}`;
+            }
+            if (productBacklogItem.releaseNotes) {
+              details += `\n   Release Notes: ${productBacklogItem.releaseNotes}`;
+            }
+            if (productBacklogItem.qaNotes) {
+              details += `\n   QA Notes: ${productBacklogItem.qaNotes}`;
             }
             return details;
           })

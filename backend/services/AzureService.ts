@@ -7,6 +7,7 @@ import {
   Feature,
   BaseWorkItem,
   getExpectedChildWorkItemType,
+  ProductBacklogItem,
 } from '../types/azureDevOps';
 import {
   SecretsManagerClient,
@@ -407,7 +408,13 @@ export class AzureService {
       `⚙️ Fetching child ${getExpectedChildWorkItemType(
         workItem.workItemType,
         true
-      )} in ${workItem.workItemType} ${workItem.workItemId}`
+      )} in ${workItem.workItemType} ${workItem.workItemId}`,
+      {
+        workItemId: workItem.workItemId,
+        workItemType: workItem.workItemType,
+        teamProject: workItem.teamProject,
+        azureDevOpsOrganization: this.azureDevOpsOrganization,
+      }
     );
 
     try {
@@ -437,7 +444,19 @@ export class AzureService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get work item details');
+        const errorText = await response.text();
+        this.logger.error('Failed to get work item details', {
+          status: response.status,
+          statusText: response.statusText,
+          errorResponse: errorText,
+          workItemUrl: workItemUrl,
+          workItemId: workItem.workItemId,
+          teamProject: workItem.teamProject,
+          organization: this.azureDevOpsOrganization,
+        });
+        throw new Error(
+          `Failed to get work item details: ${response.status} ${response.statusText} - ${errorText}`
+        );
       }
 
       const data = await response.json();
@@ -493,6 +512,8 @@ export class AzureService {
           // Common custom fields
           'Custom.BusinessUnit',
           'Custom.System',
+          'Custom.ReleaseNotes',
+          'Custom.QANotes',
         ],
       });
 
@@ -555,8 +576,8 @@ export class AzureService {
             tags: childItem.fields['System.Tags'] || '',
             areaPath: childItem.fields['System.AreaPath'] || '',
             iterationPath: childItem.fields['System.IterationPath'] || '',
-            businessUnit: childItem.fields['Custom.BusinessUnit'] || '',
-            system: childItem.fields['Custom.System'] || '',
+            businessUnit: childItem.fields['Custom.BusinessUnit'] || '', // Required but may not be set in existing data
+            system: childItem.fields['Custom.System'] || '', // Required but may not be set in existing data
             teamProject: workItem.teamProject,
             changedBy: childItem.fields['System.ChangedBy']?.displayName || '',
           };
@@ -586,6 +607,19 @@ export class AzureService {
                 businessDeliverable:
                   childItem.fields['Custom.BusinessDeliverable'],
               } as Feature;
+              break;
+
+            case 'Product Backlog Item':
+              childWorkItem = {
+                ...baseWorkItem,
+                workItemType: 'Product Backlog Item',
+                acceptanceCriteria:
+                  childItem.fields[
+                    'Microsoft.VSTS.Common.AcceptanceCriteria'
+                  ] || '',
+                releaseNotes: childItem.fields['Custom.ReleaseNotes'] || '',
+                qaNotes: childItem.fields['Custom.QANotes'] || '',
+              } as ProductBacklogItem;
               break;
 
             case 'User Story':

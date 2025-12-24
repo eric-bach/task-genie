@@ -19,11 +19,20 @@ export interface BaseWorkItem {
   iterationPath: string;
   businessUnit?: string;
   system?: string;
+  releaseNotes?: string;  // used for PBI
+  qaNotes?: string; // used for PBI
   changedBy: string;
   title: string;
   description: string;
   tags: string[];
   images?: WorkItemImage[];
+}
+
+// Product Backlog Item specific interface
+export interface ProductBacklogItem extends BaseWorkItem {
+  workItemType: 'Product Backlog Item';
+  acceptanceCriteria?: string; // Microsoft.VSTS.Common.AcceptanceCriteria
+  importance?: string; // Custom.Importance
 }
 
 // User Story specific interface
@@ -57,9 +66,13 @@ export interface Task extends BaseWorkItem {
 }
 
 // Union type for any work item
-export type WorkItem = UserStory | Epic | Feature | Task;
+export type WorkItem = ProductBacklogItem | UserStory | Epic | Feature | Task;
 
 // Type guard functions for type narrowing
+export function isProductBacklogItem(workItem: WorkItem): workItem is ProductBacklogItem {
+  return workItem.workItemType === 'Product Backlog Item';
+}
+
 export function isUserStory(workItem: WorkItem): workItem is UserStory {
   return workItem.workItemType === 'User Story';
 }
@@ -89,6 +102,8 @@ export function getExpectedChildWorkItemType(parentType: string, plural: boolean
     case 'Feature':
       return plural ? 'User Stories' : 'User Story';
     case 'User Story':
+      return plural ? 'Tasks' : 'Task';
+    case 'Product Backlog Item':
       return plural ? 'Tasks' : 'Task';
     default:
       return null; // Unknown parent type

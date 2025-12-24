@@ -1,0 +1,99 @@
+{
+  "subscriptionId": "43724db3-b9f8-4649-8b0e-885fd0741096",
+  "notificationId": 1,
+  "id": "6eb82bb3-694e-4258-8944-ae9beef8ee04",
+  "eventType": "workitem.created",
+  "publisherId": "tfs",
+  "message": {
+    "text": "Product Backlog Item #202724 (test taskGenie) created by Anton Drantiev\r\n(https://dev.azure.com/AMA-Ent/web/wi.aspx?pcguid=d4212dd0-cdd6-4995-ae17-9de4388deeaa&id=202724)",
+    "html": "<a href=\"https://dev.azure.com/AMA-Ent/web/wi.aspx?pcguid=d4212dd0-cdd6-4995-ae17-9de4388deeaa&amp;id=20… Backlog Item #202724</a> (test taskGenie) created by Anton Drantiev",
+    "markdown": "[Product Backlog Item #202724](https://dev.azure.com/AMA-Ent/web/wi.aspx?pcguid=d4212dd0-cdd6-4995-ae17-9de4388deeaa&id=202724) (test taskGenie) created by Anton Drantiev"
+  },
+  "detailedMessage": {
+    "text": "Product Backlog Item #202724 (test taskGenie) created by Anton Drantiev\r\n(https://dev.azure.com/AMA-Ent/web/wi.aspx?pcguid=d4212dd0-cdd6-4995-ae17-9de4388deeaa&id=202724) Area: Digital Experience Dev\\Rewards and Registries\r\n- Iteration: Digital Experience Dev\\Sprint 250\r\n- State: New\r\n",
+    "html": "<a href=\"https://dev.azure.com/AMA-Ent/web/wi.aspx?pcguid=d4212dd0-cdd6-4995-ae17-9de4388deeaa&amp;id=20… Backlog Item #202724</a> (test taskGenie) created by Anton Drantiev<ul>\r\n<li>Area: Digital Experience Dev\\Rewards and Registries</li>\r\n<li>Iteration: Digital Experience Dev\\Sprint 250</li>\r\n<li>State: New</li></ul>",
+    "markdown": "[Product Backlog Item #202724](https://dev.azure.com/AMA-Ent/web/wi.aspx?pcguid=d4212dd0-cdd6-4995-ae17-9de4388deeaa&id=202724) (test taskGenie) created by Anton Drantiev\r\n\r\n* Area: Digital Experience Dev\\Rewards and Registries\r\n* Iteration: Digital Experience Dev\\Sprint 250\r\n* State: New\r\n"
+  },
+  "resource": {
+    "id": 202724,
+    "rev": 1,
+    "fields": {
+      "System.WorkItemType": "Product Backlog Item",
+      "System.State": "New",
+      "System.Reason": "New backlog item",
+      "System.CreatedDate": "2025-12-23T20:41:32.093Z",
+      "System.CreatedBy": "Anton Drantiev <Anton.Drantiev@ama.ab.ca>",
+      "System.ChangedDate": "2025-12-23T20:41:32.093Z",
+      "System.ChangedBy": "Anton Drantiev <Anton.Drantiev@ama.ab.ca>",
+      "System.CommentCount": 0,
+      "System.TeamProject": "Digital Experience Dev",
+      "System.AreaPath": "Digital Experience Dev\\Rewards and Registries",
+      "System.IterationPath": "Digital Experience Dev\\Sprint 250",
+      "System.Title": "test taskGenie",
+      "System.BoardColumn": "Backlog",
+      "System.BoardColumnDone": false,
+      "Microsoft.VSTS.Common.StateChangeDate": "2025-12-23T20:41:32.093Z",
+      "Microsoft.VSTS.Common.Priority": 3,
+      "Microsoft.VSTS.Common.ValueArea": "Business",
+      "Custom.BusinessUnit": "Rewards",
+      "Custom.System": "Website - CAA Online Store",
+      "Custom.AMAValueArea": "Association Strategy",
+      "Custom.PullRequest": "Pending",
+      "Custom.QualityAssurance": "Pending",
+      "Custom.UserAcceptanceTesting": "N/A",
+      "Custom.SynctoWrike": false,
+      "WEF_F80DCE215D084DFEB8C1391B783423FA_Kanban.Column": "Backlog",
+      "WEF_F80DCE215D084DFEB8C1391B783423FA_Kanban.Column.Done": false,
+      "System.Description": "<div>this is a test </div>",
+      "Microsoft.VSTS.Common.AcceptanceCriteria": "<div>test ac </div>",
+      "Custom.ReleaseNotes": "<div>test release notes </div>",
+      "Custom.QANotes": "<div>test QA notes </div>"
+    },
+    "multilineFieldsFormat": {
+      "System.Description": "html",
+      "Microsoft.VSTS.Common.AcceptanceCriteria": "html",
+      "Custom.ReleaseNotes": "html",
+      "Custom.QANotes": "html"
+    },
+    "_links": {
+      "self": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/workItems/202724"
+      },
+      "workItemUpdates": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/workItems/202724/updates"
+      },
+      "workItemRevisions": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/workItems/202724/revisions"
+      },
+      "workItemComments": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/workItems/202724/comments"
+      },
+      "html": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_workitems/edit/202724"
+      },
+      "workItemType": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/workItemTypes/Product%20Backlog%20Item"
+      },
+      "fields": {
+        "href": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/fields"
+      }
+    },
+    "url": "https://dev.azure.com/AMA-Ent/a9d87228-4f4d-4e5a-9e7b-7a5635d28110/_apis/wit/workItems/202724"
+  },
+  "resourceVersion": "1.0",
+  "resourceContainers": {
+    "collection": {
+      "id": "d4212dd0-cdd6-4995-ae17-9de4388deeaa",
+      "baseUrl": "https://dev.azure.com/AMA-Ent/"
+    },
+    "account": {
+      "id": "2c580e31-90dc-405b-856d-c95a59f3d09e",
+      "baseUrl": "https://dev.azure.com/AMA-Ent/"
+    },
+    "project": {
+      "id": "a9d87228-4f4d-4e5a-9e7b-7a5635d28110",
+      "baseUrl": "https://dev.azure.com/AMA-Ent/"
+    }
+  },
+  "createdDate": "2025-12-23T20:41:38.4248624Z"
+}
