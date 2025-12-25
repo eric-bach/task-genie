@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts bin/task-genie.ts",
+  "app": "npx ts-node --swc --prefer-ts-exts bin/task-genie.ts",
   "watch": {
     "include": ["**"],
     "exclude": [
