@@ -6,7 +6,6 @@ import { DataStack } from '../lib/data-stack';
 import { ObservabilityStack } from '../lib/observability-stack';
 import { GitHubActionsStack } from '../lib/github-actions-stack';
 import { DocsStack } from '../lib/docs-stack';
-// import { IVpc } from 'aws-cdk-lib/aws-ec2';
 
 // Load environment variables
 dotenv.config();
@@ -22,11 +21,6 @@ export interface BaseStackProps extends StackProps {
 export interface DataStackProps extends BaseStackProps {}
 export interface AppStackProps extends BaseStackProps {
   params: {
-    // vpc: IVpc;
-    // cloudwatchVpcEndpointId: string;
-    // bedrockVpcEndpointId: string;
-    // bedrockAgentVpcEndpointId: string;
-    // ssmVpcEndpointId: string;
     configTableArn: string;
     resultsTableArn: string;
     feedbackTableArn: string;
@@ -75,11 +69,6 @@ const dataProps = new DataStack(app, `${APP_NAME}-data-${ENV_NAME}`, {
 const appProps = new AppStack(app, `${APP_NAME}-app-${ENV_NAME}`, {
   ...baseProps,
   params: {
-    // vpc: dataProps.vpc,
-    // cloudwatchVpcEndpointId: dataProps.cloudwatchVpcEndpointId,
-    // bedrockVpcEndpointId: dataProps.bedrockVpcEndpointId,
-    // bedrockAgentVpcEndpointId: dataProps.bedrockAgentVpcEndpointId,
-    // ssmVpcEndpointId: dataProps.ssmVpcEndpointId,
     configTableArn: dataProps.configTableArn,
     resultsTableArn: dataProps.resultsTableArn,
     feedbackTableArn: dataProps.feedbackTableArn,

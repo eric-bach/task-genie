@@ -4,15 +4,51 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Upload, FileText, X, Check, AlertCircle, RefreshCw, HardDrive, Trash2, MoreHorizontal } from 'lucide-react';
+import {
+  Upload,
+  FileText,
+  X,
+  Check,
+  AlertCircle,
+  RefreshCw,
+  HardDrive,
+  Trash2,
+  MoreHorizontal,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/auth-context';
-
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +57,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS, WORK_ITEM_TYPES } from '@/lib/constants';
+import {
+  AREA_PATHS,
+  BUSINESS_UNITS,
+  SYSTEMS,
+  WORK_ITEM_TYPES,
+} from '@/lib/constants';
 
 // Define accepted file types and max size (10MB)
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -84,7 +125,7 @@ const formSchema = z
     if (!data.workItemType || data.workItemType.trim() === '') {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Select the Work Item Type from the AMA ADO user story template',
+        message: 'Please select a Work Item Type',
         path: ['workItemType'],
       });
     }
@@ -94,7 +135,7 @@ const formSchema = z
       if (!data.areaPath || data.areaPath.trim() === '') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Select the Area Path from the AMA ADO user story template',
+          message: 'Please select a Area Path from the AMA ADO template',
           path: ['areaPath'],
         });
       }
@@ -102,14 +143,14 @@ const formSchema = z
       if (!data.businessUnit || data.businessUnit.trim() === '') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Select the Business Unit from the AMA ADO user story template',
+          message: 'Please select a Business Unit from the AMA ADO template',
           path: ['businessUnit'],
         });
       }
       if (!data.system || data.system.trim() === '') {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'Select the system from the AMA ADO user story template',
+          message: 'Please select a system from the AMA ADO template',
           path: ['system'],
         });
       }
@@ -121,14 +162,17 @@ type FormData = z.infer<typeof formSchema>;
 export default function Knowledge() {
   const { user } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<
+    'idle' | 'success' | 'error'
+  >('idle');
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(true);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
   const [totalSizeFormatted, setTotalSizeFormatted] = useState<string>('');
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<KnowledgeDocument | null>(null);
+  const [documentToDelete, setDocumentToDelete] =
+    useState<KnowledgeDocument | null>(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
 
   // Pagination state
@@ -176,7 +220,11 @@ export default function Knowledge() {
   }, [form, watchMode]);
 
   // Function to fetch knowledge base documents
-  const fetchDocuments = async (page: number = 1, size: number = 10, token?: string) => {
+  const fetchDocuments = async (
+    page: number = 1,
+    size: number = 10,
+    token?: string
+  ) => {
     setIsLoadingDocuments(true);
     setDocumentsError(null);
 
@@ -212,7 +260,9 @@ export default function Knowledge() {
       }
     } catch (error) {
       console.error('Error fetching documents:', error);
-      setDocumentsError(error instanceof Error ? error.message : 'Failed to load documents');
+      setDocumentsError(
+        error instanceof Error ? error.message : 'Failed to load documents'
+      );
     } finally {
       setIsLoadingDocuments(false);
     }
@@ -245,7 +295,11 @@ export default function Knowledge() {
   // Function to format date
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return (
+      date.toLocaleDateString() +
+      ' ' +
+      date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    );
   };
 
   const confirmDelete = (document: KnowledgeDocument) => {
@@ -258,9 +312,12 @@ export default function Knowledge() {
 
     try {
       setDeletingKey(documentToDelete.key);
-      const resp = await fetch(`/api/knowledge-base?key=${encodeURIComponent(documentToDelete.key)}`, {
-        method: 'DELETE',
-      });
+      const resp = await fetch(
+        `/api/knowledge-base?key=${encodeURIComponent(documentToDelete.key)}`,
+        {
+          method: 'DELETE',
+        }
+      );
       if (!resp.ok) {
         const text = await resp.text();
         throw new Error(text || 'Failed to delete document');
@@ -271,7 +328,9 @@ export default function Knowledge() {
       setDeleteConfirmationText('');
     } catch (e) {
       console.error('Delete failed', e);
-      setDocumentsError(e instanceof Error ? e.message : 'Failed to delete document');
+      setDocumentsError(
+        e instanceof Error ? e.message : 'Failed to delete document'
+      );
     } finally {
       setDeletingKey(null);
     }
@@ -311,7 +370,8 @@ export default function Knowledge() {
       // Step 1: Get presigned URL
       // For User Story mode, use area path only; for Task Generation mode, use selected values
       const workItemType = data.workItemType || '';
-      const areaPath = data.mode === 'userStory' ? 'agile-process' : data.areaPath || '';
+      const areaPath =
+        data.mode === 'userStory' ? 'agile-process' : data.areaPath || '';
 
       // Build query parameters - only include businessUnit and system for Task Generation mode
       const queryParams = new URLSearchParams({
@@ -321,7 +381,8 @@ export default function Knowledge() {
       });
 
       if (data.mode === 'taskGeneration') {
-        if (data.businessUnit) queryParams.append('businessUnit', data.businessUnit);
+        if (data.businessUnit)
+          queryParams.append('businessUnit', data.businessUnit);
         if (data.system) queryParams.append('system', data.system);
       }
 
@@ -329,9 +390,12 @@ export default function Knowledge() {
       queryParams.append('username', user?.email || '');
       console.log('👉 Query Params', queryParams.toString());
 
-      const presignedResponse = await fetch(`/api/knowledge-base/presigned-url?${queryParams.toString()}`, {
-        method: 'GET',
-      });
+      const presignedResponse = await fetch(
+        `/api/knowledge-base/presigned-url?${queryParams.toString()}`,
+        {
+          method: 'GET',
+        }
+      );
 
       if (!presignedResponse.ok) {
         const errorData = await presignedResponse.json();
@@ -437,13 +501,16 @@ export default function Knowledge() {
     <div className='container mx-auto py-10 px-4 min-h-screen'>
       <h1 className='text-2xl font-bold mb-2'>Manage Knowledge Base</h1>
       <p className='text-md text-muted-foreground mb-8'>
-        Upload documents to enhance the knowledge base. Supported formats: PDF, Word, Text, and Markdown files.
+        Upload documents to enhance the knowledge base. Supported formats: PDF,
+        Word, Text, and Markdown files.
       </p>
 
       <Card>
         <CardHeader>
           <CardTitle>Upload Document</CardTitle>
-          <CardDescription>Add new documents to improve user story and task recommendations.</CardDescription>
+          <CardDescription>
+            Add new documents to improve user story and task recommendations.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -455,7 +522,11 @@ export default function Knowledge() {
                   <FormItem>
                     <FormLabel>Upload Mode</FormLabel>
                     <FormControl>
-                      <Tabs value={field.value} onValueChange={field.onChange} className='w-full'>
+                      <Tabs
+                        value={field.value}
+                        onValueChange={field.onChange}
+                        className='w-full'
+                      >
                         <TabsList className='grid w-full grid-cols-2'>
                           <TabsTrigger
                             value='taskGeneration'
@@ -488,7 +559,10 @@ export default function Knowledge() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Work Item Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                    <Select
+                      onValueChange={field.onChange}
+                      value={field.value || ''}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder='Select a work item type' />
@@ -515,7 +589,10 @@ export default function Knowledge() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Area Path</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder='Select an area path' />
@@ -540,7 +617,10 @@ export default function Knowledge() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Business Unit</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder='Select a business unit' />
@@ -565,7 +645,10 @@ export default function Knowledge() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>System</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value || ''}
+                        >
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder='Select a system' />
@@ -603,11 +686,19 @@ export default function Knowledge() {
                             className='hidden'
                             id='file-upload'
                           />
-                          <label htmlFor='file-upload' className='cursor-pointer flex flex-col items-center gap-2'>
+                          <label
+                            htmlFor='file-upload'
+                            className='cursor-pointer flex flex-col items-center gap-2'
+                          >
                             <Upload className='h-8 w-8 text-muted-foreground' />
                             <div className='text-sm'>
-                              <span className='font-medium text-primary'>Click to upload</span>
-                              <span className='text-muted-foreground'> or drag and drop</span>
+                              <span className='font-medium text-primary'>
+                                Click to upload
+                              </span>
+                              <span className='text-muted-foreground'>
+                                {' '}
+                                or drag and drop
+                              </span>
                             </div>
                             <p className='text-xs text-muted-foreground'>
                               PDF, Word, Text, or Markdown files (max 10MB)
@@ -619,9 +710,12 @@ export default function Knowledge() {
                           <div className='flex items-center gap-3 p-3 bg-muted/50 rounded-lg'>
                             <FileText className='h-5 w-5 text-muted-foreground flex-shrink-0' />
                             <div className='flex-1 min-w-0'>
-                              <p className='text-sm font-medium truncate'>{selectedFile.name}</p>
+                              <p className='text-sm font-medium truncate'>
+                                {selectedFile.name}
+                              </p>
                               <p className='text-xs text-muted-foreground'>
-                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                {(selectedFile.size / 1024 / 1024).toFixed(2)}{' '}
+                                MB
                               </p>
                             </div>
                             <Button
@@ -643,7 +737,9 @@ export default function Knowledge() {
                         )}
                       </div>
                     </FormControl>
-                    <FormDescription>Upload a document to add to the knowledge base.</FormDescription>
+                    <FormDescription>
+                      Upload a document to add to the knowledge base.
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -652,19 +748,27 @@ export default function Knowledge() {
               {uploadStatus === 'success' && (
                 <div className='flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700'>
                   <Check className='h-5 w-5' />
-                  <span className='text-sm'>Document uploaded successfully!</span>
+                  <span className='text-sm'>
+                    Document uploaded successfully!
+                  </span>
                 </div>
               )}
 
               {uploadStatus === 'error' && (
                 <div className='flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700'>
                   <AlertCircle className='h-5 w-5' />
-                  <span className='text-sm'>Upload failed. Please try again.</span>
+                  <span className='text-sm'>
+                    Upload failed. Please try again.
+                  </span>
                 </div>
               )}
 
               <div className='flex justify-end'>
-                <Button type='submit' disabled={isUploading} className='min-w-[120px]'>
+                <Button
+                  type='submit'
+                  disabled={isUploading}
+                  className='min-w-[120px]'
+                >
                   {isUploading ? (
                     <>
                       <div className='animate-spin rounded-full h-4 w-4 border-2 border-background border-t-transparent mr-2' />
@@ -691,8 +795,9 @@ export default function Knowledge() {
               <div>
                 <CardTitle>Knowledge Base Documents</CardTitle>
                 <CardDescription className='pt-2'>
-                  All documents in the knowledge base. It may take several minutes for recent document changes to be
-                  indexed and reflected in the list.
+                  All documents in the knowledge base. It may take several
+                  minutes for recent document changes to be indexed and
+                  reflected in the list.
                 </CardDescription>
               </div>
               <Button
@@ -702,7 +807,11 @@ export default function Knowledge() {
                 disabled={isLoadingDocuments}
                 className='flex items-center gap-2'
               >
-                <RefreshCw className={`h-4 w-4 ${isLoadingDocuments ? 'animate-spin' : ''}`} />
+                <RefreshCw
+                  className={`h-4 w-4 ${
+                    isLoadingDocuments ? 'animate-spin' : ''
+                  }`}
+                />
                 Refresh
               </Button>
             </div>
@@ -731,7 +840,9 @@ export default function Knowledge() {
           ) : documents.length === 0 ? (
             <div className='text-center py-12'>
               <FileText className='h-12 w-12 text-muted-foreground mx-auto mb-4' />
-              <h3 className='text-lg font-medium text-muted-foreground mb-2'>No documents found</h3>
+              <h3 className='text-lg font-medium text-muted-foreground mb-2'>
+                No documents found
+              </h3>
               <p className='text-sm text-muted-foreground'>
                 If you recently uploaded a document it may still be indexing.
               </p>
@@ -744,9 +855,15 @@ export default function Knowledge() {
                     <TableRow>
                       <TableHead>Document</TableHead>
                       <TableHead className='whitespace-nowrap'>Size</TableHead>
-                      <TableHead className='whitespace-nowrap'>Uploaded By</TableHead>
-                      <TableHead className='whitespace-nowrap'>Uploaded At</TableHead>
-                      <TableHead className='whitespace-nowrap'>Actions</TableHead>
+                      <TableHead className='whitespace-nowrap'>
+                        Uploaded By
+                      </TableHead>
+                      <TableHead className='whitespace-nowrap'>
+                        Uploaded At
+                      </TableHead>
+                      <TableHead className='whitespace-nowrap'>
+                        Actions
+                      </TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -756,10 +873,12 @@ export default function Knowledge() {
                           <div className='flex items-center gap-2'>
                             <FileText className='h-4 w-4 text-muted-foreground' />
                             <div className='max-w-x'>
-                              <p className='font-medium truncate'>{doc.fileName}</p>
+                              <p className='font-medium truncate'>
+                                {doc.fileName}
+                              </p>
                               <p className='text-xs text-muted-foreground truncate'>
-                                {doc.workItemType} / {doc.areaPath || '-'} / {doc.businessUnit || '-'} /{' '}
-                                {doc.system || '-'}
+                                {doc.workItemType} / {doc.areaPath || '-'} /{' '}
+                                {doc.businessUnit || '-'} / {doc.system || '-'}
                               </p>
                             </div>
                           </div>
@@ -773,7 +892,9 @@ export default function Knowledge() {
                           <div className='flex items-center gap-1 text-xs text-muted-foreground'>
                             {doc.username ? (
                               <div className='flex flex-col'>
-                                <span className='font-medium'>{doc.username}</span>
+                                <span className='font-medium'>
+                                  {doc.username}
+                                </span>
                               </div>
                             ) : (
                               '-'
@@ -803,7 +924,10 @@ export default function Knowledge() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align='end'>
-                              <DropdownMenuItem onClick={() => confirmDelete(doc)} disabled={deletingKey === doc.key}>
+                              <DropdownMenuItem
+                                onClick={() => confirmDelete(doc)}
+                                disabled={deletingKey === doc.key}
+                              >
                                 <Trash2 className='h-4 w-4 mr-2' />
                                 Delete
                               </DropdownMenuItem>
@@ -819,8 +943,13 @@ export default function Knowledge() {
               {/* Pagination Controls */}
               <div className='mt-6 flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
-                  <span className='text-sm text-muted-foreground'>Page size:</span>
-                  <Select value={pageSize.toString()} onValueChange={(value) => changePageSize(parseInt(value))}>
+                  <span className='text-sm text-muted-foreground'>
+                    Page size:
+                  </span>
+                  <Select
+                    value={pageSize.toString()}
+                    onValueChange={(value) => changePageSize(parseInt(value))}
+                  >
                     <SelectTrigger className='w-20'>
                       <SelectValue />
                     </SelectTrigger>
@@ -860,7 +989,8 @@ export default function Knowledge() {
 
               <div className='mt-4 flex items-center justify-between text-sm text-muted-foreground'>
                 <span>
-                  Showing {documents.length} document{documents.length !== 1 ? 's' : ''} (Page {currentPage})
+                  Showing {documents.length} document
+                  {documents.length !== 1 ? 's' : ''} (Page {currentPage})
                 </span>
                 <div className='flex items-center gap-2'>
                   <HardDrive className='h-4 w-4' />
@@ -882,12 +1012,17 @@ export default function Knowledge() {
             </div>
             <p className='text-muted-foreground mb-4'>
               Are you sure you want to delete{' '}
-              <span className='font-medium text-foreground'>{documentToDelete.fileName}</span>? This action cannot be
-              undone.
+              <span className='font-medium text-foreground'>
+                {documentToDelete.fileName}
+              </span>
+              ? This action cannot be undone.
             </p>
 
             <div className='mb-6'>
-              <label htmlFor='delete-confirm' className='block text-sm font-medium text-foreground mb-2'>
+              <label
+                htmlFor='delete-confirm'
+                className='block text-sm font-medium text-foreground mb-2'
+              >
                 Type &quot;confirm&quot; to proceed with deletion:
               </label>
               <input
@@ -902,13 +1037,20 @@ export default function Knowledge() {
             </div>
 
             <div className='flex gap-3 justify-end'>
-              <Button variant='outline' onClick={cancelDelete} disabled={deletingKey === documentToDelete.key}>
+              <Button
+                variant='outline'
+                onClick={cancelDelete}
+                disabled={deletingKey === documentToDelete.key}
+              >
                 Cancel
               </Button>
               <Button
                 variant='destructive'
                 onClick={deleteDocument}
-                disabled={deletingKey === documentToDelete.key || deleteConfirmationText !== 'confirm'}
+                disabled={
+                  deletingKey === documentToDelete.key ||
+                  deleteConfirmationText !== 'confirm'
+                }
               >
                 {deletingKey === documentToDelete.key ? (
                   <>

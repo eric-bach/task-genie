@@ -15,6 +15,22 @@ export const AREA_PATHS = [
   'Digital Experience Dev\\Travel',
   'Digital Experience Dev\\Travel\\Dev',
 ];
-export const BUSINESS_UNITS = ['IT', 'Membership', 'Registries', 'Travel', 'Gift Card Ent'];
-export const SYSTEMS = ['iMIS', 'Omni-Admin – Service Queuing', 'Omni-POS', 'Website - CAA Online Store'];
-export const WORK_ITEM_TYPES = ['Epic', 'Feature', 'User Story'];
+export const BUSINESS_UNITS = [
+  'IT',
+  'Membership',
+  'Registries',
+  'Travel',
+  'Gift Card Ent',
+];
+export const SYSTEMS = [
+  'iMIS',
+  'Omni-Admin – Service Queuing',
+  'Omni-POS',
+  'Website - CAA Online Store',
+];
+export const WORK_ITEM_TYPES = [
+  'Epic',
+  'Feature',
+  'Product Backlog Item',
+  'User Story',
+];
