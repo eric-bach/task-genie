@@ -303,14 +303,15 @@ export class AppStack extends Stack {
     // Grant the Lambda function permission to generate a presigned URL for the S3 bucket
     dataSourceBucket.grantPut(generatePresignedUrlFunction);
 
-    const listKnowledgeBaseDocumentsFunction = new TaskGenieLambda(
+    // Manage Knowledge Base Documents Lambda (Consolidated)
+    const manageKnowledgeBaseDocumentsFunction = new TaskGenieLambda(
       this,
-      'ListKnowledgeBaseDocuments',
+      'ManageKnowledgeBaseDocuments',
       {
-        functionName: `${props.appName}-list-knowledge-base-documents-${props.envName}`,
+        functionName: `${props.appName}-manage-kb-documents-${props.envName}`,
         entry: path.resolve(
           __dirname,
-          '../../backend/lambda/knowledgeBase/listKnowledgeBaseDocuments/index.ts'
+          '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments/index.ts'
         ),
         memorySize: 512,
         timeout: Duration.seconds(30),
@@ -328,37 +329,6 @@ export class AppStack extends Stack {
               'bedrock:GetKnowledgeBase',
               'bedrock:ListKnowledgeBases',
               'bedrock:ListKnowledgeBaseDocuments',
-            ],
-            resources: ['*'],
-          }),
-        ],
-      }
-    );
-    // Grant the Lambda function permission to read from the S3 bucket
-    dataSourceBucket.grantRead(listKnowledgeBaseDocumentsFunction);
-
-    const deleteKnowledgeBaseDocumentFunction = new TaskGenieLambda(
-      this,
-      'DeleteKnowledgeBaseDocument',
-      {
-        functionName: `${props.appName}-delete-knowledge-base-document-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/knowledgeBase/deleteKnowledgeBaseDocument/index.ts'
-        ),
-        memorySize: 512,
-        timeout: Duration.minutes(3),
-        environment: {
-          S3_BUCKET_NAME: dataSourceBucket.bucketName,
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        policyStatements: [
-          new PolicyStatement({
-            actions: [
               'bedrock:StartIngestionJob',
               'bedrock:GetIngestionJob',
               'bedrock:ListIngestionJobs',
@@ -368,15 +338,16 @@ export class AppStack extends Stack {
         ],
       }
     );
-    dataSourceBucket.grantDelete(deleteKnowledgeBaseDocumentFunction);
-    dataSourceBucket.grantRead(deleteKnowledgeBaseDocumentFunction);
+    // Grant permissions
+    dataSourceBucket.grantRead(manageKnowledgeBaseDocumentsFunction);
+    dataSourceBucket.grantDelete(manageKnowledgeBaseDocumentsFunction);
 
-    // Update Config Lambda
-    const updateConfigFunction = new TaskGenieLambda(this, 'UpdateConfig', {
-      functionName: `${props.appName}-update-config-${props.envName}`,
+    // Manage Config Lambda (Consolidated)
+    const manageConfigFunction = new TaskGenieLambda(this, 'ManageConfig', {
+      functionName: `${props.appName}-manage-config-${props.envName}`,
       entry: path.resolve(
         __dirname,
-        '../../backend/lambda/config/updateConfig/index.ts'
+        '../../backend/lambda/config/manageConfig/index.ts'
       ),
       memorySize: 256,
       timeout: Duration.seconds(10),
@@ -385,39 +356,7 @@ export class AppStack extends Stack {
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
     });
-    configTable.grantReadWriteData(updateConfigFunction);
-
-    // List Config Lambda
-    const listConfigFunction = new TaskGenieLambda(this, 'ListConfig', {
-      functionName: `${props.appName}-list-config-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/config/listConfig/index.ts'
-      ),
-      memorySize: 256,
-      timeout: Duration.seconds(10),
-      environment: {
-        CONFIG_TABLE_NAME: configTable.tableName,
-        POWERTOOLS_LOG_LEVEL: 'DEBUG',
-      },
-    });
-    configTable.grantReadData(listConfigFunction);
-
-    // Delete Config Lambda
-    const deleteConfigFunction = new TaskGenieLambda(this, 'DeleteConfig', {
-      functionName: `${props.appName}-delete-config-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/config/deleteConfig/index.ts'
-      ),
-      memorySize: 256,
-      timeout: Duration.seconds(10),
-      environment: {
-        CONFIG_TABLE_NAME: configTable.tableName,
-        POWERTOOLS_LOG_LEVEL: 'DEBUG',
-      },
-    });
-    configTable.grantWriteData(deleteConfigFunction);
+    configTable.grantReadWriteData(manageConfigFunction);
 
     // Feedback Tracking Lambda
     const trackTaskFeedbackFunction = new TaskGenieLambda(
@@ -600,7 +539,7 @@ export class AppStack extends Stack {
     const documentsResource = knowledgeBaseResource.addResource('documents');
     documentsResource.addMethod(
       'GET',
-      new LambdaIntegration(listKnowledgeBaseDocumentsFunction, {
+      new LambdaIntegration(manageKnowledgeBaseDocumentsFunction, {
         proxy: true,
       }),
       {
@@ -609,7 +548,7 @@ export class AppStack extends Stack {
     );
     documentsResource.addMethod(
       'DELETE',
-      new LambdaIntegration(deleteKnowledgeBaseDocumentFunction, {
+      new LambdaIntegration(manageKnowledgeBaseDocumentsFunction, {
         proxy: true,
       }),
       {
@@ -622,21 +561,21 @@ export class AppStack extends Stack {
     const configResource = api.root.addResource('config');
     configResource.addMethod(
       'PUT',
-      new LambdaIntegration(updateConfigFunction, { proxy: true }),
+      new LambdaIntegration(manageConfigFunction, { proxy: true }),
       {
         apiKeyRequired: false,
       }
     );
     configResource.addMethod(
       'GET',
-      new LambdaIntegration(listConfigFunction, { proxy: true }),
+      new LambdaIntegration(manageConfigFunction, { proxy: true }),
       {
         apiKeyRequired: false,
       }
     );
     configResource.addMethod(
       'DELETE',
-      new LambdaIntegration(deleteConfigFunction, { proxy: true }),
+      new LambdaIntegration(manageConfigFunction, { proxy: true }),
       {
         apiKeyRequired: false,
       }

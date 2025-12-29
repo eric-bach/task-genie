@@ -1,10 +1,14 @@
 {
-  "name": "deleteKnowledgeBaseDocument",
+  "name": "manageknowledgebasedocuments",
   "version": "1.0.0",
+  "description": "Consolidated knowledge base document management lambda",
   "main": "index.js",
   "scripts": {
     "build": "tsc"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "devDependencies": {
     "@types/aws-lambda": "^8.10.147",
     "@types/node": "^24.2.1",
