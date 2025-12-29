@@ -10,11 +10,13 @@ export default {
     ],
   },
   extensionsToTreatAsEsm: ['.ts'],
-  roots: ['<rootDir>/src', '<rootDir>/../../services', '<rootDir>/../../types'],
+  roots: ['<rootDir>', '<rootDir>/../../services', '<rootDir>/../../types'],
   setupFiles: ['<rootDir>/setupTests.ts'],
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@/services/(.*)$': '<rootDir>/../../services/$1',
     '^@/types/(.*)$': '<rootDir>/../../types/$1',
   },
+  modulePathIgnorePatterns: ['<rootDir>/dist/'],
+  transformIgnorePatterns: ['node_modules/(?!@strands-agents)'],
 };

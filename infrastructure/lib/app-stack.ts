@@ -113,8 +113,9 @@ export class AppStack extends Stack {
     );
 
     const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(
-      path.join(__dirname, '..', '..', 'backend', 'agents', 'work-item-agent'),
+      path.join(__dirname, '..', '..'),
       {
+        file: 'backend/agents/workItemAgent/Dockerfile',
         platform: Platform.LINUX_ARM64,
       }
     );
@@ -149,7 +150,7 @@ export class AppStack extends Stack {
       this,
       'WorkItemAgentProxy',
       {
-        functionName: `${props.appName}-work-item-agent-proxy-${props.envName}`,
+        functionName: `${props.appName}-workItemAgent-proxy-${props.envName}`,
         entry: path.resolve(
           __dirname,
           '../../backend/lambda/proxy/agent/index.ts'
