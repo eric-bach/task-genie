@@ -580,130 +580,130 @@ export class AppStack extends Stack {
       }
     );
 
-    // // Add method to list knowledge base documents
-    // //  GET /knowledge-base/documents
-    // const knowledgeBaseResource = api.root.addResource('knowledge-base');
+    // Add method to list knowledge base documents
+    //  GET /knowledge-base/documents
+    const knowledgeBaseResource = api.root.addResource('knowledge-base');
 
-    // // Add method to generate a S3 presigned URL
-    // //  GET /knowledge-base/presigned-url
-    // const generatePresignedUrlResource =
-    //   knowledgeBaseResource.addResource('presigned-url');
-    // generatePresignedUrlResource.addMethod(
-    //   'GET',
-    //   new LambdaIntegration(generatePresignedUrlFunction, {
-    //     proxy: true,
-    //   }),
-    //   {
-    //     apiKeyRequired: false, // No API key required for uploading documents
-    //   }
-    // );
-    // const documentsResource = knowledgeBaseResource.addResource('documents');
-    // documentsResource.addMethod(
-    //   'GET',
-    //   new LambdaIntegration(listKnowledgeBaseDocumentsFunction, {
-    //     proxy: true,
-    //   }),
-    //   {
-    //     apiKeyRequired: false, // No API key required for listing documents
-    //   }
-    // );
-    // documentsResource.addMethod(
-    //   'DELETE',
-    //   new LambdaIntegration(deleteKnowledgeBaseDocumentFunction, {
-    //     proxy: true,
-    //   }),
-    //   {
-    //     apiKeyRequired: false,
-    //   }
-    // );
+    // Add method to generate a S3 presigned URL
+    //  GET /knowledge-base/presigned-url
+    const generatePresignedUrlResource =
+      knowledgeBaseResource.addResource('presigned-url');
+    generatePresignedUrlResource.addMethod(
+      'GET',
+      new LambdaIntegration(generatePresignedUrlFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false, // No API key required for uploading documents
+      }
+    );
+    const documentsResource = knowledgeBaseResource.addResource('documents');
+    documentsResource.addMethod(
+      'GET',
+      new LambdaIntegration(listKnowledgeBaseDocumentsFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false, // No API key required for listing documents
+      }
+    );
+    documentsResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteKnowledgeBaseDocumentFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false,
+      }
+    );
 
-    // // Config API resource
-    // //  PUT /config
-    // const configResource = api.root.addResource('config');
-    // configResource.addMethod(
-    //   'PUT',
-    //   new LambdaIntegration(updateConfigFunction, { proxy: true }),
-    //   {
-    //     apiKeyRequired: false,
-    //   }
-    // );
-    // configResource.addMethod(
-    //   'GET',
-    //   new LambdaIntegration(listConfigFunction, { proxy: true }),
-    //   {
-    //     apiKeyRequired: false,
-    //   }
-    // );
-    // configResource.addMethod(
-    //   'DELETE',
-    //   new LambdaIntegration(deleteConfigFunction, { proxy: true }),
-    //   {
-    //     apiKeyRequired: false,
-    //   }
-    // );
+    // Config API resource
+    //  PUT /config
+    const configResource = api.root.addResource('config');
+    configResource.addMethod(
+      'PUT',
+      new LambdaIntegration(updateConfigFunction, { proxy: true }),
+      {
+        apiKeyRequired: false,
+      }
+    );
+    configResource.addMethod(
+      'GET',
+      new LambdaIntegration(listConfigFunction, { proxy: true }),
+      {
+        apiKeyRequired: false,
+      }
+    );
+    configResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(deleteConfigFunction, { proxy: true }),
+      {
+        apiKeyRequired: false,
+      }
+    );
 
-    // // Feedback webhook API resource for Azure DevOps (Asynchronous)
-    // //  POST /feedback/track
-    // const feedbackResource = api.root.addResource('feedback');
-    // const trackFeedbackResource = feedbackResource.addResource('track');
+    // Feedback webhook API resource for Azure DevOps (Asynchronous)
+    //  POST /feedback/track
+    const feedbackResource = api.root.addResource('feedback');
+    const trackFeedbackResource = feedbackResource.addResource('track');
 
-    // // Asynchronous Lambda integration for feedback tracking
-    // trackFeedbackResource.addMethod(
-    //   'POST',
-    //   new LambdaIntegration(trackTaskFeedbackFunction, {
-    //     proxy: false, // Don't use proxy integration for async
-    //     integrationResponses: [
-    //       {
-    //         statusCode: '202',
-    //         responseParameters: {
-    //           'method.response.header.Access-Control-Allow-Origin': "'*'",
-    //           'method.response.header.Access-Control-Allow-Methods':
-    //             "'OPTIONS,POST'",
-    //           'method.response.header.Access-Control-Allow-Headers':
-    //             "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
-    //         },
-    //         responseTemplates: {
-    //           'application/json': JSON.stringify({
-    //             message: 'Feedback request accepted for processing',
-    //             timestamp: '$context.requestTime',
-    //           }),
-    //         },
-    //       },
-    //     ],
-    //     requestTemplates: {
-    //       'application/json': '$input.body', // Pass the request body directly
-    //     },
-    //     requestParameters: {
-    //       'integration.request.header.X-Amz-Invocation-Type': "'Event'", // Async invocation
-    //     },
-    //   }),
-    //   {
-    //     apiKeyRequired: true,
-    //     methodResponses: [
-    //       {
-    //         statusCode: '202',
-    //         responseParameters: {
-    //           'method.response.header.Access-Control-Allow-Origin': true,
-    //           'method.response.header.Access-Control-Allow-Methods': true,
-    //           'method.response.header.Access-Control-Allow-Headers': true,
-    //         },
-    //       },
-    //     ],
-    //   }
-    // );
+    // Asynchronous Lambda integration for feedback tracking
+    trackFeedbackResource.addMethod(
+      'POST',
+      new LambdaIntegration(trackTaskFeedbackFunction, {
+        proxy: false, // Don't use proxy integration for async
+        integrationResponses: [
+          {
+            statusCode: '202',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': "'*'",
+              'method.response.header.Access-Control-Allow-Methods':
+                "'OPTIONS,POST'",
+              'method.response.header.Access-Control-Allow-Headers':
+                "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+            },
+            responseTemplates: {
+              'application/json': JSON.stringify({
+                message: 'Feedback request accepted for processing',
+                timestamp: '$context.requestTime',
+              }),
+            },
+          },
+        ],
+        requestTemplates: {
+          'application/json': '$input.body', // Pass the request body directly
+        },
+        requestParameters: {
+          'integration.request.header.X-Amz-Invocation-Type': "'Event'", // Async invocation
+        },
+      }),
+      {
+        apiKeyRequired: true,
+        methodResponses: [
+          {
+            statusCode: '202',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': true,
+              'method.response.header.Access-Control-Allow-Methods': true,
+              'method.response.header.Access-Control-Allow-Headers': true,
+            },
+          },
+        ],
+      }
+    );
 
-    // // Add method to poll Step Function execution results
-    // //  GET /executions/{executionId} (URL-encoded execution ID with colons)
-    // const pollResource = executionsResource.addResource('{executionId}');
-    // pollResource.addMethod(
-    //   'GET',
-    //   new LambdaIntegration(pollExecutionFunction, {
-    //     proxy: true,
-    //   }),
-    //   {
-    //     apiKeyRequired: true, // Require API key for polling endpoint
-    //   }
-    // );
+    // Add method to poll Step Function execution results
+    //  GET /executions/{executionId} (URL-encoded execution ID with colons)
+    const pollResource = executionsResource.addResource('{executionId}');
+    pollResource.addMethod(
+      'GET',
+      new LambdaIntegration(pollExecutionFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: true, // Require API key for polling endpoint
+      }
+    );
 
     /*
      * Properties
