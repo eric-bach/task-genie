@@ -6,7 +6,7 @@ FROM node:20-slim
 WORKDIR /app
 
 # Copy the backend directory to include the agent and its sibling dependencies (evaluate-work-item)
-COPY . /app/backend
+COPY backend /app/backend
 
 # Switch to the agent directory
 WORKDIR /app/backend/agents/workItemAgent
