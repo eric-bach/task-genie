@@ -52,6 +52,7 @@ import { AREA_PATHS, BUSINESS_UNITS, SYSTEMS } from '@/lib/constants';
 const MAX_OUTPUT_TOKENS = 10240;
 
 const formSchema = z.object({
+  workItemType: z.enum(['User Story']).default('User Story'),
   title: z.string().min(5, {
     message: 'Title must be at least 5 characters.',
   }),
@@ -127,6 +128,7 @@ export async function generateTasks(
         rev: 1,
         revision: {
           fields: {
+            'System.WorkItemType': 'User Story',
             'System.ChangedBy': userId,
             'System.Title': title,
             'System.Description': description,
@@ -304,6 +306,7 @@ export function UserStoryForm() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      workItemType: 'User Story',
       title:
         'As a frequent traveler, I want to receive notifications about gate changes so that I can avoid missing my flight.',
       description:
@@ -334,7 +337,7 @@ export function UserStoryForm() {
       setResult(pollResponse);
 
       if (pollResponse.statusCode === 200) {
-        const tasks = pollResponse.body.tasks || [];
+        const tasks = pollResponse.body.workItems || [];
         console.log('Setting tasks from poll response:', tasks);
         setTasks(tasks);
 

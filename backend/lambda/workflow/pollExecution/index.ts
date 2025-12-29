@@ -1,4 +1,8 @@
-import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
+import {
+  APIGatewayProxyEvent,
+  APIGatewayProxyResult,
+  Context,
+} from 'aws-lambda';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { Logger } from '@aws-lambda-powertools/logger';
@@ -9,11 +13,16 @@ const logger = new Logger({ serviceName: 'pollExecution' });
 const dynamoClient = new DynamoDBClient({});
 const docClient = DynamoDBDocumentClient.from(dynamoClient);
 
-const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
+const lambdaHandler = async (
+  event: APIGatewayProxyEvent,
+  context: Context
+): Promise<APIGatewayProxyResult> => {
   try {
     // Extract execution id from path parameters and decode it
     const rawExecutionId = event.pathParameters?.executionId;
-    const executionId = rawExecutionId ? decodeURIComponent(rawExecutionId) : undefined;
+    const executionId = rawExecutionId
+      ? decodeURIComponent(rawExecutionId)
+      : undefined;
 
     if (!executionId) {
       return {
@@ -21,7 +30,8 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Headers':
+            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
           'Access-Control-Allow-Methods': 'GET,OPTIONS',
         },
         body: JSON.stringify({
@@ -42,7 +52,8 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Headers':
+            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
           'Access-Control-Allow-Methods': 'GET,OPTIONS',
         },
         body: JSON.stringify({
@@ -52,14 +63,17 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
         }),
       };
     } else {
-      logger.info('Execution result not found - still running', { executionId });
+      logger.info('Execution result not found - still running', {
+        executionId,
+      });
 
       return {
         statusCode: 202,
         headers: {
           'Content-Type': 'application/json',
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+          'Access-Control-Allow-Headers':
+            'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
           'Access-Control-Allow-Methods': 'GET,OPTIONS',
         },
         body: JSON.stringify({
@@ -77,7 +91,8 @@ const lambdaHandler = async (event: APIGatewayProxyEvent, context: Context): Pro
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+        'Access-Control-Allow-Headers':
+          'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
         'Access-Control-Allow-Methods': 'GET,OPTIONS',
       },
       body: JSON.stringify({
@@ -95,14 +110,18 @@ const pollExecutionResult = async (executionId: string) => {
     throw new Error('TABLE_NAME environment variable is not set');
   }
 
-  logger.info('Querying DynamoDB for execution result', { executionId, tableName });
+  logger.info('Querying DynamoDB for execution result', {
+    executionId,
+    tableName,
+  });
 
   const command = new GetCommand({
     TableName: tableName,
     Key: {
       executionId: executionId,
     },
-    ProjectionExpression: 'executionId, executionResult, workItemId, workItem, tasksCount, tasks, workItemComment',
+    ProjectionExpression:
+      'executionId, executionResult, workItemId, workItem, workItemsCount, workItems, workItemComment',
   });
 
   try {
@@ -114,7 +133,7 @@ const pollExecutionResult = async (executionId: string) => {
         executionResult: response.Item.executionResult,
         workItemId: response.Item.workItemId,
         workItemComment: response.Item.workItemComment,
-        tasksCount: response.Item.tasksCount,
+        workItemsCount: response.Item.workItemsCount,
       });
       return response.Item;
     } else {
@@ -127,4 +146,6 @@ const pollExecutionResult = async (executionId: string) => {
   }
 };
 
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));
+export const handler = middy(lambdaHandler).use(
+  injectLambdaContext(logger, { logEvent: true })
+);
