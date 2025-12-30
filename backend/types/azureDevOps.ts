@@ -23,6 +23,7 @@ export interface BaseWorkItem {
   releaseNotes?: string; // used for PBI
   qaNotes?: string; // used for PBI
   changedBy: string;
+  originalChangedBy?: string; // The original user who submitted the work item (preserved across updates)
   title: string;
   description: string;
   tags: string[];
@@ -70,9 +71,7 @@ export interface Task extends BaseWorkItem {
 export type WorkItem = ProductBacklogItem | UserStory | Epic | Feature | Task;
 
 // Type guard functions for type narrowing
-export function isProductBacklogItem(
-  workItem: WorkItem
-): workItem is ProductBacklogItem {
+export function isProductBacklogItem(workItem: WorkItem): workItem is ProductBacklogItem {
   return workItem.workItemType === 'Product Backlog Item';
 }
 
@@ -98,10 +97,7 @@ export function isTask(workItem: WorkItem): workItem is Task {
  * @param plural Whether to return plural form
  * @returns The expected child work item type, or null if no specific type is expected
  */
-export function getExpectedChildWorkItemType(
-  parentType: string,
-  plural: boolean = false
-): string | null {
+export function getExpectedChildWorkItemType(parentType: string, plural: boolean = false): string | null {
   switch (parentType) {
     case 'Epic':
       return plural ? 'Features' : 'Feature';
@@ -142,11 +138,7 @@ export interface AzureDevOpsEvent {
   subscriptionId: string;
   notificationId: number;
   id: string;
-  eventType:
-    | 'workitem.created'
-    | 'workitem.updated'
-    | 'workitem.deleted'
-    | string;
+  eventType: 'workitem.created' | 'workitem.updated' | 'workitem.deleted' | string;
   publisherId: string;
   message?: Message;
   detailedMessage?: Message;

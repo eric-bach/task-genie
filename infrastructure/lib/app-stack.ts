@@ -87,6 +87,10 @@ export class AppStack extends Stack {
               resources: [props.params.configTableArn],
             }),
             new PolicyStatement({
+              actions: ['dynamodb:PutItem'],
+              resources: [props.params.resultsTableArn],
+            }),
+            new PolicyStatement({
               actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
               resources: [
                 feedbackTable.tableArn,
@@ -119,6 +123,7 @@ export class AppStack extends Stack {
         AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
         AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        RESULTS_TABLE_NAME: resultsTable.tableName,
         CONFIG_TABLE_NAME: configTable.tableName,
         FEEDBACK_TABLE_NAME: feedbackTable.tableName,
         FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || '',

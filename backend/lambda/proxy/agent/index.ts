@@ -82,7 +82,7 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
     const response = await client.send(command);
     const textResponse = await response.response?.transformToString();
 
-    logger.info('✅ Successfully invoked Bedrock Agent Runtime', JSON.stringify(textResponse, null, 2));
+    logger.info('✅ Bedrock Agent Runtime completed', JSON.stringify(textResponse, null, 2));
 
     return {
       statusCode: 202,
@@ -261,6 +261,7 @@ const parseEvent = (event: any): WorkItemRequest => {
   );
 
   // Create base work item with common fields
+  const changedByValue = sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim();
   const baseWorkItem = {
     workItemId: workItemId ?? 0,
     rev: rev ?? 0,
@@ -272,7 +273,8 @@ const parseEvent = (event: any): WorkItemRequest => {
     system: fields['Custom.System'] ? sanitizeField(fields['Custom.System']) : undefined, // Custom Field
     releaseNotes: fields['Custom.ReleaseNotes'] ? sanitizeField(fields['Custom.ReleaseNotes']) : undefined, // Custom Field
     qaNotes: fields['Custom.QANotes'] ? sanitizeField(fields['Custom.QANotes']) : undefined, // Custom Field
-    changedBy: sanitizeField(fields['System.ChangedBy']).replace(/<.*?>/, '').trim(),
+    changedBy: changedByValue,
+    originalChangedBy: changedByValue, // Preserve the original submitter for @mentions in comments
     title: sanitizeField(fields['System.Title']),
     description: sanitizeField(rawDescription),
     tags,

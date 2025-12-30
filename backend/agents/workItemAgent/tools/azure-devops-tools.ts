@@ -29,10 +29,8 @@ export const add_comment = tool({
   name: 'add_comment',
   description: 'Adds a comment to an Azure DevOps work item.',
   inputSchema: z.object({
-    workItem: WorkItemSchema.describe(
-      'The work item object to add the comment to.'
-    ),
-    comment: z.string().describe('The comment text to add.'),
+    workItem: WorkItemSchema.describe('The work item object to add the comment to.'),
+    comment: z.string().describe('The comment text to add including any knowledge base sources used.'),
   }),
   callback: async ({ workItem, comment }) => {
     try {
@@ -71,12 +69,9 @@ export const add_tag = tool({
 
 export const get_child_work_items = tool({
   name: 'get_child_work_items',
-  description:
-    'Retrieves child work items associated with a specific work item.',
+  description: 'Retrieves child work items associated with a specific work item.',
   inputSchema: z.object({
-    workItem: WorkItemSchema.describe(
-      'The parent work item to fetch children for.'
-    ),
+    workItem: WorkItemSchema.describe('The parent work item to fetch children for.'),
   }),
   callback: async ({ workItem }) => {
     try {
@@ -94,15 +89,10 @@ export const get_child_work_items = tool({
 
 export const create_child_work_items = tool({
   name: 'create_child_work_items',
-  description:
-    'Creates multiple child work items for a work item in Azure DevOps.',
+  description: 'Creates multiple child work items for a work item in Azure DevOps.',
   inputSchema: z.object({
-    workItem: WorkItemSchema.describe(
-      'The parent work item to create children for.'
-    ),
-    childWorkItems: z
-      .array(WorkItemSchema)
-      .describe('Array of child work items to create.'),
+    workItem: WorkItemSchema.describe('The parent work item to create children for.'),
+    childWorkItems: z.array(WorkItemSchema).describe('Array of child work items to create.'),
   }),
   callback: async ({ workItem, childWorkItems }) => {
     try {

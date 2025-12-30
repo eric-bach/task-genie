@@ -11,18 +11,12 @@ export const WorkItemSchema = z.object({
   state: z.string().optional().describe('The state of the work item'),
   areaPath: z.string().optional().describe('The area path'),
   iterationPath: z.string().optional().describe('The iteration path'),
-  tags: z
-    .array(z.string())
-    .optional()
-    .describe('Tags associated with the work item'),
-  changedBy: z
-    .string()
-    .optional()
-    .describe('The user who changed the work item'),
-  acceptanceCriteria: z
-    .string()
-    .optional()
-    .describe('Acceptance criteria (for User Stories)'),
+  businessUnit: z.string().optional().describe('The business unit associated with the work item'),
+  system: z.string().optional().describe('The system associated with the work item'),
+  tags: z.array(z.string()).optional().describe('Tags associated with the work item'),
+  changedBy: z.string().optional().describe('The user who last changed the work item'),
+  originalChangedBy: z.string().optional().describe('The original user who submitted the work item for evaluation'),
+  acceptanceCriteria: z.string().optional().describe('Acceptance criteria (for User Stories)'),
 });
 
 export const BedrockInferenceParamsSchema = z.object({

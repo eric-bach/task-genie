@@ -17,13 +17,16 @@ const bedrockService = new BedrockService({
 
 export const evaluate_work_item = tool({
   name: 'evaluate_work_item',
-  description:
-    'Evaluates an Azure DevOps work item to determine if it is well-defined.',
+  description: 'Evaluates an Azure DevOps work item to determine if it is well-defined.',
   inputSchema: z.object({
     workItem: WorkItemSchema.describe('The work item to evaluate.'),
   }),
   callback: async ({ workItem }) => {
     try {
+      if (workItem.tags?.includes('Task Genie')) {
+        return `The ${workItem.workItemType} has already been previously evaluated by Task Genie. Please remove the \`Task Genie\` tag to re-evaluate this ${workItem.workItemType}.`;
+      }
+
       // @ts-ignore
       const result = await bedrockService.evaluateWorkItem(workItem);
       return JSON.stringify(result);
@@ -44,18 +47,12 @@ export const generate_work_items = tool({
     existingChildWorkItems: z
       .array(WorkItemSchema)
       .describe('A list of existing child work items to avoid duplicates.'),
-    params: BedrockInferenceParamsSchema.optional().describe(
-      'Optional inference parameters.'
-    ),
+    params: BedrockInferenceParamsSchema.optional().describe('Optional inference parameters.'),
   }),
   callback: async ({ workItem, existingChildWorkItems, params }) => {
     try {
       // @ts-ignore
-      const result = await bedrockService.generateWorkItems(
-        workItem as any,
-        existingChildWorkItems as any,
-        params
-      );
+      const result = await bedrockService.generateWorkItems(workItem as any, existingChildWorkItems as any, params);
       return JSON.stringify(result);
     } catch (error) {
       if (error instanceof Error) {

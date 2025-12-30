@@ -9,10 +9,7 @@ import {
   getExpectedChildWorkItemType,
   ProductBacklogItem,
 } from '../types/azureDevOps';
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from '@aws-sdk/client-secrets-manager';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 const secretsManagerClient = new SecretsManagerClient({
   region: process.env.AWS_REGION,
@@ -36,12 +33,8 @@ export class AzureService {
     this.logger = new Logger({ serviceName: 'AzureService' });
 
     if (!process.env.AZURE_DEVOPS_ORGANIZATION) {
-      this.logger.warn(
-        'AZURE_DEVOPS_ORGANIZATION environment variable is required'
-      );
-      throw new Error(
-        'AZURE_DEVOPS_ORGANIZATION environment variable is required'
-      );
+      this.logger.warn('AZURE_DEVOPS_ORGANIZATION environment variable is required');
+      throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
     }
 
     this.azureDevOpsOrganization = process.env.AZURE_DEVOPS_ORGANIZATION;
@@ -52,8 +45,7 @@ export class AzureService {
    * @returns The Azure DevOps credentials including tenant ID, client ID, client secret, and scope
    */
   private async getAzureDevOpsCredentials(): Promise<AzureDevOpsCredentials> {
-    const azureDevOpsSecretName =
-      process.env.AZURE_DEVOPS_CREDENTIALS_SECRET_NAME;
+    const azureDevOpsSecretName = process.env.AZURE_DEVOPS_CREDENTIALS_SECRET_NAME;
     if (!azureDevOpsSecretName) {
       this.logger.debug('Azure DevOps secret name not configured');
       throw new Error('Azure DevOps secret name not configured');
@@ -76,19 +68,14 @@ export class AzureService {
         throw new Error('Azure DevOps secret is empty');
       }
 
-      this.azureDevOpsCredentials = JSON.parse(
-        response.SecretString
-      ) as AzureDevOpsCredentials;
+      this.azureDevOpsCredentials = JSON.parse(response.SecretString) as AzureDevOpsCredentials;
 
       return this.azureDevOpsCredentials;
     } catch (error) {
-      this.logger.warn(
-        'Failed to retrieve Azure DevOps credentials from Secrets Manager',
-        {
-          error: error instanceof Error ? error.message : 'Unknown error',
-          secretName: azureDevOpsSecretName,
-        }
-      );
+      this.logger.warn('Failed to retrieve Azure DevOps credentials from Secrets Manager', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        secretName: azureDevOpsSecretName,
+      });
       throw error;
     }
   }
@@ -106,8 +93,7 @@ export class AzureService {
     }
 
     // get values from secret manager
-    const { tenantId, clientId, clientSecret, scope } =
-      await this.getAzureDevOpsCredentials();
+    const { tenantId, clientId, clientSecret, scope } = await this.getAzureDevOpsCredentials();
 
     const url = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const body = new URLSearchParams({
@@ -127,9 +113,7 @@ export class AzureService {
 
     if (!response.ok) {
       const errText = await response.text();
-      this.logger.error(
-        `Failed to acquire Azure AD token: ${response.status} ${response.statusText} - ${errText}`
-      );
+      this.logger.error(`Failed to acquire Azure AD token: ${response.status} ${response.statusText} - ${errText}`);
       throw new Error(`Failed to acquire access token: ${response.statusText}`);
     }
 
@@ -146,8 +130,7 @@ export class AzureService {
     }
 
     this.logger.debug('Refreshing new Azure AD token', {
-      accessToken:
-        this.accessToken.substring(0, 4) + '...' + this.accessToken.slice(-4),
+      accessToken: this.accessToken.substring(0, 4) + '...' + this.accessToken.slice(-4),
       expiresIn: tokenResponse.expires_in,
     });
 
@@ -162,10 +145,7 @@ export class AzureService {
   public async fetchImage(imageUrl: string): Promise<string | null> {
     try {
       // For Azure DevOps attachment URLs, add required query parameters and auth
-      if (
-        imageUrl.includes('visualstudio.com') ||
-        imageUrl.includes('azure.com')
-      ) {
+      if (imageUrl.includes('visualstudio.com') || imageUrl.includes('azure.com')) {
         const url = `${imageUrl}&download=true&api-version=7.1`;
 
         const headers = {
@@ -177,12 +157,9 @@ export class AzureService {
         });
 
         if (!response.ok) {
-          this.logger.warn(
-            `Failed to fetch image: ${response.status} ${response.statusText}`,
-            {
-              url: url,
-            }
-          );
+          this.logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
+            url: url,
+          });
           return null;
         }
 
@@ -203,12 +180,9 @@ export class AzureService {
       });
 
       if (!response.ok) {
-        this.logger.warn(
-          `Failed to fetch image: ${response.status} ${response.statusText}`,
-          {
-            url: imageUrl,
-          }
-        );
+        this.logger.warn(`Failed to fetch image: ${response.status} ${response.statusText}`, {
+          url: imageUrl,
+        });
         return null;
       }
 
@@ -236,13 +210,13 @@ export class AzureService {
    * @param comment The comment text to add
    * @returns The response body or error message
    */
-  public async addComment(
-    workItem: WorkItem,
-    comment: string
-  ): Promise<string> {
+  public async addComment(workItem: WorkItem, comment: string): Promise<string> {
+    // Use originalChangedBy if available (preserved from initial submission), otherwise fall back to changedBy
+    const mentionUser = (workItem as any).originalChangedBy || workItem.changedBy;
     this.logger.info(`⚙️ Adding comment to work item ${workItem.workItemId}`, {
       workItem,
       comment,
+      mentionUser,
     });
 
     try {
@@ -254,7 +228,7 @@ export class AzureService {
       };
 
       const body = JSON.stringify({
-        text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${workItem.changedBy}</a> ${comment}</div>`,
+        text: `<div><a href="#" data-vss-mention="version:2.0,{user id}">@${mentionUser}</a> ${comment}</div>`,
       });
 
       const response = await fetch(url, {
@@ -287,11 +261,7 @@ export class AzureService {
    * @param tag The tag to add
    * @returns The response body or error message
    */
-  public async addTag(
-    teamProject: string,
-    workItemId: number,
-    tag: string
-  ): Promise<string> {
+  public async addTag(teamProject: string, workItemId: number, tag: string): Promise<string> {
     this.logger.info(`⚙️ Adding tag to work item ${workItemId}`, {
       teamProject,
       workItemId,
@@ -345,10 +315,7 @@ export class AzureService {
    * @param teamProject The team project name
    * @returns The work item details including all fields
    */
-  public async getWorkItem(
-    workItemId: number,
-    teamProject?: string
-  ): Promise<any> {
+  public async getWorkItem(workItemId: number, teamProject?: string): Promise<any> {
     this.logger.info(`⚙️ Fetching work item ${workItemId}`);
 
     try {
@@ -370,9 +337,7 @@ export class AzureService {
           status: response.status,
           statusText: response.statusText,
         });
-        throw new Error(
-          `Failed to fetch work item ${workItemId}: ${response.statusText}`
-        );
+        throw new Error(`Failed to fetch work item ${workItemId}: ${response.statusText}`);
       }
 
       const workItemData = await response.json();
@@ -380,9 +345,7 @@ export class AzureService {
       this.logger.debug('Successfully fetched work item', {
         workItemId,
         hasFields: !!workItemData.fields,
-        fieldsCount: workItemData.fields
-          ? Object.keys(workItemData.fields).length
-          : 0,
+        fieldsCount: workItemData.fields ? Object.keys(workItemData.fields).length : 0,
       });
 
       return workItemData;
@@ -405,10 +368,9 @@ export class AzureService {
    */
   public async getChildWorkItems(workItem: WorkItem): Promise<WorkItem[]> {
     this.logger.info(
-      `⚙️ Fetching child ${getExpectedChildWorkItemType(
-        workItem.workItemType,
-        true
-      )} in ${workItem.workItemType} ${workItem.workItemId}`,
+      `⚙️ Fetching child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+        workItem.workItemId
+      }`,
       {
         workItemId: workItem.workItemId,
         workItemType: workItem.workItemType,
@@ -422,10 +384,9 @@ export class AzureService {
 
       if (workItem.workItemId <= 0) {
         this.logger.info(
-          `No existing child ${getExpectedChildWorkItemType(
-            workItem.workItemType,
-            true
-          )} in ${workItem.workItemType} ${workItem.workItemId}`
+          `No existing child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+            workItem.workItemId
+          }`
         );
         return childItems;
       }
@@ -454,9 +415,7 @@ export class AzureService {
           teamProject: workItem.teamProject,
           organization: this.azureDevOpsOrganization,
         });
-        throw new Error(
-          `Failed to get work item details: ${response.status} ${response.statusText} - ${errorText}`
-        );
+        throw new Error(`Failed to get work item details: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -465,10 +424,7 @@ export class AzureService {
       const childIds: number[] = [];
       if (data.relations && Array.isArray(data.relations)) {
         for (const relation of data.relations) {
-          if (
-            relation.rel === 'System.LinkTypes.Hierarchy-Forward' &&
-            relation.url
-          ) {
+          if (relation.rel === 'System.LinkTypes.Hierarchy-Forward' && relation.url) {
             // Extract work item ID from the URL
             const childId = relation.url.split('/').pop();
             childIds.push(parseInt(childId, 10));
@@ -479,10 +435,9 @@ export class AzureService {
       // If there are no child IDs, return empty array early
       if (childIds.length === 0) {
         this.logger.info(
-          `No existing child ${getExpectedChildWorkItemType(
-            workItem.workItemType,
-            true
-          )} in ${workItem.workItemType} ${workItem.workItemId}`
+          `No existing child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+            workItem.workItemId
+          }`
         );
         return childItems;
       }
@@ -525,19 +480,16 @@ export class AzureService {
 
       if (!childItemsResponse.ok) {
         throw new Error(
-          `Failed to get child ${getExpectedChildWorkItemType(
-            workItem.workItemType,
-            true
-          )} in ${workItem.teamProject} ${workItem.workItemId}`
+          `Failed to get child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+            workItem.teamProject
+          } ${workItem.workItemId}`
         );
       }
 
       const childItemsData = await childItemsResponse.json();
 
       // Determine expected child work item type
-      const expectedChildType = getExpectedChildWorkItemType(
-        workItem.workItemType
-      );
+      const expectedChildType = getExpectedChildWorkItemType(workItem.workItemType);
 
       if (childItemsData.value && Array.isArray(childItemsData.value)) {
         for (const childItem of childItemsData.value) {
@@ -595,8 +547,7 @@ export class AzureService {
                 addressedRisks: childItem.fields['Custom.AddressedRisks'],
                 pursueRisk: childItem.fields['Custom.PursueRisk'],
                 mostRecentUpdate: childItem.fields['Custom.MostRecentUpdate'],
-                outstandingActionItems:
-                  childItem.fields['Custom.OutstandingActionItems'],
+                outstandingActionItems: childItem.fields['Custom.OutstandingActionItems'],
               } as Epic;
               break;
 
@@ -605,8 +556,7 @@ export class AzureService {
                 ...baseWorkItem,
                 workItemType: 'Feature',
                 successCriteria: childItem.fields['Custom.SuccessCriteria'],
-                businessDeliverable:
-                  childItem.fields['Custom.BusinessDeliverable'],
+                businessDeliverable: childItem.fields['Custom.BusinessDeliverable'],
               } as Feature;
               break;
 
@@ -614,10 +564,7 @@ export class AzureService {
               childWorkItem = {
                 ...baseWorkItem,
                 workItemType: 'Product Backlog Item',
-                acceptanceCriteria:
-                  childItem.fields[
-                    'Microsoft.VSTS.Common.AcceptanceCriteria'
-                  ] || '',
+                acceptanceCriteria: childItem.fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '',
                 releaseNotes: childItem.fields['Custom.ReleaseNotes'] || '',
                 qaNotes: childItem.fields['Custom.QANotes'] || '',
               } as ProductBacklogItem;
@@ -627,10 +574,7 @@ export class AzureService {
               childWorkItem = {
                 ...baseWorkItem,
                 workItemType: 'User Story',
-                acceptanceCriteria:
-                  childItem.fields[
-                    'Microsoft.VSTS.Common.AcceptanceCriteria'
-                  ] || '',
+                acceptanceCriteria: childItem.fields['Microsoft.VSTS.Common.AcceptanceCriteria'] || '',
                 importance: childItem.fields['Custom.Importance'],
               } as UserStory;
               break;
@@ -656,10 +600,9 @@ export class AzureService {
       }
 
       this.logger.info(
-        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(
-          workItem.workItemType,
-          true
-        )} in ${workItem.workItemType} ${workItem.workItemId}`,
+        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+          workItem.workItemType
+        } ${workItem.workItemId}`,
         {
           expectedChildType,
           actualChildren: childItems.map((item) => ({
@@ -672,10 +615,9 @@ export class AzureService {
       return childItems;
     } catch (error: any) {
       this.logger.error(
-        `Failed to fetch child ${getExpectedChildWorkItemType(
-          workItem.workItemType,
-          true
-        )} in ${workItem.workItemType} ${workItem.workItemId}`,
+        `Failed to fetch child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+          workItem.workItemType
+        } ${workItem.workItemId}`,
         {
           workItemType: workItem.workItemType,
           workItemId: workItem.workItemId,
@@ -696,16 +638,9 @@ export class AzureService {
    * @param workItem The parent work item to create children for
    * @param childWorkItems Array of child work items to create
    */
-  public async createChildWorkItems(
-    workItem: WorkItem,
-    childWorkItems: WorkItem[]
-  ): Promise<void> {
-    const childWorkItemType =
-      getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
-    const childTypePlural = getExpectedChildWorkItemType(
-      workItem.workItemType,
-      true
-    );
+  public async createChildWorkItems(workItem: WorkItem, childWorkItems: WorkItem[]): Promise<void> {
+    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
+    const childTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true);
 
     this.logger.info(
       `⚙️ Creating ${childWorkItems.length} ${childTypePlural} for ${workItem.workItemType} ${workItem.workItemId}`,
@@ -721,16 +656,9 @@ export class AzureService {
     let id = 0;
     let i = 0;
     for (const c of childWorkItems) {
-      this.logger.debug(
-        `Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`,
-        { task: c }
-      );
+      this.logger.debug(`Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`, { task: c });
 
-      id = await this.createChildWorkItem(
-        workItem,
-        c as Feature | UserStory | Task,
-        i
-      );
+      id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i);
 
       // Set task Id
       c.workItemId = id;
@@ -764,8 +692,7 @@ export class AzureService {
     i: number
   ): Promise<number> {
     // Determine the appropriate child work item type
-    const childWorkItemType =
-      getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
+    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
 
     const childWorkItemFields = [
       {
@@ -859,23 +786,18 @@ export class AzureService {
           parentType: workItem.workItemType,
           parentId: workItem.workItemId,
         });
-        throw new Error(
-          `Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}`
-        );
+        throw new Error(`Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
 
-      this.logger.info(
-        `Created ${childWorkItemType} ${data.id} for ${workItem.workItemType} ${workItem.workItemId}`,
-        {
-          childType: childWorkItemType,
-          childId: data.id,
-          parentType: workItem.workItemType,
-          parentId: workItem.workItemId,
-          title: childWorkItem.title,
-        }
-      );
+      this.logger.info(`Created ${childWorkItemType} ${data.id} for ${workItem.workItemType} ${workItem.workItemId}`, {
+        childType: childWorkItemType,
+        childId: data.id,
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        title: childWorkItem.title,
+      });
 
       await this.linkTask(workItem.teamProject, workItem.workItemId, data.id);
 
@@ -888,9 +810,7 @@ export class AzureService {
         childType: childWorkItemType,
       });
       throw new Error(
-        `Error creating ${childWorkItemType}: ${
-          error instanceof Error ? error.message : 'Unknown error'
-        }`
+        `Error creating ${childWorkItemType}: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
   }
@@ -901,11 +821,7 @@ export class AzureService {
    * @param workItemId The ID of the parent work item
    * @param taskId The ID of the task to link
    */
-  public async linkTask(
-    teamProject: string,
-    workItemId: number,
-    taskId: string
-  ): Promise<void> {
+  public async linkTask(teamProject: string, workItemId: number, taskId: string): Promise<void> {
     try {
       const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${teamProject}/_apis/wit/workitems/${workItemId}?api-version=7.1`;
 
