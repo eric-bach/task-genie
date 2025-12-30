@@ -3,17 +3,17 @@
   "version": "1.0.0",
   "description": "Lambda function to poll Step Function execution results from DynamoDB",
   "main": "index.js",
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.119",
+    "@types/node": "^20.5.9",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.2.2"
+  },
   "scripts": {
     "build": "tsc"
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@types/aws-lambda": "^8.10.147",
-    "@types/node": "^24.2.1",
-    "typescript": "^5.7.3"
-  },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.14.0",
     "@aws-sdk/client-dynamodb": "^3.864.0",

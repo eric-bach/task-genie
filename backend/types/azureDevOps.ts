@@ -13,15 +13,17 @@ export interface WorkItemImage {
 // Base work item interface with common fields
 export interface BaseWorkItem {
   workItemId: number;
+  rev?: number;
   teamProject: string;
   state?: string;
   areaPath: string;
   iterationPath: string;
   businessUnit?: string;
   system?: string;
-  releaseNotes?: string;  // used for PBI
+  releaseNotes?: string; // used for PBI
   qaNotes?: string; // used for PBI
   changedBy: string;
+  originalChangedBy?: string; // The original user who submitted the work item (preserved across updates)
   title: string;
   description: string;
   tags: string[];
@@ -113,6 +115,7 @@ export function getExpectedChildWorkItemType(parentType: string, plural: boolean
 // Type for DynamoDB stored work item context (extends WorkItem with optional fields)
 export interface StoredWorkItemContext {
   workItemId: number;
+  rev: number;
   title?: string;
   description?: string;
   acceptanceCriteria?: string;
