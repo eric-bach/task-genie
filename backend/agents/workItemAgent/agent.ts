@@ -1,8 +1,6 @@
-// Bedrock AgentCore Runtime requires an Express server with /ping and /invocations endpoints
-// Reference: https://strandsagents.com/latest/documentation/docs/user-guide/deploy/deploy_to_bedrock_agentcore/typescript/
 import express from 'express';
-import { Agent, BedrockModel, tool } from '@strands-agents/sdk';
-import { z } from 'zod';
+import { Agent, BedrockModel } from '@strands-agents/sdk';
+import { finalize_response } from './tools/agent-tools.js';
 import {
   get_work_item,
   add_comment,
@@ -10,10 +8,7 @@ import {
   get_child_work_items,
   create_child_work_items,
 } from './tools/azure-devops-tools.js';
-import {
-  evaluate_work_item,
-  generate_work_items,
-} from './tools/bedrock-tools.js';
+import { evaluate_work_item, generate_work_items } from './tools/bedrock-tools.js';
 import {
   create_incomplete_work_item_metric,
   create_work_item_generated_metric,
@@ -22,22 +17,32 @@ import {
 
 const PORT = process.env.PORT || 8080;
 
-// Define the finalize response tool
-const finalizeResponse = tool({
-  name: 'finalize_response',
-  description: 'Finalize the response to the work item.',
-  inputSchema: z.object({
-    workItem: z.string().describe('The work item to evaluate'),
-  }),
-  callback: (input) => {
-    return { workItems: [], response: 'Good' };
+const logger = {
+  _log(level: string, message: string, extra?: Record<string, unknown>) {
+    const logEntry = {
+      level,
+      message,
+      timestamp: new Date().toISOString(),
+      service: 'workItemAgent',
+      ...extra,
+    };
+    console.log(JSON.stringify(logEntry));
   },
-});
+  info(message: string, extra?: Record<string, unknown>) {
+    this._log('INFO', message, extra);
+  },
+  warn(message: string, extra?: Record<string, unknown>) {
+    this._log('WARN', message, extra);
+  },
+  error(message: string, extra?: Record<string, unknown>) {
+    this._log('ERROR', message, extra);
+  },
+};
 
 // Initialize the Bedrock model
 const model = new BedrockModel({
-  region: process.env.AWS_REGION || 'us-west-2',
-  modelId: process.env.AWS_BEDROCK_MODEL_ID || '',
+  region: process.env.AWS_REGION,
+  modelId: process.env.AWS_BEDROCK_MODEL_ID,
 });
 
 // Create the agent with tools
@@ -60,7 +65,7 @@ const agent = new Agent({
   tools: [
     evaluate_work_item,
     generate_work_items,
-    finalizeResponse,
+    finalize_response,
     get_work_item,
     add_comment,
     add_tag,
@@ -72,10 +77,8 @@ const agent = new Agent({
   ],
 });
 
-// Create Express app
 const app = express();
 
-// Health check endpoint - REQUIRED by AgentCore Runtime
 app.get('/ping', (_, res) =>
   res.json({
     status: 'Healthy',
@@ -83,38 +86,29 @@ app.get('/ping', (_, res) =>
   })
 );
 
-// Agent invocation endpoint - REQUIRED by AgentCore Runtime
-// AWS sends binary payload, so we use express.raw middleware
 app.post('/invocations', express.raw({ type: '*/*' }), async (req, res) => {
   try {
     // Decode binary payload from AWS SDK
-    const prompt = new TextDecoder().decode(req.body);
-    console.log('Received invocation, decoded prompt:', prompt);
+    const workItem = new TextDecoder().decode(req.body);
+    logger.info('▶️ Decoded work item', { workItem });
 
     // Invoke the agent
-    const response = await agent.invoke(prompt);
-    console.log('Agent response:', response.lastMessage);
+    const response = await agent.invoke(`Here is the work item: ${workItem}`);
 
-    // Return response
+    logger.info('✅ Agent response', { response: response.lastMessage });
+
     return res.json({ response: response.lastMessage });
   } catch (err) {
-    console.error('Error processing request:', err);
+    logger.error('💣 Error processing request', { error: String(err) });
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 AgentCore Runtime server listening on port ${PORT}`);
-  console.log(`📍 Endpoints:`);
-  console.log(`   POST http://0.0.0.0:${PORT}/invocations`);
-  console.log(`   GET http://0.0.0.0:${PORT}/ping`);
+  logger.info('🚀 AgentCore Runtime server started', {
+    port: PORT,
+    invocationsEndpoint: `POST http://0.0.0.0:${PORT}/invocations`,
+    healthEndpoint: `GET http://0.0.0.0:${PORT}/ping`,
+  });
 });
-
-// // Export handler for backward compatibility (if needed for testing)
-// export const handler = async (event: any): Promise<any> => {
-//   const message = `Evaluate this work item: ${JSON.stringify(event)}`;
-//   const result = await agent.invoke(message);
-//   console.log(result.lastMessage);
-//   return result.lastMessage;
-// };
