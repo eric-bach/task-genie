@@ -107,6 +107,10 @@ export const finalize_response = tool({
     switch (outcome) {
       case 'decomposed':
         response = `✅ Successfully decomposed ${workItemType} #${workItemId} "${workItemTitle}" into ${childItemsCreated} child Tasks. ${summary}`;
+
+        // Save to DynamoDB
+        await saveResponseToDynamoDB(workItem, childWorkItems || [], outcome, response);
+
         break;
       case 'feedback_provided':
         response = `📝 Provided feedback on ${workItemType} #${workItemId} "${workItemTitle}". ${summary}`;
@@ -118,9 +122,6 @@ export const finalize_response = tool({
         response = `❌ Error processing ${workItemType} #${workItemId} "${workItemTitle}". ${summary}`;
         break;
     }
-
-    // Save to DynamoDB
-    await saveResponseToDynamoDB(workItem, childWorkItems || [], outcome, response);
 
     return { workItemId, outcome, response };
   },

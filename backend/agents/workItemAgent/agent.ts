@@ -17,6 +17,57 @@ import {
 
 const PORT = process.env.PORT || 8080;
 
+// Validate required environment variables
+const AWS_REGION = process.env.AWS_REGION;
+if (!AWS_REGION) {
+  throw new Error('AWS_REGION environment variable is required');
+}
+const AWS_BEDROCK_MODEL_ID = process.env.AWS_BEDROCK_MODEL_ID;
+if (!AWS_BEDROCK_MODEL_ID) {
+  throw new Error('AWS_BEDROCK_MODEL_ID environment variable is required');
+}
+const AWS_BEDROCK_KNOWLEDGE_BASE_ID = process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID;
+if (!AWS_BEDROCK_KNOWLEDGE_BASE_ID) {
+  throw new Error('AWS_BEDROCK_KNOWLEDGE_BASE_ID environment variable is required');
+}
+const RESULTS_TABLE_NAME = process.env.RESULTS_TABLE_NAME;
+if (!RESULTS_TABLE_NAME) {
+  throw new Error('RESULTS_TABLE_NAME environment variable is required');
+}
+const CONFIG_TABLE_NAME = process.env.CONFIG_TABLE_NAME;
+if (!CONFIG_TABLE_NAME) {
+  throw new Error('CONFIG_TABLE_NAME environment variable is required');
+}
+const AZURE_DEVOPS_ORGANIZATION = process.env.AZURE_DEVOPS_ORGANIZATION;
+if (!AZURE_DEVOPS_ORGANIZATION) {
+  throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
+}
+const AZURE_DEVOPS_CREDENTIALS_SECRET_NAME = process.env.AZURE_DEVOPS_CREDENTIALS_SECRET_NAME;
+if (!AZURE_DEVOPS_CREDENTIALS_SECRET_NAME) {
+  throw new Error('AZURE_DEVOPS_CREDENTIALS_SECRET_NAME environment variable is required');
+}
+const AZURE_DEVOPS_SCOPE = process.env.AZURE_DEVOPS_SCOPE;
+if (!AZURE_DEVOPS_SCOPE) {
+  throw new Error('AZURE_DEVOPS_SCOPE environment variable is required');
+}
+const AZURE_DEVOPS_TENANT_ID = process.env.AZURE_DEVOPS_TENANT_ID;
+if (!AZURE_DEVOPS_TENANT_ID) {
+  throw new Error('AZURE_DEVOPS_TENANT_ID environment variable is required');
+}
+const AZURE_DEVOPS_CLIENT_ID = process.env.AZURE_DEVOPS_CLIENT_ID;
+if (!AZURE_DEVOPS_CLIENT_ID) {
+  throw new Error('AZURE_DEVOPS_CLIENT_ID environment variable is required');
+}
+const AZURE_DEVOPS_CLIENT_SECRET = process.env.AZURE_DEVOPS_CLIENT_SECRET;
+if (!AZURE_DEVOPS_CLIENT_SECRET) {
+  throw new Error('AZURE_DEVOPS_CLIENT_SECRET environment variable is required');
+}
+const FEEDBACK_FEATURE_ENABLED = process.env.FEEDBACK_FEATURE_ENABLED === 'true';
+const FEEDBACK_TABLE_NAME = process.env.FEEDBACK_TABLE_NAME;
+if (FEEDBACK_FEATURE_ENABLED && !FEEDBACK_TABLE_NAME) {
+  throw new Error('FEEDBACK_TABLE_NAME environment variable is required when FEEDBACK_FEATURE_ENABLED is true');
+}
+
 const logger = {
   _log(level: string, message: string, extra?: Record<string, unknown>) {
     const logEntry = {
@@ -41,8 +92,8 @@ const logger = {
 
 // Initialize the Bedrock model
 const model = new BedrockModel({
-  region: process.env.AWS_REGION,
-  modelId: process.env.AWS_BEDROCK_MODEL_ID,
+  region: AWS_REGION,
+  modelId: AWS_BEDROCK_MODEL_ID,
 });
 
 // Create the agent with tools
@@ -58,6 +109,13 @@ const agent = new Agent({
 5. After generating the work items, use the 'create_child_work_items' tool to create them in Azure DevOps.
 6. Finally, use the 'add_comment' tool to post a summary to the parent work item and use the 'add_tag' tool to add a 'Task Genie' tag to the parent work item to denote it has been successully evaluated.
 7. Use the 'finalize_response' tool to signal that the process is complete. Pass the full work item object, the array of child work items created (if any), the outcome, and a brief summary.
+
+**Error Handling:**
+If ANY tool returns an error or fails at any step in the workflow:
+1. IMMEDIATELY stop further processing
+2. Use the 'add_comment' tool to post an error message to the work item explaining what went wrong
+3. Use the 'finalize_response' tool with outcome='error' and include the error details in the summary
+4. Format error comments as: "❌ <b>Task Genie Error:</b> [brief description of the error]. Please try again or contact support if the issue persists.<br /><i>This is an automated message from Task Genie.</i>"
 
 **Comment Formatting Rules:**
 When using 'add_comment' after successfully creating child work items, keep the comment concise:
