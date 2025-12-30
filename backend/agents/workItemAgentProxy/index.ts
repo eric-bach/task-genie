@@ -13,8 +13,8 @@ import {
   isUserStory,
   isEpic,
   isFeature,
-} from '../../../types/azureDevOps';
-import { InvalidWorkItemError } from '../../../types/errors';
+} from '../../types/azureDevOps';
+import { InvalidWorkItemError } from '../../types/errors';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
 

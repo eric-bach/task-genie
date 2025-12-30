@@ -136,10 +136,10 @@ export class AppStack extends Stack {
      */
 
     const workItemAgentProxyFunction = new TaskGenieLambda(this, 'WorkItemAgentProxy', {
-      functionName: `${props.appName}-workItemAgent-proxy-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/proxy/agent/index.ts'),
-      projectRoot: path.resolve(__dirname, '../../backend/lambda/proxy/agent'),
-      depsLockFilePath: path.resolve(__dirname, '../../backend/lambda/proxy/agent/package-lock.json'),
+      functionName: `${props.appName}-workItemAgentProxy-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/agents/workItemAgentProxy/index.ts'),
+      projectRoot: path.resolve(__dirname, '../../backend/agents/workItemAgentProxy'),
+      depsLockFilePath: path.resolve(__dirname, '../../backend/agents/workItemAgentProxy/package-lock.json'),
       handler: 'handler',
       memorySize: 384,
       timeout: Duration.minutes(5),
