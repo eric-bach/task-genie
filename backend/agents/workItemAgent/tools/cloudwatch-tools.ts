@@ -1,7 +1,6 @@
-
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
-import { CloudWatchService } from '@/services/CloudWatchService';
+import { CloudWatchService } from '../../../services/CloudWatchService.js';
 
 const cloudWatchService = new CloudWatchService();
 
@@ -35,7 +34,10 @@ export const create_work_item_generated_metric = tool({
   }),
   callback: async ({ value, workItemType }) => {
     try {
-      await cloudWatchService.createWorkItemGeneratedMetric(value, workItemType);
+      await cloudWatchService.createWorkItemGeneratedMetric(
+        value,
+        workItemType
+      );
       return `Metric for ${value} ${workItemType}(s) generated created.`;
     } catch (error) {
       if (error instanceof Error) {

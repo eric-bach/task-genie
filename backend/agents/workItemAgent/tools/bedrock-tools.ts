@@ -1,7 +1,7 @@
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
-import { BedrockService } from '@/services/BedrockService';
-import { WorkItemSchema, BedrockInferenceParamsSchema } from './schemas';
+import { BedrockService } from '../../../services/BedrockService.js';
+import { WorkItemSchema, BedrockInferenceParamsSchema } from './schemas.js';
 
 const bedrockService = new BedrockService({
   region: process.env.AWS_REGION || 'us-west-2',

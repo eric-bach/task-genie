@@ -1,18 +1,25 @@
-FROM node:20-slim
-
-# This Dockerfile assumes the build context is the repository root (e.g. c:\Projects\task-genie)
-# Build with: docker build -f backend/agents/workItemAgent/Dockerfile -t workItemAgent .
+FROM --platform=linux/arm64 public.ecr.aws/docker/library/node:latest
 
 WORKDIR /app
 
-# Copy the backend directory to include the agent and its sibling dependencies (evaluate-work-item)
-COPY backend /app/backend
+# Copy agent source code, shared services, and types (context is project root)
+COPY backend/agents/workItemAgent ./backend/agents/workItemAgent
+COPY backend/services ./backend/services
+COPY backend/types ./backend/types
 
-# Switch to the agent directory
-WORKDIR /app/backend/agents/workItemAgent
-
-# Install dependencies
+# Install services dependencies first (since agent depends on services)
+WORKDIR /app/backend/services
 RUN npm install
 
-# Run the agent using tsx to handle TypeScript and relative imports execution
-CMD ["npx", "tsx", "agent.ts"]
+# Install agent dependencies
+WORKDIR /app/backend/agents/workItemAgent
+RUN npm install
+
+# Build the bundled agent (esbuild bundles everything including services)
+RUN npm run build
+
+# Expose port
+EXPOSE 8080
+
+# Start the application
+CMD ["npm", "start"]

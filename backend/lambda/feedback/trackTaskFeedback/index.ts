@@ -46,7 +46,8 @@ import {
 const AWS_REGION = process.env.AWS_REGION || 'us-west-2';
 const FEEDBACK_TABLE_NAME = process.env.FEEDBACK_TABLE_NAME;
 const RESULTS_TABLE_NAME = process.env.RESULTS_TABLE_NAME;
-const FEEDBACK_FEATURE_ENABLED = process.env.FEEDBACK_FEATURE_ENABLED === 'true';
+const FEEDBACK_FEATURE_ENABLED =
+  process.env.FEEDBACK_FEATURE_ENABLED === 'true';
 
 if (!FEEDBACK_TABLE_NAME) {
   throw new Error('FEEDBACK_TABLE_NAME environment variable is required');
@@ -73,13 +74,18 @@ const lambdaHandler = async (event: AzureDevOpsEvent, context: Context) => {
     }
 
     const eventFields = getEventFields(event);
-    logger.info(`▶️ Processing Task Genie feedback for ${event.resource?.revision?.id || event.resource?.id}`, {
-      taskId: event.resource?.workItemId,
-      eventType: event.eventType,
-      resourceVersion: event.resourceVersion,
-      resourceType: eventFields['System.WorkItemType'],
-      feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
-    });
+    logger.info(
+      `▶️ Processing Task Genie feedback for ${
+        event.resource?.revision?.id || event.resource?.id
+      }`,
+      {
+        taskId: event.resource?.workItemId,
+        eventType: event.eventType,
+        resourceVersion: event.resourceVersion,
+        resourceType: eventFields['System.WorkItemType'],
+        feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
+      }
+    );
 
     // Validate this is a user task-related event
     if (!isUserTaskEvent(event)) {
@@ -142,7 +148,9 @@ const lambdaHandler = async (event: AzureDevOpsEvent, context: Context) => {
  * a consistent way to access work item fields regardless of the event type.
  */
 function getEventFields(event: AzureDevOpsEvent): Fields {
-  return (event.resource?.revision?.fields || event.resource?.fields || {}) as Fields;
+  return (event.resource?.revision?.fields ||
+    event.resource?.fields ||
+    {}) as Fields;
 }
 
 /**
@@ -158,12 +166,20 @@ function getFieldValue(
   }
 
   // If it's a simple string/number/boolean value
-  if (typeof field === 'string' || typeof field === 'number' || typeof field === 'boolean') {
+  if (
+    typeof field === 'string' ||
+    typeof field === 'number' ||
+    typeof field === 'boolean'
+  ) {
     return String(field);
   }
 
   // If it's a change object with oldValue/newValue
-  if (field && typeof field === 'object' && ('oldValue' in field || 'newValue' in field)) {
+  if (
+    field &&
+    typeof field === 'object' &&
+    ('oldValue' in field || 'newValue' in field)
+  ) {
     if (useOldValue && field.oldValue !== undefined) {
       return String(field.oldValue);
     }
@@ -191,7 +207,8 @@ function isUserTaskEvent(event: AzureDevOpsEvent): boolean {
 
   return (
     workItemType === 'Task' &&
-    ((event.eventType === 'workitem.created' && !changedBy?.includes('Task Genie')) || // not created by Task Genie
+    ((event.eventType === 'workitem.created' &&
+      !changedBy?.includes('Task Genie')) || // not created by Task Genie
       event.eventType === 'workitem.updated' ||
       event.eventType === 'workitem.deleted')
   );
@@ -204,7 +221,9 @@ function getTaskId(resource: Resource): number | null {
 /**
  * Parse Azure DevOps task event to extract feedback information
  */
-async function parseAzureDevOpsTaskEvent(event: AzureDevOpsEvent): Promise<RecordFeedbackRequest | null> {
+async function parseAzureDevOpsTaskEvent(
+  event: AzureDevOpsEvent
+): Promise<RecordFeedbackRequest | null> {
   try {
     const resource = event.resource;
     if (!resource) {
@@ -236,9 +255,13 @@ async function parseAzureDevOpsTaskEvent(event: AzureDevOpsEvent): Promise<Recor
     }
 
     // Extract original task details using helper function to handle both field structures
-    let originalTask: { title: string; description: string } = { title: '', description: '' };
+    let originalTask: { title: string; description: string } = {
+      title: '',
+      description: '',
+    };
     if (
-      (action === FeedbackAction.MODIFIED && event.eventType === 'workitem.updated') ||
+      (action === FeedbackAction.MODIFIED &&
+        event.eventType === 'workitem.updated') ||
       action === FeedbackAction.ACCEPTED ||
       action === FeedbackAction.COMPLETED
     ) {
@@ -286,7 +309,11 @@ async function parseAzureDevOpsTaskEvent(event: AzureDevOpsEvent): Promise<Recor
   }
 }
 
-async function getParentWorkItem(taskId: number, resource: Resource, fields: Fields): Promise<WorkItem> {
+async function getParentWorkItem(
+  taskId: number,
+  resource: Resource,
+  fields: Fields
+): Promise<WorkItem> {
   try {
     const workItemId = await getParentWorkItemId(taskId, resource);
 
@@ -313,28 +340,40 @@ async function getParentWorkItem(taskId: number, resource: Resource, fields: Fie
  * @params taskId The Azure DevOps task ID
  * @params resource The Azure DevOps resource object from the event
  */
-async function getParentWorkItemId(taskId: number, resource: Resource): Promise<number> {
+async function getParentWorkItemId(
+  taskId: number,
+  resource: Resource
+): Promise<number> {
   try {
     logger.debug(`⚙️ Looking up parent work item id for ${taskId}`, { taskId });
 
     // Strategy 1: Extract from task relations
     const workItemIdFromRelations = extractWorkItemIdFromRelations(resource);
     if (workItemIdFromRelations) {
-      logger.debug('Found parent work item id in task relations', { taskId, workItemId: workItemIdFromRelations });
+      logger.debug('Found parent work item id in task relations', {
+        taskId,
+        workItemId: workItemIdFromRelations,
+      });
       return workItemIdFromRelations;
     }
 
     // Strategy 2: Extract from task fields
     const workItemIdFromFields = extractWorkItemIdFromFields(resource);
     if (workItemIdFromFields) {
-      logger.debug('Found parent work item id in task fields', { taskId, workItemId: workItemIdFromFields });
+      logger.debug('Found parent work item id in task fields', {
+        taskId,
+        workItemId: workItemIdFromFields,
+      });
       return workItemIdFromFields;
     }
 
     // Strategy 3: Query DynamoDB tables
     const workItemIdFromDatabase = await findWorkItemIdInDatabase(taskId);
     if (workItemIdFromDatabase) {
-      logger.debug('Found parent work item id in database', { taskId, workItemId: workItemIdFromDatabase });
+      logger.debug('Found parent work item id in database', {
+        taskId,
+        workItemId: workItemIdFromDatabase,
+      });
       return workItemIdFromDatabase;
     }
 
@@ -367,11 +406,13 @@ function extractWorkItemIdFromRelations(resource: Resource): number | null {
     // Check all possible arrays (added, removed, etc.)
     const allRelations: WorkItemRelation[] = [];
 
-    Object.values(relations).forEach((relationGroup: WorkItemRelation[] | undefined) => {
-      if (Array.isArray(relationGroup)) {
-        allRelations.push(...relationGroup);
+    Object.values(relations).forEach(
+      (relationGroup: WorkItemRelation[] | undefined) => {
+        if (Array.isArray(relationGroup)) {
+          allRelations.push(...relationGroup);
+        }
       }
-    });
+    );
 
     relationsArray = allRelations;
   } else {
@@ -403,7 +444,9 @@ function extractWorkItemIdFromFields(resource: Resource): number | null {
 /**
  * Find work item ID by searching DynamoDB tables
  */
-async function findWorkItemIdInDatabase(taskId: number): Promise<number | null> {
+async function findWorkItemIdInDatabase(
+  taskId: number
+): Promise<number | null> {
   // First try results table (more likely to have the data)
   const workItemIdFromResults = await queryResultsTableForWorkItemId(taskId);
   if (workItemIdFromResults) {
@@ -429,7 +472,9 @@ interface ResultsTableItem {
 /**
  * Query results table to find work item ID by task ID
  */
-async function queryResultsTableForWorkItemId(taskId: number): Promise<number | null> {
+async function queryResultsTableForWorkItemId(
+  taskId: number
+): Promise<number | null> {
   try {
     const docClient = getDynamoDocClient();
 
@@ -451,7 +496,10 @@ async function queryResultsTableForWorkItemId(taskId: number): Promise<number | 
 
     return null;
   } catch (error) {
-    logger.warn('Error querying results table for work item ID', { taskId, error });
+    logger.warn('Error querying results table for work item ID', {
+      taskId,
+      error,
+    });
     return null;
   }
 }
@@ -466,7 +514,9 @@ interface FeedbackTableItem {
 /**
  * Query feedback table to find work item ID by task ID
  */
-async function queryFeedbackTableForWorkItemId(taskId: number): Promise<number | null> {
+async function queryFeedbackTableForWorkItemId(
+  taskId: number
+): Promise<number | null> {
   try {
     const docClient = getDynamoDocClient();
 
@@ -490,7 +540,10 @@ async function queryFeedbackTableForWorkItemId(taskId: number): Promise<number |
 
     return null;
   } catch (error) {
-    logger.warn('Error querying feedback table for work item ID', { taskId, error });
+    logger.warn('Error querying feedback table for work item ID', {
+      taskId,
+      error,
+    });
     return null;
   }
 }
@@ -498,7 +551,9 @@ async function queryFeedbackTableForWorkItemId(taskId: number): Promise<number |
 /**
  * Determine the feedback action based on the Azure DevOps event
  */
-function determineFeedbackAction(event: AzureDevOpsEvent): FeedbackAction | null {
+function determineFeedbackAction(
+  event: AzureDevOpsEvent
+): FeedbackAction | null {
   const eventType = event.eventType;
   const fields = getEventFields(event);
 
@@ -508,15 +563,25 @@ function determineFeedbackAction(event: AzureDevOpsEvent): FeedbackAction | null
 
     case 'workitem.updated':
       const newState = getFieldValue(fields['System.State']);
-      const oldState = getFieldValue(event.resource?.revision?.fields?.['System.State'], true);
+      const oldState = getFieldValue(
+        event.resource?.revision?.fields?.['System.State'],
+        true
+      );
 
       // Check if state changed to active/in-progress (accepted)
-      if (oldState === 'New' && (newState === 'Active' || newState === 'In Progress')) {
+      if (
+        oldState === 'New' &&
+        (newState === 'Active' || newState === 'In Progress')
+      ) {
         return FeedbackAction.ACCEPTED;
       }
 
       // Check if state changed to completed/done
-      if (newState === 'Closed' || newState === 'Done' || newState === 'Completed') {
+      if (
+        newState === 'Closed' ||
+        newState === 'Done' ||
+        newState === 'Completed'
+      ) {
         return FeedbackAction.COMPLETED;
       }
 
@@ -565,7 +630,11 @@ function extractUserComment(event: AzureDevOpsEvent): string | undefined {
  * Get parent work item context from DynamoDB results table
  * This avoids calling Azure DevOps API by using cached results from task generation
  */
-async function getParentWorkItemContext(workItemId: number, taskId: number, taskFields: Fields): Promise<WorkItem> {
+async function getParentWorkItemContext(
+  workItemId: number,
+  taskId: number,
+  taskFields: Fields
+): Promise<WorkItem> {
   try {
     const docClient = getDynamoDocClient();
 
@@ -584,7 +653,10 @@ async function getParentWorkItemContext(workItemId: number, taskId: number, task
     );
 
     if (!response.Items || response.Items.length === 0) {
-      logger.warn('Could not find parent work item for task. Defaulting to task-level context', { taskId, workItemId });
+      logger.warn(
+        'Could not find parent work item for task. Defaulting to task-level context',
+        { taskId, workItemId }
+      );
       return getFallbackContext(workItemId, taskFields);
     }
 
@@ -594,14 +666,29 @@ async function getParentWorkItemContext(workItemId: number, taskId: number, task
       workItemId: workItem.workItemId,
       workItemType: 'User Story',
       title: workItem?.title || getFieldValue(taskFields['System.Title']) || '',
-      description: workItem?.description || getFieldValue(taskFields['System.Description']) || '',
+      description:
+        workItem?.description ||
+        getFieldValue(taskFields['System.Description']) ||
+        '',
       acceptanceCriteria: workItem?.acceptanceCriteria || '',
-      areaPath: workItem?.areaPath || getFieldValue(taskFields['System.AreaPath']) || '',
-      iterationPath: workItem?.iterationPath || getFieldValue(taskFields['System.IterationPath']) || '',
+      areaPath:
+        workItem?.areaPath ||
+        getFieldValue(taskFields['System.AreaPath']) ||
+        '',
+      iterationPath:
+        workItem?.iterationPath ||
+        getFieldValue(taskFields['System.IterationPath']) ||
+        '',
       businessUnit: workItem?.businessUnit || '',
       system: workItem?.system || '',
-      teamProject: workItem?.teamProject || getFieldValue(taskFields['System.TeamProject']) || '',
-      changedBy: workItem?.changedBy || getFieldValue(taskFields['System.ChangedBy']) || '',
+      teamProject:
+        workItem?.teamProject ||
+        getFieldValue(taskFields['System.TeamProject']) ||
+        '',
+      changedBy:
+        workItem?.changedBy ||
+        getFieldValue(taskFields['System.ChangedBy']) ||
+        '',
       tags: workItem?.tags || [],
     };
 
@@ -613,11 +700,14 @@ async function getParentWorkItemContext(workItemId: number, taskId: number, task
 
     return workItemContext;
   } catch (error) {
-    logger.error('🛑 Failed to fetch parent work item context from results table. Defaulting to task-level context', {
-      workItemId,
-      taskId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    });
+    logger.error(
+      '🛑 Failed to fetch parent work item context from results table. Defaulting to task-level context',
+      {
+        workItemId,
+        taskId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      }
+    );
 
     return getFallbackContext(workItemId, taskFields);
   }
@@ -678,4 +768,6 @@ function getFeedbackService(): FeedbackService {
 }
 
 // Export the Lambda handler with middleware
-export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));
+export const handler = middy(lambdaHandler).use(
+  injectLambdaContext(logger, { logEvent: true })
+);

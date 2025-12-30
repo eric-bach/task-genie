@@ -5,6 +5,7 @@ import {
   Role,
   ServicePrincipal,
   ManagedPolicy,
+  PolicyDocument,
 } from 'aws-cdk-lib/aws-iam';
 import {
   AccessLogFormat,
@@ -96,21 +97,43 @@ export class AppStack extends Stack {
 
     const role = new Role(this, 'AgentRole', {
       assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
+      inlinePolicies: {
+        BedrockAccess: new PolicyDocument({
+          statements: [
+            new PolicyStatement({
+              actions: [
+                'bedrock:InvokeModel',
+                'bedrock:InvokeModelWithResponseStream',
+                'bedrock:Retrieve',
+              ],
+              resources: ['*'],
+            }),
+            new PolicyStatement({
+              actions: [
+                'cloudwatch:PutMetricData',
+                'logs:CreateLogStream',
+                'logs:PutLogEvents',
+              ],
+              resources: ['*'],
+            }),
+            new PolicyStatement({
+              actions: ['dynamodb:GetItem'],
+              resources: [props.params.configTableArn],
+            }),
+            new PolicyStatement({
+              actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
+              resources: [
+                feedbackTable.tableArn,
+                `${feedbackTable.tableArn}/index/*`, // For GSI access
+              ],
+            }),
+          ],
+        }),
+      },
+      managedPolicies: [
+        ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess'),
+      ],
     });
-
-    role.addToPolicy(
-      new PolicyStatement({
-        actions: [
-          'bedrock:InvokeModel',
-          'bedrock:InvokeModelWithResponseStream',
-        ],
-        resources: ['*'],
-      })
-    );
-
-    role.addManagedPolicy(
-      ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess')
-    );
 
     const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(
       path.join(__dirname, '..', '..'),
@@ -125,6 +148,7 @@ export class AppStack extends Stack {
       executionRole: role,
       agentRuntimeArtifact: workItemAgentArtifact,
       environmentVariables: {
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
         AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
         AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
@@ -141,6 +165,7 @@ export class AppStack extends Stack {
         FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || '',
       },
     });
+    azureDevOpsCredentialsSecret.grantRead(workItemAgent);
 
     /*
      * AWS Lambda
@@ -155,6 +180,14 @@ export class AppStack extends Stack {
           __dirname,
           '../../backend/lambda/proxy/agent/index.ts'
         ),
+        projectRoot: path.resolve(
+          __dirname,
+          '../../backend/lambda/proxy/agent'
+        ),
+        depsLockFilePath: path.resolve(
+          __dirname,
+          '../../backend/lambda/proxy/agent/package-lock.json'
+        ),
         handler: 'handler',
         memorySize: 1024,
         timeout: Duration.minutes(5),
@@ -162,35 +195,50 @@ export class AppStack extends Stack {
           BEDROCK_AGENTCORE_RUNTIME_ARN: workItemAgent.agentRuntimeArn,
           POWERTOOLS_LOG_LEVEL: 'DEBUG',
         },
-        managedPolicies: [
-          ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'),
-        ],
+        // managedPolicies: [
+        //   ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'),
+        // ],
         policyStatements: [
+          // new PolicyStatement({
+          //   actions: ['cloudwatch:PutMetricData'],
+          //   resources: ['*'],
+          // }),
+          // new PolicyStatement({
+          //   actions: ['dynamodb:GetItem'],
+          //   resources: [props.params.configTableArn],
+          // }),
+          // new PolicyStatement({
+          //   actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
+          //   resources: [
+          //     feedbackTable.tableArn,
+          //     `${feedbackTable.tableArn}/index/*`, // For GSI access
+          //   ],
+          // }),
           new PolicyStatement({
-            actions: ['cloudwatch:PutMetricData'],
-            resources: ['*'],
-          }),
-          new PolicyStatement({
-            actions: ['dynamodb:GetItem'],
-            resources: [props.params.configTableArn],
-          }),
-          new PolicyStatement({
-            actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
+            actions: ['bedrock-agentcore:InvokeAgentRuntime'],
             resources: [
-              feedbackTable.tableArn,
-              `${feedbackTable.tableArn}/index/*`, // For GSI access
+              workItemAgent.agentRuntimeArn,
+              `${workItemAgent.agentRuntimeArn}/*`,
             ],
           }),
         ],
       }
     );
-    azureDevOpsCredentialsSecret.grantRead(workItemAgentProxyFunction);
+    // azureDevOpsCredentialsSecret.grantRead(workItemAgentProxyFunction);
 
     const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
       functionName: `${props.appName}-poll-execution-${props.envName}`,
       entry: path.resolve(
         __dirname,
         '../../backend/lambda/workflow/pollExecution/index.ts'
+      ),
+      projectRoot: path.resolve(
+        __dirname,
+        '../../backend/lambda/workflow/pollExecution'
+      ),
+      depsLockFilePath: path.resolve(
+        __dirname,
+        '../../backend/lambda/workflow/pollExecution/package-lock.json'
       ),
       memorySize: 384,
       timeout: Duration.seconds(5),
@@ -215,6 +263,14 @@ export class AppStack extends Stack {
         entry: path.resolve(
           __dirname,
           '../../backend/lambda/knowledgeBase/syncKnowledgeBase/index.ts'
+        ),
+        projectRoot: path.resolve(
+          __dirname,
+          '../../backend/lambda/knowledgeBase/syncKnowledgeBase'
+        ),
+        depsLockFilePath: path.resolve(
+          __dirname,
+          '../../backend/lambda/knowledgeBase/syncKnowledgeBase/package-lock.json'
         ),
         memorySize: 512,
         timeout: Duration.minutes(5),
@@ -293,6 +349,14 @@ export class AppStack extends Stack {
           __dirname,
           '../../backend/lambda/knowledgeBase/generatePresignedUrl/index.ts'
         ),
+        projectRoot: path.resolve(
+          __dirname,
+          '../../backend/lambda/knowledgeBase/generatePresignedUrl'
+        ),
+        depsLockFilePath: path.resolve(
+          __dirname,
+          '../../backend/lambda/knowledgeBase/generatePresignedUrl/package-lock.json'
+        ),
         memorySize: 384,
         timeout: Duration.seconds(5),
         environment: {
@@ -313,6 +377,14 @@ export class AppStack extends Stack {
         entry: path.resolve(
           __dirname,
           '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments/index.ts'
+        ),
+        projectRoot: path.resolve(
+          __dirname,
+          '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments'
+        ),
+        depsLockFilePath: path.resolve(
+          __dirname,
+          '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments/package-lock.json'
         ),
         memorySize: 512,
         timeout: Duration.seconds(30),
@@ -350,6 +422,14 @@ export class AppStack extends Stack {
         __dirname,
         '../../backend/lambda/config/manageConfig/index.ts'
       ),
+      projectRoot: path.resolve(
+        __dirname,
+        '../../backend/lambda/config/manageConfig'
+      ),
+      depsLockFilePath: path.resolve(
+        __dirname,
+        '../../backend/lambda/config/manageConfig/package-lock.json'
+      ),
       memorySize: 256,
       timeout: Duration.seconds(10),
       environment: {
@@ -368,6 +448,14 @@ export class AppStack extends Stack {
         entry: path.resolve(
           __dirname,
           '../../backend/lambda/feedback/trackTaskFeedback/index.ts'
+        ),
+        projectRoot: path.resolve(
+          __dirname,
+          '../../backend/lambda/feedback/trackTaskFeedback'
+        ),
+        depsLockFilePath: path.resolve(
+          __dirname,
+          '../../backend/lambda/feedback/trackTaskFeedback/package-lock.json'
         ),
         memorySize: 512,
         timeout: Duration.seconds(30),

@@ -1,7 +1,7 @@
 import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
-import { AzureService } from '@/services/AzureService';
-import { WorkItemSchema } from './schemas';
+import { AzureService } from '../../../services/AzureService.js';
+import { WorkItemSchema } from './schemas.js';
 
 const azureService = new AzureService();
 

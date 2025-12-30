@@ -570,6 +570,7 @@ export class AzureService {
           const workItemType = childItem.fields['System.WorkItemType'];
           const baseWorkItem: BaseWorkItem = {
             workItemId: childItem.id,
+            rev: childItem.rev ?? 0,
             title: childItem.fields['System.Title'],
             description: childItem.fields['System.Description'],
             state: childItem.fields['System.State'],
