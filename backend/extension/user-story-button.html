@@ -129,7 +129,7 @@
                       buttonText = 'Generate Tasks';
                       break;
                     case 'Feature':
-                      buttonText = 'Generate User Stories';
+                      buttonText = 'Generate PBIs/User Stories';
                       break;
                     case 'Epic':
                       buttonText = 'Generate Features';
@@ -138,7 +138,7 @@
                       buttonText = 'Generate';
                       break;
                   }
-                  
+
                   button.textContent = buttonText;
                   console.log('Set button text based on work item type:', workItemType, '->', buttonText);
 
@@ -155,12 +155,12 @@
                     'AMA-Ent\\Software Development\\Blue Team',
                     'Digital Experience Dev\\Rewards and Registries',
                     'Digital Experience Dev\\Rewards and Registries\\Dev',
-                    'Digital Experience Dev\\Membership and Automotive',
-                    'Digital Experience Dev\\Membership and Automotive\\Dev',
-                    'Digital Experience Dev\\Insurance and Corporate Purpose',
-                    'Digital Experience Dev\\Insurance and Corporate Purpose\\Dev',
-                    'Digital Experience Dev\\Travel',
-                    'Digital Experience Dev\\Travel\\Dev',
+                    // 'Digital Experience Dev\\Membership and Automotive',
+                    // 'Digital Experience Dev\\Membership and Automotive\\Dev',
+                    // 'Digital Experience Dev\\Insurance and Corporate Purpose',
+                    // 'Digital Experience Dev\\Insurance and Corporate Purpose\\Dev',
+                    // 'Digital Experience Dev\\Travel',
+                    // 'Digital Experience Dev\\Travel\\Dev',
                   ];
 
                   if (!allowedAreaPaths.includes(areaPath)) {
@@ -216,7 +216,7 @@
                       'Custom.BusinessUnit',
                       'Custom.System',
                       'Custom.ReleaseNotes',
-                      'Custom.QANotes'
+                      'Custom.QANotes',
                     ]);
 
                     // Call your REST API here

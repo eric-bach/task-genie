@@ -8,29 +8,13 @@ export const AREA_PATHS = [
   'AMA-Ent\\Software Development\\Blue Team',
   'Digital Experience Dev\\Rewards and Registries',
   'Digital Experience Dev\\Rewards and Registries\\Dev',
-  'Digital Experience Dev\\Membership and Automotive',
-  'Digital Experience Dev\\Membership and Automotive\\Dev',
-  'Digital Experience Dev\\Insurance and Corporate Purpose',
-  'Digital Experience Dev\\Insurance and Corporate Purpose\\Dev',
-  'Digital Experience Dev\\Travel',
-  'Digital Experience Dev\\Travel\\Dev',
+  // 'Digital Experience Dev\\Membership and Automotive',
+  // 'Digital Experience Dev\\Membership and Automotive\\Dev',
+  // 'Digital Experience Dev\\Insurance and Corporate Purpose',
+  // 'Digital Experience Dev\\Insurance and Corporate Purpose\\Dev',
+  // 'Digital Experience Dev\\Travel',
+  // 'Digital Experience Dev\\Travel\\Dev',
 ];
-export const BUSINESS_UNITS = [
-  'IT',
-  'Membership',
-  'Registries',
-  'Travel',
-  'Gift Card Ent',
-];
-export const SYSTEMS = [
-  'iMIS',
-  'Omni-Admin – Service Queuing',
-  'Omni-POS',
-  'Website - CAA Online Store',
-];
-export const WORK_ITEM_TYPES = [
-  'Epic',
-  'Feature',
-  'Product Backlog Item',
-  'User Story',
-];
+export const BUSINESS_UNITS = ['IT', 'Membership', 'Registries', 'Travel', 'Gift Card Ent'];
+export const SYSTEMS = ['iMIS', 'Omni-Admin – Service Queuing', 'Omni-POS', 'Website - CAA Online Store'];
+export const WORK_ITEM_TYPES = ['Epic', 'Feature', 'Product Backlog Item', 'User Story'];

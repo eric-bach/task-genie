@@ -91,7 +91,7 @@ const parseEvent = (
   logger.info(
     `▶️ Received ${workItem.workItemType} ${workItem.workItemId} with ${
       workItems.length
-    } ${getExpectedChildWorkItemType(workItem.workItemType, true)}`,
+    } ${getExpectedChildWorkItemType(workItem, true)}`,
     {
       workItem,
       workItems,
@@ -105,7 +105,7 @@ const parseEvent = (
 
 const generateComment = (workItem: WorkItem, workItems: WorkItem[], documents: BedrockKnowledgeDocument[]): string => {
   const comment = `<br />✅ Successfully generated ${workItems.length} ${getExpectedChildWorkItemType(
-    workItem.workItemType,
+    workItem,
     true
   )} for ${workItem.workItemType} ${workItem.workItemId}`;
   if (documents.length > 0) {

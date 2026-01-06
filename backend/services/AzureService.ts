@@ -8,6 +8,7 @@ import {
   BaseWorkItem,
   getExpectedChildWorkItemType,
   ProductBacklogItem,
+  ADOProcessTemplate,
 } from '../types/azureDevOps';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
@@ -310,6 +311,95 @@ export class AzureService {
   }
 
   /**
+   * Retrieves the process template for an Azure DevOps project
+   * Uses the project capabilities API to determine if the project uses Scrum, Agile, Basic, or CMMI process
+   * @param teamProject The team project name
+   * @returns The process template name (Scrum, Agile, Basic, CMMI) or undefined if unable to determine
+   */
+  public async getProjectProcessTemplate(teamProject: string): Promise<ADOProcessTemplate | undefined> {
+    this.logger.debug(`⚙️ Fetching process template for project ${teamProject}`);
+
+    try {
+      const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/_apis/projects/${encodeURIComponent(
+        teamProject
+      )}?includeCapabilities=true&api-version=7.1`;
+
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await this.getAccessToken()}`,
+      };
+
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+
+      if (!response.ok) {
+        this.logger.warn('Failed to fetch project process template', {
+          teamProject,
+          status: response.status,
+          statusText: response.statusText,
+        });
+        return undefined;
+      }
+
+      const projectData = await response.json();
+      const templateName = projectData?.capabilities?.processTemplate?.templateName;
+
+      if (templateName) {
+        this.logger.info(`📋 Project ${teamProject} uses ${templateName} process template`, {
+          teamProject,
+          processTemplate: templateName,
+        });
+
+        // Normalize the template name to our expected types
+        const normalizedTemplate = this.normalizeProcessTemplate(templateName);
+        return normalizedTemplate;
+      }
+
+      this.logger.warn('Process template not found in project capabilities', {
+        teamProject,
+        capabilities: projectData?.capabilities,
+      });
+      return undefined;
+    } catch (error) {
+      this.logger.error('Error fetching project process template', {
+        teamProject,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      return undefined;
+    }
+  }
+
+  /**
+   * Normalizes the process template name from ADO API to our expected type
+   * Handles variations like "Scrum", "Agile", "Microsoft Visual Studio Scrum", etc.
+   * @param templateName The raw template name from ADO API
+   * @returns Normalized ADOProcessTemplate or undefined
+   */
+  private normalizeProcessTemplate(templateName: string): ADOProcessTemplate | undefined {
+    const lowerName = templateName.toLowerCase();
+
+    if (lowerName.includes('scrum')) {
+      return 'Scrum';
+    }
+    if (lowerName.includes('agile')) {
+      return 'Agile';
+    }
+    if (lowerName.includes('basic')) {
+      return 'Basic';
+    }
+    if (lowerName.includes('cmmi')) {
+      return 'CMMI';
+    }
+
+    this.logger.warn('Unknown process template, defaulting to undefined', {
+      templateName,
+    });
+    return undefined;
+  }
+
+  /**
    * Retrieves work item details by ID
    * @param workItemId The ID of the work item to fetch
    * @param teamProject The team project name
@@ -361,20 +451,21 @@ export class AzureService {
   /**
    * Retrieves child work items associated with a specific work item based on Azure DevOps hierarchy
    * - Epic -> Features
-   * - Feature -> User Stories
-   * - User Story -> Tasks
+   * - Feature -> User Stories (Agile) or Product Backlog Items (Scrum)
+   * - User Story/Product Backlog Item -> Tasks
    * @param workItem The parent work item to fetch children for
    * @returns Array of child work items with their complete type-specific information
    */
   public async getChildWorkItems(workItem: WorkItem): Promise<WorkItem[]> {
     this.logger.info(
-      `⚙️ Fetching child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+      `⚙️ Fetching child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
         workItem.workItemId
       }`,
       {
         workItemId: workItem.workItemId,
         workItemType: workItem.workItemType,
         teamProject: workItem.teamProject,
+        processTemplate: workItem.processTemplate,
         azureDevOpsOrganization: this.azureDevOpsOrganization,
       }
     );
@@ -384,7 +475,7 @@ export class AzureService {
 
       if (workItem.workItemId <= 0) {
         this.logger.info(
-          `No existing child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+          `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
             workItem.workItemId
           }`
         );
@@ -398,6 +489,11 @@ export class AzureService {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${await this.getAccessToken()}`,
       };
+
+      this.logger.debug('Fetching work item details for child retrieval', {
+        workItemUrl,
+        workItemId: workItem.workItemId,
+      });
 
       const response = await fetch(workItemUrl, {
         method: 'GET',
@@ -418,6 +514,10 @@ export class AzureService {
         throw new Error(`Failed to get work item details: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
+      this.logger.debug('Successfully fetched work item details for child retrieval', {
+        workItemId: workItem.workItemId,
+      });
+
       const data = await response.json();
 
       // Extract child work item IDs from hierarchy relations
@@ -435,7 +535,7 @@ export class AzureService {
       // If there are no child IDs, return empty array early
       if (childIds.length === 0) {
         this.logger.info(
-          `No existing child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${workItem.workItemType} ${
+          `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
             workItem.workItemId
           }`
         );
@@ -472,6 +572,11 @@ export class AzureService {
         ],
       });
 
+      this.logger.debug('Fetching child work items', {
+        childItemsUrl,
+        body,
+      });
+
       const childItemsResponse = await fetch(childItemsUrl, {
         method: 'POST',
         headers,
@@ -480,16 +585,20 @@ export class AzureService {
 
       if (!childItemsResponse.ok) {
         throw new Error(
-          `Failed to get child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
-            workItem.teamProject
-          } ${workItem.workItemId}`
+          `Failed to get child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.teamProject} ${
+            workItem.workItemId
+          }`
         );
       }
 
+      this.logger.debug('Successfully fetched child work items', {
+        workItemId: workItem.workItemId,
+      });
+
       const childItemsData = await childItemsResponse.json();
 
-      // Determine expected child work item type
-      const expectedChildType = getExpectedChildWorkItemType(workItem.workItemType);
+      // Determine expected child work item type based on process template
+      const expectedChildType = getExpectedChildWorkItemType(workItem, false);
 
       if (childItemsData.value && Array.isArray(childItemsData.value)) {
         for (const childItem of childItemsData.value) {
@@ -532,6 +641,7 @@ export class AzureService {
             businessUnit: childItem.fields['Custom.BusinessUnit'] || '', // Required but may not be set in existing data
             system: childItem.fields['Custom.System'] || '', // Required but may not be set in existing data
             teamProject: workItem.teamProject,
+            processTemplate: workItem.processTemplate,
             changedBy: childItem.fields['System.ChangedBy']?.displayName || '',
           };
 
@@ -600,7 +710,7 @@ export class AzureService {
       }
 
       this.logger.info(
-        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
+        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(workItem, true)} in ${
           workItem.workItemType
         } ${workItem.workItemId}`,
         {
@@ -615,9 +725,9 @@ export class AzureService {
       return childItems;
     } catch (error: any) {
       this.logger.error(
-        `Failed to fetch child ${getExpectedChildWorkItemType(workItem.workItemType, true)} in ${
-          workItem.workItemType
-        } ${workItem.workItemId}`,
+        `Failed to fetch child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
+          workItem.workItemId
+        }`,
         {
           workItemType: workItem.workItemType,
           workItemId: workItem.workItemId,
@@ -634,13 +744,13 @@ export class AzureService {
    * The type of child work items created depends on the parent type:
    * - Epic -> Features
    * - Feature -> User Stories
-   * - User Story -> Tasks
+   * - User Story/Product Backlog Item -> Tasks
    * @param workItem The parent work item to create children for
    * @param childWorkItems Array of child work items to create
    */
   public async createChildWorkItems(workItem: WorkItem, childWorkItems: WorkItem[]): Promise<void> {
-    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
-    const childTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true);
+    const childWorkItemType = getExpectedChildWorkItemType(workItem, false) || 'Task';
+    const childTypePlural = getExpectedChildWorkItemType(workItem, true);
 
     this.logger.info(
       `⚙️ Creating ${childWorkItems.length} ${childTypePlural} for ${workItem.workItemType} ${workItem.workItemId}`,
@@ -677,10 +787,10 @@ export class AzureService {
 
   /**
    * Creates a single child work item in Azure DevOps and links it to the parent work item
-   * The type of child work item created depends on the parent type:
+   * The type of child work item created depends on the parent type and process template:
    * - Epic -> Feature
-   * - Feature -> User Story
-   * - User Story -> Task
+   * - Feature -> User Story (Agile) or Product Backlog Item (Scrum)
+   * - User Story/Product Backlog Item -> Task
    * @param workItem The parent work item
    * @param task The child work item to create
    * @param i The task index (for logging purposes)
@@ -688,11 +798,11 @@ export class AzureService {
    */
   public async createChildWorkItem(
     workItem: WorkItem,
-    childWorkItem: Feature | UserStory | Task,
+    childWorkItem: Feature | UserStory | ProductBacklogItem | Task,
     i: number
   ): Promise<number> {
-    // Determine the appropriate child work item type
-    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Task';
+    // Determine the appropriate child work item type based on parent type and process template
+    const childWorkItemType = getExpectedChildWorkItemType(workItem, false) || 'Task';
 
     const childWorkItemFields = [
       {
@@ -743,6 +853,15 @@ export class AzureService {
           value: c.importance || '',
         }
       );
+    } else if (childWorkItemType === 'Product Backlog Item') {
+      const c = childWorkItem as ProductBacklogItem;
+
+      // Add Product Backlog Item specific fields
+      childWorkItemFields.push({
+        op: 'add',
+        path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
+        value: c.acceptanceCriteria || '',
+      });
     } else if (childWorkItemType === 'Feature') {
       const c = childWorkItem as Feature;
       childWorkItemFields.push(

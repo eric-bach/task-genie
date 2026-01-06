@@ -257,7 +257,7 @@ export class BedrockService {
    */
   private buildWorkItemEvaluationKnowledgeQuery(workItem: WorkItem): string {
     let criteriaField = '';
-     if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
+    if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
       criteriaField = `\n    - Acceptance Criteria: ${workItem.acceptanceCriteria}`;
     } else if ((isEpic(workItem) || isFeature(workItem)) && workItem.successCriteria) {
       criteriaField = `\n    - Success Criteria: ${workItem.successCriteria}`;
@@ -268,7 +268,9 @@ export class BedrockService {
     } process and guidelines that would help evaluate the following ${workItem.workItemType} is well-defined:
     - Title: ${workItem.title}
     - Description: ${workItem.description}
-    - ${(isProductBacklogItem(workItem) || isUserStory(workItem)) ? 'Acceptance Criteria' : 'Success Criteria'}: ${criteriaField}`;
+    - ${
+      isProductBacklogItem(workItem) || isUserStory(workItem) ? 'Acceptance Criteria' : 'Success Criteria'
+    }: ${criteriaField}`;
   }
 
   /**
@@ -503,21 +505,18 @@ export class BedrockService {
       }, 0)
     );
 
-    this.logger.info(
-      `🧠 Invoking Bedrock model for ${getExpectedChildWorkItemType(workItem.workItemType)} generation`,
-      {
-        modelId: this.config.modelId,
-        contentItems: content.length,
-        textLength,
-        existingWorkItemsCount: existingChildWorkItems.length,
-        knowledgeCount: knowledgeContext.length,
-        knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
-        imagesCount,
-        imagesSizeKB,
-        feedbackContext: !!feedbackContext,
-        inferenceConfig: input.inferenceConfig,
-      }
-    );
+    this.logger.info(`🧠 Invoking Bedrock model for ${getExpectedChildWorkItemType(workItem, false)} generation`, {
+      modelId: this.config.modelId,
+      contentItems: content.length,
+      textLength,
+      existingWorkItemsCount: existingChildWorkItems.length,
+      knowledgeCount: knowledgeContext.length,
+      knowledgeContentLength: knowledgeContext.reduce((sum, doc) => sum + doc.contentLength, 0),
+      imagesCount,
+      imagesSizeKB,
+      feedbackContext: !!feedbackContext,
+      inferenceConfig: input.inferenceConfig,
+    });
 
     try {
       const command = new ConverseCommand(input);
@@ -660,7 +659,6 @@ ${evaluationCriteria}
       const productBacklogItemFields = [];
       if (workItem.releaseNotes) productBacklogItemFields.push(`  - Release Notes: ${workItem.releaseNotes}`);
       if (workItem.qaNotes) productBacklogItemFields.push(`  - QA Notes: ${workItem.qaNotes}`);
-    
     }
 
     // Add User Story-specific fields
@@ -717,11 +715,21 @@ Visual aids or references that provide additional context for evaluation.
 - Do NOT create any Tasks for analysis, investigation, testing, or deployment.`;
         break;
       case 'Feature':
-        defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a Feature into clear, actionable, and appropriately sized User Stories.
+        // Scrum process: Feature -> Product Backlog Items
+        // Agile process: Feature -> User Stories
+        if (workItem.processTemplate === 'Scrum') {
+          defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a Feature into clear, actionable, and appropriately sized Product Backlog Items.
+**Instructions**
+- Your task is to break down the provided Feature into a sequence of Product Backlog Items that are clear and deliver business value.
+- Ensure each Product Backlog Item has a title, description, and acceptance criteria.
+- Avoid creating duplicate Product Backlog Items if they already exist.`;
+        } else {
+          defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing a Feature into clear, actionable, and appropriately sized User Stories.
 **Instructions**
 - Your task is to break down the provided Feature into a sequence of User Stories that are clear and deliver business value.
 - Ensure each User Story has a title, description, and acceptance criterial.
 - Avoid creating duplicate User Stories if they already exist.`;
+        }
         break;
       case 'Epic':
         defaultPrompt = `You are an expert Agile software development assistant that specializes in decomposing an Epic into clear, actionable, and appropriately sized Features.
@@ -760,8 +768,22 @@ Visual aids or references that provide additional context for evaluation.
         });
         break;
       case 'Feature':
-        system.push({
-          text: `${basePrompt}\n
+        // Scrum process: Feature -> Product Backlog Items
+        // Agile process: Feature -> User Stories
+        if (workItem.processTemplate === 'Scrum') {
+          system.push({
+            text: `${basePrompt}\n
+**Output Rules**
+- ONLY return a JSON object with the following structure:
+  - "workItems": array of product backlog item objects, each with:
+    - "title": string (product backlog item title, prefixed with order, e.g., "1. Product Backlog Item Title")
+    - "description": string (detailed product backlog item description with HTML formatting)
+    - "acceptanceCriteria": string (detailed acceptance criteria with HTML formatting)
+- DO NOT output any text outside of the JSON object.`,
+          });
+        } else {
+          system.push({
+            text: `${basePrompt}\n
 **Output Rules**
 - ONLY return a JSON object with the following structure:
   - "workItems": array of user story objects, each with:
@@ -769,7 +791,8 @@ Visual aids or references that provide additional context for evaluation.
     - "description": string (detailed user story description with HTML formatting)
     - "acceptanceCriteria": string (detailed acceptance criteria with HTML formatting)
 - DO NOT output any text outside of the JSON object.`,
-        });
+          });
+        }
         break;
       case 'Epic':
         system.push({
@@ -839,17 +862,16 @@ Visual aids or references that provide additional context for evaluation.
       const productBacklogItemFields = [];
       if (workItem.releaseNotes) productBacklogItemFields.push(`  - Release Notes: ${workItem.releaseNotes}`);
       if (workItem.qaNotes) productBacklogItemFields.push(`  - QA Notes: ${workItem.qaNotes}`);
-    }
-    else if (isUserStory(workItem) && workItem.importance) {
+    } else if (isUserStory(workItem) && workItem.importance) {
       typeSpecificFields = `\n  - Importance: ${workItem.importance}`;
     }
 
-    const childWorkItemType = `${getExpectedChildWorkItemType(workItem.workItemType, true) || 'child work items'}`;
+    const childWorkItemType = `${getExpectedChildWorkItemType(workItem, true) || 'child work items'}`;
 
     // Build the existing child work items list with type-specific details
     let existingChildWorkItemsList = 'None';
     if (existingChildWorkItems.length > 0) {
-      if (childWorkItemType === 'Feature') {
+      if (childWorkItemType === 'Features') {
         existingChildWorkItemsList = existingChildWorkItems
           .map((item, i) => {
             const featureItem = item as Feature;
@@ -863,7 +885,7 @@ Visual aids or references that provide additional context for evaluation.
             return details;
           })
           .join('\n\n');
-      } else if (childWorkItemType === 'Product Backlog Item') {
+      } else if (childWorkItemType === 'Product Backlog Items') {
         existingChildWorkItemsList = existingChildWorkItems
           .map((item, i) => {
             const productBacklogItem = item as ProductBacklogItem;
@@ -883,7 +905,7 @@ Visual aids or references that provide additional context for evaluation.
             return details;
           })
           .join('\n\n');
-      } else if (childWorkItemType === 'User Story') {
+      } else if (childWorkItemType === 'User Stories') {
         existingChildWorkItemsList = existingChildWorkItems
           .map((item, i) => {
             const userStoryItem = item as UserStory;
@@ -1220,25 +1242,19 @@ Extra domain knowledge, system information, or reference material to guide more 
   private async resolvePrompt(workItem: WorkItem, parameterPrompt?: string): Promise<string | undefined> {
     // If a prompt was passed as a parameter, use it (highest priority)
     if (parameterPrompt) {
-      this.logger.info(
-        `⭐ Using prompt override for ${getExpectedChildWorkItemType(workItem.workItemType)} generation`,
-        {
-          prompt: parameterPrompt,
-          source: 'parameter',
-        }
-      );
+      this.logger.info(`⭐ Using prompt override for ${getExpectedChildWorkItemType(workItem, false)} generation`, {
+        prompt: parameterPrompt,
+        source: 'parameter',
+      });
       return parameterPrompt;
     }
 
     const databasePrompt = await this.getCustomPrompt(workItem);
     if (databasePrompt) {
-      this.logger.info(
-        `⭐ Using prompt override for ${getExpectedChildWorkItemType(workItem.workItemType)} generation`,
-        {
-          prompt: databasePrompt,
-          source: 'database',
-        }
-      );
+      this.logger.info(`⭐ Using prompt override for ${getExpectedChildWorkItemType(workItem, false)} generation`, {
+        prompt: databasePrompt,
+        source: 'database',
+      });
       return databasePrompt;
     }
 

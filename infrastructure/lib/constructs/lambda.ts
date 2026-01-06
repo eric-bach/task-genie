@@ -1,12 +1,7 @@
 import { Duration, Stack } from 'aws-cdk-lib';
 import { IInterfaceVpcEndpoint, IVpc, Port } from 'aws-cdk-lib/aws-ec2';
 import { IManagedPolicy, PolicyStatement } from 'aws-cdk-lib/aws-iam';
-import {
-  Architecture,
-  ILayerVersion,
-  LayerVersion,
-  Runtime,
-} from 'aws-cdk-lib/aws-lambda';
+import { Architecture, ILayerVersion, LayerVersion, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { NodejsFunction } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { LogRetention, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
@@ -40,14 +35,11 @@ export class TaskGenieLambda extends NodejsFunction {
     const powertoolsLayer = LayerVersion.fromLayerVersionArn(
       scope,
       `${id}PowertoolsLayer`,
-      `arn:aws:lambda:${
-        Stack.of(scope).region
-      }:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:20`
+      `arn:aws:lambda:${Stack.of(scope).region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:20`
     );
 
     // Set default values
-    const projectRoot =
-      props.projectRoot ?? path.resolve(__dirname, '../../..');
+    const projectRoot = props.projectRoot ?? path.resolve(__dirname, '../..');
     const handler = props.handler ?? 'handler';
     const runtime = props.runtime ?? Runtime.NODEJS_22_X;
     const architecture = props.architecture ?? Architecture.X86_64;
