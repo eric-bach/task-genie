@@ -29,8 +29,8 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const azureService = getAzureService();
     await azureService.createChildWorkItems(workItem, workItems);
 
-    const childWorkItemType = getExpectedChildWorkItemType(workItem.workItemType) || 'Work Item';
-    const childWorkItemTypePlural = getExpectedChildWorkItemType(workItem.workItemType, true) || 'Work Items';
+    const childWorkItemType = getExpectedChildWorkItemType(workItem, false) || 'Work Item';
+    const childWorkItemTypePlural = getExpectedChildWorkItemType(workItem, true) || 'Work Items';
 
     // Add CloudWatch metrics
     const cloudWatchService = new CloudWatchService();
@@ -92,7 +92,7 @@ const parseEventBody = (
   const { workItem, workItems, documents, workItemStatus } = body;
 
   logger.info(
-    `▶️ Creating ${workItems.length} ${getExpectedChildWorkItemType(workItem.workItemType, true) || 'Work Items'} for ${
+    `▶️ Creating ${workItems.length} ${getExpectedChildWorkItemType(workItem, true) || 'Work Items'} for ${
       workItem.workItemType
     } ${workItem.workItemId}`,
     {

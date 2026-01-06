@@ -72,12 +72,12 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     const bedrockResponse = await bedrock.generateWorkItems(workItem, existingChildItems, params);
 
     logger.info(
-      `✅ Generated ${bedrockResponse.workItems.length} child ${getExpectedChildWorkItemType(
-        workItem.workItemType,
-        true
-      )} for ${workItem.workItemType} ${workItem.workItemId}`,
+      `✅ Generated ${bedrockResponse.workItems.length} child ${getExpectedChildWorkItemType(workItem, true)} for ${
+        workItem.workItemType
+      } ${workItem.workItemId}`,
       {
         workItemType: workItem.workItemType,
+        processTemplate: workItem.processTemplate,
         childItemsGenerated: bedrockResponse.workItems.length,
         existingChildItems: existingChildItems.length,
       }

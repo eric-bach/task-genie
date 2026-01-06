@@ -1,5 +1,8 @@
 import { BedrockInferenceParams } from './bedrock';
 
+// ADO Process Template types - determines work item hierarchy
+export type ADOProcessTemplate = 'Scrum' | 'Agile' | 'Basic' | 'CMMI';
+
 export interface WorkItemRequest {
   workItem: WorkItem;
   params: BedrockInferenceParams;
@@ -19,13 +22,14 @@ export interface BaseWorkItem {
   iterationPath: string;
   businessUnit?: string;
   system?: string;
-  releaseNotes?: string;  // used for PBI
+  releaseNotes?: string; // used for PBI
   qaNotes?: string; // used for PBI
   changedBy: string;
   title: string;
   description: string;
   tags: string[];
   images?: WorkItemImage[];
+  processTemplate?: ADOProcessTemplate; // ADO process template (Scrum, Agile, Basic, CMMI)
 }
 
 // Product Backlog Item specific interface
@@ -90,16 +94,22 @@ export function isTask(workItem: WorkItem): workItem is Task {
 }
 
 /**
- * Determines the expected child work item type based on the parent work item type
- * @param parentType The parent work item type
+ * Determines the expected child work item type based on the parent work item type and process template
+ * @param workItem The work item
  * @param plural Whether to return plural form
  * @returns The expected child work item type, or null if no specific type is expected
  */
-export function getExpectedChildWorkItemType(parentType: string, plural: boolean = false): string | null {
-  switch (parentType) {
+export function getExpectedChildWorkItemType(workItem: WorkItem, plural: boolean = false): string | null {
+  switch (workItem.workItemType) {
     case 'Epic':
       return plural ? 'Features' : 'Feature';
     case 'Feature':
+      // Scrum process: Feature -> Product Backlog Item
+      // Agile process: Feature -> User Story
+      // Default to User Story if process template is unknown (backward compatible)
+      if (workItem.processTemplate === 'Scrum') {
+        return plural ? 'Product Backlog Items' : 'Product Backlog Item';
+      }
       return plural ? 'User Stories' : 'User Story';
     case 'User Story':
       return plural ? 'Tasks' : 'Task';

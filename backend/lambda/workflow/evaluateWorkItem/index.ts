@@ -14,10 +14,12 @@ import {
   isUserStory,
   isEpic,
   isFeature,
+  ADOProcessTemplate,
 } from '../../../types/azureDevOps';
 import { CloudWatchService } from '../../../services/CloudWatchService';
 import { InvalidWorkItemError } from '../../../types/errors';
 import { BedrockService, BedrockServiceConfig } from '../../../services/BedrockService';
+import { AzureService } from '../../../services/AzureService';
 
 /**
  * Lambda function to evaluate Azure DevOps work items (User Story, Epic, Feature) using AWS Bedrock
@@ -53,14 +55,25 @@ export const logger = new Logger({ serviceName: 'evaluateWorkItem' });
 
 // Cache for dependencies
 let bedrockService: BedrockService | null = null;
+let azureService: AzureService | null = null;
+
+/**
+ * Initialize Azure service (singleton pattern for Lambda container reuse)
+ */
+const getAzureService = (): AzureService => {
+  if (!azureService) {
+    azureService = new AzureService();
+  }
+  return azureService;
+};
 
 const lambdaHandler = async (event: any, context: Context) => {
   try {
     // Validate required fields in the work item
     validateWorkItem(event.resource);
 
-    // Parse and sanitize fields
-    const { workItem, params } = parseEvent(event);
+    // Parse and sanitize fields (async to fetch process template)
+    const { workItem, params } = await parseEvent(event);
 
     // Check if work item has been updated already
     if (workItem.tags.includes('Task Genie')) {
@@ -269,11 +282,24 @@ const extractImageUrls = (htmlContent: string, context: string): WorkItemImage[]
   return images;
 };
 
-const parseEvent = (event: any): WorkItemRequest => {
+const parseEvent = async (event: any): Promise<WorkItemRequest> => {
   const { params, resource } = event;
   const workItemId = resource.workItemId || resource.id;
   const fields = resource.revision?.fields || resource.fields;
   const workItemType = fields['System.WorkItemType'] as 'Product Backlog Item' | 'User Story' | 'Epic' | 'Feature';
+  const teamProject = sanitizeField(fields['System.TeamProject']);
+
+  // Fetch the process template for the project to determine child work item types
+  let processTemplate: ADOProcessTemplate | undefined;
+  try {
+    const azure = getAzureService();
+    processTemplate = await azure.getProjectProcessTemplate(teamProject);
+  } catch (error) {
+    logger.warn('Failed to fetch process template, will use default behavior', {
+      teamProject,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
 
   const tagsString = sanitizeField(fields['System.Tags'] ?? '');
   const tags = tagsString ? tagsString.split(';').map((tag: string) => tag.trim()) : [];
@@ -308,7 +334,7 @@ const parseEvent = (event: any): WorkItemRequest => {
   const baseWorkItem = {
     workItemId: workItemId ?? 0,
     workItemType,
-    teamProject: sanitizeField(fields['System.TeamProject']),
+    teamProject,
     areaPath: sanitizeField(fields['System.AreaPath']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
     businessUnit: fields['Custom.BusinessUnit'] ? sanitizeField(fields['Custom.BusinessUnit']) : undefined, // Custom Field
@@ -320,6 +346,7 @@ const parseEvent = (event: any): WorkItemRequest => {
     description: sanitizeField(rawDescription),
     tags,
     images: uniqueImages.length > 0 ? uniqueImages : undefined,
+    processTemplate, // ADO process template for determining child work item types
   };
 
   // Create type-specific work item
@@ -375,6 +402,7 @@ const parseEvent = (event: any): WorkItemRequest => {
     releaseNotes: workItem.releaseNotes,
     qaNotes: workItem.qaNotes,
     iterationPath: workItem.iterationPath,
+    processTemplate: workItem.processTemplate,
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
   });
