@@ -38,7 +38,7 @@ export class TaskGenieLambda extends NodejsFunction {
     );
 
     // Set default values
-    const projectRoot = props.projectRoot ?? path.resolve(__dirname, '../../..');
+    const projectRoot = props.projectRoot ?? path.resolve(__dirname, '../..');
     const handler = props.handler ?? 'handler';
     const runtime = props.runtime ?? Runtime.NODEJS_22_X;
     const architecture = props.architecture ?? Architecture.X86_64;

@@ -12,7 +12,7 @@
     "deploy": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=dev",
     "deploy-stage": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=stage",
     "deploy-prod": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-prod --context envName=prod",
-    "install-all": "sh -c 'find ../backend -mindepth 2 -maxdepth 4 -type f -name \"package.json\" -not -path \"*/node_modules/*\" -exec echo \"🛠️ Installing {}\" \\; -execdir npm install \\; && echo \"🛠️ Installing ../docs/package.json\" && npm install --prefix ../docs'",
+    "install-all": "sh -c 'find ../backend -mindepth 2 -maxdepth 4 -type f -name \"package.json\" -not -path \"*/node_modules/*\" -exec echo \"🛠️ Installing {}\" \\; -execdir npm install \\; && echo \"🛠️ Installing ../docs/package.json\" && npm install --prefix ../docs",
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk"
@@ -23,6 +23,7 @@
     "@types/jest": "^29.5.14",
     "@types/node": "22.7.9",
     "aws-cdk": "^2.1100.1",
+    "esbuild": "^0.27.2",
     "jest": "^29.7.0",
     "regenerator-runtime": "^0.14.1",
     "ts-jest": "^29.3.0",

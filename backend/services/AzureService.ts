@@ -379,6 +379,11 @@ export class AzureService {
         Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
+      this.logger.debug('Fetching work item details for child retrieval', {
+        workItemUrl,
+        workItemId: workItem.workItemId,
+      });
+
       const response = await fetch(workItemUrl, {
         method: 'GET',
         headers,
@@ -397,6 +402,10 @@ export class AzureService {
         });
         throw new Error(`Failed to get work item details: ${response.status} ${response.statusText} - ${errorText}`);
       }
+
+      this.logger.debug('Successfully fetched work item details for child retrieval', {
+        workItemId: workItem.workItemId,
+      });
 
       const data = await response.json();
 
@@ -452,6 +461,11 @@ export class AzureService {
         ],
       });
 
+      this.logger.debug('Fetching child work items', {
+        childItemsUrl,
+        body,
+      });
+
       const childItemsResponse = await fetch(childItemsUrl, {
         method: 'POST',
         headers,
@@ -465,6 +479,10 @@ export class AzureService {
           } ${workItem.workItemId}`
         );
       }
+
+      this.logger.debug('Successfully fetched child work items', {
+        workItemId: workItem.workItemId,
+      });
 
       const childItemsData = await childItemsResponse.json();
 
@@ -539,7 +557,7 @@ export class AzureService {
               } as Feature;
               break;
 
-             case 'Product Backlog Item':
+            case 'Product Backlog Item':
               childWorkItem = {
                 ...baseWorkItem,
                 workItemType: 'Product Backlog Item',
@@ -548,7 +566,6 @@ export class AzureService {
                 qaNotes: childItem.fields['Custom.QANotes'] || '',
               } as ProductBacklogItem;
               break;
-
 
             case 'User Story':
               childWorkItem = {
