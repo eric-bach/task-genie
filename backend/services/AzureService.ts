@@ -742,7 +742,7 @@ export class AzureService {
     let id = 0;
     let i = 0;
     for (const c of childWorkItems) {
-      this.logger.debug(`Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`, { task: c });
+      // this.logger.debug(`Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`, { task: c });
 
       id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i);
 
@@ -860,6 +860,15 @@ export class AzureService {
       const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$${workItemTypeTemplate}?api-version=7.1`;
 
       const body = JSON.stringify(childWorkItemFields);
+
+      this.logger.debug(`Creating ${childWorkItemType} (${i + 1})`, {
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        childType: childWorkItemType,
+        title: childWorkItem.title,
+        url,
+        body,
+      });
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
