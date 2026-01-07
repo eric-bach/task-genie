@@ -159,6 +159,7 @@ const parseEventBody = (
     iterationPath: workItem.iterationPath,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
+    processTemplate: workItem.processTemplate,
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
     feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,

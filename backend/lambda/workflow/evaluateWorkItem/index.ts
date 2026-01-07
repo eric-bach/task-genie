@@ -213,7 +213,9 @@ const validateWorkItem = (resource: any) => {
   if (isProductBacklogItem(workItemType)) {
     // Product Backlog Item should have acceptance criteria (but make it optional to be lenient)
     if (!fields['Microsoft.VSTS.Common.AcceptanceCriteria']) {
-      logger.warn('Product Backlog Item is missing acceptance criteria', { workItemId: resource.workItemId || resource.id });
+      logger.warn('Product Backlog Item is missing acceptance criteria', {
+        workItemId: resource.workItemId || resource.id,
+      });
     }
   }
   if (isUserStory(workItemType)) {
