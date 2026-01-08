@@ -4,6 +4,7 @@ export const AREA_PATHS = [
   'eric-scrum-test',
   'eric-agile-dev',
   'eric-scrum-dev',
+  'AMA-Ent\\AI CoE\\AI Foundation',
   'AMA-Ent\\Software Development\\Orange Team',
   'AMA-Ent\\Software Development\\Blue Team',
   'Digital Experience Dev\\Rewards and Registries',

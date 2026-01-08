@@ -766,9 +766,7 @@ export class AzureService {
     let id = 0;
     let i = 0;
     for (const c of childWorkItems) {
-      this.logger.debug(`Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`, { task: c });
-
-      id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i);
+      id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i++, childWorkItems.length);
 
       // Set task Id
       c.workItemId = id;
@@ -799,7 +797,8 @@ export class AzureService {
   public async createChildWorkItem(
     workItem: WorkItem,
     childWorkItem: Feature | UserStory | ProductBacklogItem | Task,
-    i: number
+    i: number,
+    total: number
   ): Promise<number> {
     // Determine the appropriate child work item type based on parent type and process template
     const childWorkItemType = getExpectedChildWorkItemType(workItem, false) || 'Task';
@@ -849,6 +848,16 @@ export class AzureService {
         },
         {
           op: 'add',
+          path: '/fields/Custom.BusinessUnit',
+          value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.System',
+          value: workItem.system || '',
+        },
+        {
+          op: 'add',
           path: '/fields/Custom.Importance',
           value: c.importance || '',
         }
@@ -857,14 +866,36 @@ export class AzureService {
       const c = childWorkItem as ProductBacklogItem;
 
       // Add Product Backlog Item specific fields
-      childWorkItemFields.push({
-        op: 'add',
-        path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
-        value: c.acceptanceCriteria || '',
-      });
+      childWorkItemFields.push(
+        {
+          op: 'add',
+          path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
+          value: c.acceptanceCriteria || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.BusinessUnit',
+          value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.System',
+          value: workItem.system || '',
+        }
+      );
     } else if (childWorkItemType === 'Feature') {
       const c = childWorkItem as Feature;
       childWorkItemFields.push(
+        {
+          op: 'add',
+          path: '/fields/Custom.BusinessUnit',
+          value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.System',
+          value: workItem.system || '',
+        },
         {
           op: 'add',
           path: '/fields/Custom.SuccessCriteria',
@@ -884,6 +915,15 @@ export class AzureService {
       const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workitems/$${workItemTypeTemplate}?api-version=7.1`;
 
       const body = JSON.stringify(childWorkItemFields);
+
+      this.logger.debug(`Creating ${childWorkItemType} (${i}/${total})`, {
+        parentType: workItem.workItemType,
+        parentId: workItem.workItemId,
+        childType: childWorkItemType,
+        title: childWorkItem.title,
+        url,
+        body,
+      });
 
       const headers = {
         'Content-Type': 'application/json-patch+json',
@@ -905,7 +945,9 @@ export class AzureService {
           parentType: workItem.workItemType,
           parentId: workItem.workItemId,
         });
-        throw new Error(`Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}. ${errorText}`
+        );
       }
 
       const data = await response.json();
