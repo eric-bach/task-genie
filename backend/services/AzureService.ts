@@ -12,7 +12,9 @@ import {
 } from '../types/azureDevOps';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
-const secretsManagerClient = new SecretsManagerClient({ region: process.env.AWS_REGION });
+const secretsManagerClient = new SecretsManagerClient({
+  region: process.env.AWS_REGION,
+});
 
 interface AzureDevOpsCredentials {
   tenantId: string;
@@ -122,7 +124,9 @@ export class AzureService {
     this.tokenExpiresAt = now + tokenResponse.expires_in * 1000;
 
     if (!this.accessToken) {
-      this.logger.error('Failed to parse token response', { response: JSON.stringify(response) });
+      this.logger.error('Failed to parse token response', {
+        response: JSON.stringify(response),
+      });
       throw new Error('Failed to parse token response');
     }
 
@@ -145,7 +149,9 @@ export class AzureService {
       if (imageUrl.includes('visualstudio.com') || imageUrl.includes('azure.com')) {
         const url = `${imageUrl}&download=true&api-version=7.1`;
 
-        const headers = { Authorization: `Bearer ${await this.getAccessToken()}` };
+        const headers = {
+          Authorization: `Bearer ${await this.getAccessToken()}`,
+        };
 
         const response = await fetch(url, {
           headers,
@@ -206,7 +212,10 @@ export class AzureService {
    * @returns The response body or error message
    */
   public async addComment(workItem: WorkItem, comment: string): Promise<string> {
-    this.logger.info(`⚙️ Adding comment to work item ${workItem.workItemId}`, { workItem, comment });
+    this.logger.info(`⚙️ Adding comment to work item ${workItem.workItemId}`, {
+      workItem,
+      comment,
+    });
 
     try {
       const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/${workItem.teamProject}/_apis/wit/workItems/${workItem.workItemId}/comments?api-version=7.1-preview.4`;
@@ -228,7 +237,9 @@ export class AzureService {
 
       if (response.ok) {
         const data = await response.json();
-        this.logger.info(`Added comment to work item ${data.id}`, { response: JSON.stringify(response) });
+        this.logger.info(`Added comment to work item ${data.id}`, {
+          response: JSON.stringify(response),
+        });
 
         return body;
       } else {
@@ -249,7 +260,11 @@ export class AzureService {
    * @returns The response body or error message
    */
   public async addTag(teamProject: string, workItemId: number, tag: string): Promise<string> {
-    this.logger.info(`⚙️ Adding tag to work item ${workItemId}`, { teamProject, workItemId, tag });
+    this.logger.info(`⚙️ Adding tag to work item ${workItemId}`, {
+      teamProject,
+      workItemId,
+      tag,
+    });
 
     const fields = [
       {
@@ -277,7 +292,9 @@ export class AzureService {
 
       if (response.ok) {
         const data = await response.json();
-        this.logger.info(`Added tag to work item ${data.id}`, { response: JSON.stringify(response) });
+        this.logger.info(`Added tag to work item ${data.id}`, {
+          response: JSON.stringify(response),
+        });
 
         return body;
       } else {
@@ -694,7 +711,10 @@ export class AzureService {
         } ${workItem.workItemId}`,
         {
           expectedChildType,
-          actualChildren: childItems.map((item) => ({ id: item.workItemId, title: item.title })),
+          actualChildren: childItems.map((item) => ({
+            id: item.workItemId,
+            title: item.title,
+          })),
         }
       );
 
@@ -742,9 +762,7 @@ export class AzureService {
     let id = 0;
     let i = 0;
     for (const c of childWorkItems) {
-      // this.logger.debug(`Creating ${childWorkItemType} (${++i}/${childWorkItems.length})`, { task: c });
-
-      id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i);
+      id = await this.createChildWorkItem(workItem, c as Feature | UserStory | Task, i++, childWorkItems.length);
 
       // Set task Id
       c.workItemId = id;
@@ -775,7 +793,8 @@ export class AzureService {
   public async createChildWorkItem(
     workItem: WorkItem,
     childWorkItem: Feature | UserStory | ProductBacklogItem | Task,
-    i: number
+    i: number,
+    total: number
   ): Promise<number> {
     // Determine the appropriate child work item type based on parent type and process template
     const childWorkItemType = getExpectedChildWorkItemType(workItem, false) || 'Task';
@@ -825,6 +844,16 @@ export class AzureService {
         },
         {
           op: 'add',
+          path: '/fields/Custom.BusinessUnit',
+          value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.System',
+          value: workItem.system || '',
+        },
+        {
+          op: 'add',
           path: '/fields/Custom.Importance',
           value: c.importance || '',
         }
@@ -833,14 +862,36 @@ export class AzureService {
       const c = childWorkItem as ProductBacklogItem;
 
       // Add Product Backlog Item specific fields
-      childWorkItemFields.push({
-        op: 'add',
-        path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
-        value: c.acceptanceCriteria || '',
-      });
+      childWorkItemFields.push(
+        {
+          op: 'add',
+          path: '/fields/Microsoft.VSTS.Common.AcceptanceCriteria',
+          value: c.acceptanceCriteria || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.BusinessUnit',
+          value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.System',
+          value: workItem.system || '',
+        }
+      );
     } else if (childWorkItemType === 'Feature') {
       const c = childWorkItem as Feature;
       childWorkItemFields.push(
+        {
+          op: 'add',
+          path: '/fields/Custom.BusinessUnit',
+          value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.System',
+          value: workItem.system || '',
+        },
         {
           op: 'add',
           path: '/fields/Custom.SuccessCriteria',
@@ -861,7 +912,7 @@ export class AzureService {
 
       const body = JSON.stringify(childWorkItemFields);
 
-      this.logger.debug(`Creating ${childWorkItemType} (${i + 1})`, {
+      this.logger.debug(`Creating ${childWorkItemType} (${i}/${total})`, {
         parentType: workItem.workItemType,
         parentId: workItem.workItemId,
         childType: childWorkItemType,
@@ -890,7 +941,9 @@ export class AzureService {
           parentType: workItem.workItemType,
           parentId: workItem.workItemId,
         });
-        throw new Error(`Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}. ${errorText}`
+        );
       }
 
       const data = await response.json();
