@@ -562,6 +562,7 @@ export class AzureService {
           // Feature specific fields
           'Custom.BusinessDeliverable',
           // Common custom fields
+          'Custom.AMAValueArea',
           'Custom.BusinessUnit',
           'Custom.System',
           'Custom.ReleaseNotes',
@@ -628,12 +629,15 @@ export class AzureService {
           const workItemType = childItem.fields['System.WorkItemType'];
           const baseWorkItem: BaseWorkItem = {
             workItemId: childItem.id,
+            workItemType: '', // To be set later based on the work item type
+            rev: childItem.rev ?? 0,
             title: childItem.fields['System.Title'],
             description: childItem.fields['System.Description'],
             state: childItem.fields['System.State'],
             tags: childItem.fields['System.Tags'] || '',
             areaPath: childItem.fields['System.AreaPath'] || '',
             iterationPath: childItem.fields['System.IterationPath'] || '',
+            amaValueArea: childItem.fields['Custom.AMAValueArea'] || '',
             businessUnit: childItem.fields['Custom.BusinessUnit'] || '', // Required but may not be set in existing data
             system: childItem.fields['Custom.System'] || '', // Required but may not be set in existing data
             teamProject: workItem.teamProject,
@@ -844,9 +848,15 @@ export class AzureService {
         },
         {
           op: 'add',
+          path: '/fields/Custom.AMAValueArea',
+          value: workItem.amaValueArea || '',
+        },
+        {
+          op: 'add',
           path: '/fields/Custom.BusinessUnit',
           value: workItem.businessUnit || '',
         },
+
         {
           op: 'add',
           path: '/fields/Custom.System',
@@ -870,6 +880,11 @@ export class AzureService {
         },
         {
           op: 'add',
+          path: '/fields/Custom.AMAValueArea',
+          value: workItem.amaValueArea || '',
+        },
+        {
+          op: 'add',
           path: '/fields/Custom.BusinessUnit',
           value: workItem.businessUnit || '',
         },
@@ -886,6 +901,11 @@ export class AzureService {
           op: 'add',
           path: '/fields/Custom.BusinessUnit',
           value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.AMAValueArea',
+          value: workItem.amaValueArea || '',
         },
         {
           op: 'add',

@@ -157,6 +157,7 @@ const parseEventBody = (
     title: workItem.title,
     areaPath: workItem.areaPath,
     iterationPath: workItem.iterationPath,
+    amaValueArea: workItem.amaValueArea,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
     processTemplate: workItem.processTemplate,
