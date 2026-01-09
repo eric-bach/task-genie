@@ -853,6 +853,7 @@ export function UserStoryForm() {
                           <Input
                             placeholder="ADO Work Item ID"
                             id="ado-id-input"
+                            disabled={isSubmitting || isPolling}
                             ref={adoInputRef}
                             value={adoId}
                             onChange={(e) => setAdoId(e.target.value)}
