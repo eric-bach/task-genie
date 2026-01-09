@@ -433,9 +433,9 @@ export function UserStoryForm() {
       const data = await response.json();
 
       if (data) {
-        if (data.title) form.setValue('title', data.title);
-        if (data.description) form.setValue('description', data.description);
-        if (data.acceptanceCriteria) form.setValue('acceptanceCriteria', data.acceptanceCriteria);
+        form.setValue('title', data.title || '');
+        form.setValue('description', data.description || '');
+        form.setValue('acceptanceCriteria', data.acceptanceCriteria || '');
 
         setAdoSuccess(true);
         toast.success('Work item details fetched successfully');
