@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -136,6 +136,7 @@ export async function generateTasks(
             'System.TeamProject': 'test',
             'System.AreaPath': areaPath,
             'System.IterationPath': 'test', // Hardcode for test
+            'Custom.AMAValueArea': 'test',
             'Custom.BusinessUnit': businessUnit,
             'Custom.System': system,
           },
@@ -203,8 +204,7 @@ export async function pollForResults(
       const data = await response.json();
 
       console.log(
-        `Polling for results (attempt ${
-          attempt + 1
+        `Polling for results (attempt ${attempt + 1
         }/${maxAttempts}) for execution: ${executionId}`,
         data
       );
@@ -302,6 +302,10 @@ export function UserStoryForm() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [result, setResult] = useState<any>();
   const [tasks, setTasks] = useState([]);
+  const [adoError, setAdoError] = useState(false);
+  const [adoSuccess, setAdoSuccess] = useState(false);
+  const [adoId, setAdoId] = useState('');
+  const adoInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -393,6 +397,57 @@ export function UserStoryForm() {
     setPollingMessage('Checking for results...');
 
     await executePoll(currentExecutionId);
+  }
+
+  async function fetchAdoWorkItem(id: string) {
+    if (!id) {
+      setAdoError(false);
+      setAdoSuccess(false);
+      return;
+    }
+
+    try {
+      setAdoError(false);
+      setAdoSuccess(false);
+      // Call the Next.js API route instead of directly calling the backend
+      const response = await fetch(`/api/work-items/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        setAdoError(true);
+        if (response.status === 404) {
+          toast.error('Work item not found');
+        } else {
+          toast.error('Failed to fetch work item details');
+        }
+
+        // Clear value on error
+        setAdoId('');
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data) {
+        if (data.title) form.setValue('title', data.title);
+        if (data.description) form.setValue('description', data.description);
+        if (data.acceptanceCriteria) form.setValue('acceptanceCriteria', data.acceptanceCriteria);
+
+        setAdoSuccess(true);
+        toast.success('Work item details fetched successfully');
+      }
+    } catch (error) {
+      setAdoError(true);
+      console.error('Error fetching work item:', error);
+      toast.error('Error fetching work item details');
+
+      // Clear value on error
+      setAdoId('');
+    }
   }
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -622,40 +677,40 @@ export function UserStoryForm() {
 
                                 {form.watch('parameterMode') ===
                                   'temperature' && (
-                                  <FormField
-                                    control={form.control}
-                                    disabled={isSubmitting || isPolling}
-                                    name='temperature'
-                                    render={({ field }) => (
-                                      <FormItem className='space-y-2'>
-                                        <div className='flex items-center justify-between'>
-                                          <FormLabel className='text-base'>
-                                            Temperature
-                                          </FormLabel>
-                                          <span className='text-sm text-muted-foreground'>
-                                            {field.value.toFixed(1)}
-                                          </span>
-                                        </div>
-                                        <FormControl>
-                                          <Slider
-                                            min={0}
-                                            max={1}
-                                            step={0.1}
-                                            value={[field.value]}
-                                            onValueChange={(value) =>
-                                              field.onChange(value[0])
-                                            }
-                                          />
-                                        </FormControl>
-                                        <FormDescription className='text-xs'>
-                                          Controls randomness: 0 = deterministic
-                                          and focused, 1 = creative and diverse
-                                        </FormDescription>
-                                        <FormMessage />
-                                      </FormItem>
-                                    )}
-                                  />
-                                )}
+                                    <FormField
+                                      control={form.control}
+                                      disabled={isSubmitting || isPolling}
+                                      name='temperature'
+                                      render={({ field }) => (
+                                        <FormItem className='space-y-2'>
+                                          <div className='flex items-center justify-between'>
+                                            <FormLabel className='text-base'>
+                                              Temperature
+                                            </FormLabel>
+                                            <span className='text-sm text-muted-foreground'>
+                                              {field.value.toFixed(1)}
+                                            </span>
+                                          </div>
+                                          <FormControl>
+                                            <Slider
+                                              min={0}
+                                              max={1}
+                                              step={0.1}
+                                              value={[field.value]}
+                                              onValueChange={(value) =>
+                                                field.onChange(value[0])
+                                              }
+                                            />
+                                          </FormControl>
+                                          <FormDescription className='text-xs'>
+                                            Controls randomness: 0 = deterministic
+                                            and focused, 1 = creative and diverse
+                                          </FormDescription>
+                                          <FormMessage />
+                                        </FormItem>
+                                      )}
+                                    />
+                                  )}
 
                                 {form.watch('parameterMode') === 'topP' && (
                                   <FormField
@@ -789,6 +844,40 @@ export function UserStoryForm() {
                       )}
                     />
 
+                    <div className="flex items-end gap-4">
+                      <div className="flex-[2]">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            ADO Work Item ID (optional)
+                          </label>
+                          <Input
+                            placeholder="ADO Work Item ID"
+                            id="ado-id-input"
+                            ref={adoInputRef}
+                            value={adoId}
+                            onChange={(e) => setAdoId(e.target.value)}
+                            aria-invalid={adoError}
+                            className={adoError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                fetchAdoWorkItem(adoId);
+                              }
+                            }}
+                            onBlur={() => {
+                              // Only fetch if we have a value to avoid loop on clearing
+                              if (adoId) {
+                                fetchAdoWorkItem(adoId);
+                              }
+                            }}
+                          />
+                          <p className="text-[0.8rem] text-muted-foreground">
+                            Enter an ADO Work Item ID to pre-populate Title, Description, and Acceptance Criteria.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <FormField
                       control={form.control}
                       disabled={isSubmitting || isPolling}
@@ -799,6 +888,7 @@ export function UserStoryForm() {
                           <FormControl>
                             <Input
                               placeholder='As a user, I want to...'
+                              className={adoSuccess ? "border-green-500 focus-visible:ring-green-500" : ""}
                               {...field}
                             />
                           </FormControl>
@@ -817,7 +907,7 @@ export function UserStoryForm() {
                           <FormControl>
                             <Textarea
                               placeholder='Provide a detailed description of the user story...'
-                              className='min-h-[120px]'
+                              className={`min-h-[120px] ${adoSuccess ? "border-green-500 focus-visible:ring-green-500" : ""}`}
                               {...field}
                             />
                           </FormControl>
@@ -836,7 +926,7 @@ export function UserStoryForm() {
                           <FormControl>
                             <Textarea
                               placeholder='List the acceptance criteria...'
-                              className='min-h-[180px]'
+                              className={`min-h-[180px] ${adoSuccess ? "border-green-500 focus-visible:ring-green-500" : ""}`}
                               {...field}
                             />
                           </FormControl>
