@@ -546,6 +546,23 @@ export class AppStack extends Stack {
       }
     );
 
+    // Get Work Item Lambda
+    const getWorkItemFunction = new TaskGenieLambda(this, 'GetWorkItem', {
+      functionName: `${props.appName}-get-work-item-${props.envName}`,
+      entry: path.resolve(
+        __dirname,
+        '../../backend/lambda/workflow/getWorkItem/index.ts'
+      ),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+    azureDevOpsCredentialsSecret.grantRead(getWorkItemFunction);
+
     /*
      * AWS Step Functions
      */
@@ -1015,6 +1032,18 @@ export class AppStack extends Stack {
       new LambdaIntegration(deleteConfigFunction, { proxy: true }),
       {
         apiKeyRequired: false,
+      }
+    );
+
+    // Work Item Details API resource (ADO)
+    //  GET /work-items/{id}
+    const workItemsResource = api.root.addResource('work-items');
+    const workItemResource = workItemsResource.addResource('{id}');
+    workItemResource.addMethod(
+      'GET',
+      new LambdaIntegration(getWorkItemFunction, { proxy: true }),
+      {
+        apiKeyRequired: true,
       }
     );
 

@@ -413,6 +413,11 @@ export class AzureService {
         Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
+      this.logger.debug('Getting work item', {
+        workItemId,
+        url,
+      });
+
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -455,8 +460,7 @@ export class AzureService {
    */
   public async getChildWorkItems(workItem: WorkItem): Promise<WorkItem[]> {
     this.logger.info(
-      `⚙️ Fetching child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
-        workItem.workItemId
+      `⚙️ Fetching child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${workItem.workItemId
       }`,
       {
         workItemId: workItem.workItemId,
@@ -472,8 +476,7 @@ export class AzureService {
 
       if (workItem.workItemId <= 0) {
         this.logger.info(
-          `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
-            workItem.workItemId
+          `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${workItem.workItemId
           }`
         );
         return childItems;
@@ -532,8 +535,7 @@ export class AzureService {
       // If there are no child IDs, return empty array early
       if (childIds.length === 0) {
         this.logger.info(
-          `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
-            workItem.workItemId
+          `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${workItem.workItemId
           }`
         );
         return childItems;
@@ -583,8 +585,7 @@ export class AzureService {
 
       if (!childItemsResponse.ok) {
         throw new Error(
-          `Failed to get child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.teamProject} ${
-            workItem.workItemId
+          `Failed to get child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.teamProject} ${workItem.workItemId
           }`
         );
       }
@@ -710,8 +711,7 @@ export class AzureService {
       }
 
       this.logger.info(
-        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(workItem, true)} in ${
-          workItem.workItemType
+        `📋 Found ${childItems.length} child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType
         } ${workItem.workItemId}`,
         {
           expectedChildType,
@@ -725,8 +725,7 @@ export class AzureService {
       return childItems;
     } catch (error: any) {
       this.logger.error(
-        `Failed to fetch child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
-          workItem.workItemId
+        `Failed to fetch child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${workItem.workItemId
         }`,
         {
           workItemType: workItem.workItemType,
