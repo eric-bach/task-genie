@@ -752,16 +752,26 @@ export class AppStack extends Stack {
         )
         .otherwise(
           generateWorkItemsTaskWithCatch.next(
-            new Choice(this, 'Create task?')
+            new Choice(this, 'Preview Mode?')
               .when(
-                Condition.numberEquals('$.statusCode', 500),
+                Condition.booleanEquals('$.body.params.preview', true),
                 finalizeResponseTask
               )
-              .when(
-                Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-                createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch)
+              .otherwise(
+                new Choice(this, 'Create task?')
+                  .when(
+                    Condition.numberEquals('$.statusCode', 500),
+                    finalizeResponseTask
+                  )
+                  .when(
+                    Condition.numberGreaterThan(
+                      '$.body.workItem.workItemId',
+                      0
+                    ),
+                    createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch)
+                  )
+                  .otherwise(finalizeResponseTask)
               )
-              .otherwise(finalizeResponseTask)
           )
         )
     );

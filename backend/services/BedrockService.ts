@@ -139,17 +139,21 @@ export class BedrockService {
       this.logger.info(`⚙️ Starting work item generation of ${workItem.workItemType} ${workItem.workItemId}`, {
         workItemId: workItem.workItemId,
         feedbackEnabled: !!this.feedbackService,
+        isRefinement: !!params.refinementInstructions,
       });
 
-      // Step 1: Retrieve relevant knowledge base context
+      // Step 1: Check if this is a refinement request (skip knowledge/feedback retrieval to stay focused on user intent, unless we want to keep context)
+      // Actually good to keep context, but let's prioritize the user instructions.
+      // We will still fetch knowledge for context but maybe not use it as heavily.
+      
       const query = this.buildWorkItemBreakdownKnowledgeQuery(workItem);
       const filters = this.buildWorkItemBreakdownFilters(workItem);
       const knowledgeContext = await this.retrieveKnowledgeContext(query, filters);
 
-      // Step 2: Build feedback context (if any feedback examples are available)
+      // Step 2: Build feedback context (only if not doing slight refinement - but let's keep it for consistency)
       const feedbackContext = await this.buildFeedbackContext(workItem);
 
-      // Step 3: Generate work items using the model with enhanced context and feedback
+      // Step 3: Generate or Refine work items
       const workItems = await this.invokeModelForWorkItemGeneration(
         workItem,
         existingChildWorkItems,
@@ -456,12 +460,27 @@ export class BedrockService {
     feedbackContext?: string
   ): Promise<WorkItem[]> {
     const systemPrompt = await this.buildWorkItemGenerationSystemPrompt(workItem, params);
-    const userPrompt = await this.buildWorkItemGenerationUserPrompt(
-      workItem,
-      existingChildWorkItems,
-      knowledgeContext,
-      feedbackContext
-    );
+    
+    let userPrompt = '';
+    
+    // Check if this is a refinement request
+    if (params.refinementInstructions && params.generatedWorkItems) {
+         userPrompt = await this.buildWorkItemRefinementUserPrompt(
+            workItem,
+            params.generatedWorkItems,
+            params.refinementInstructions,
+            existingChildWorkItems,
+            knowledgeContext
+         );
+    } else {
+         // Standard generation request
+         userPrompt = await this.buildWorkItemGenerationUserPrompt(
+          workItem,
+          existingChildWorkItems,
+          knowledgeContext,
+          feedbackContext
+        );
+    }
 
     const content = await this.buildModelContent(workItem, userPrompt);
 
@@ -935,6 +954,8 @@ Visual aids or references that provide additional context for evaluation.
       }
     }
 
+    // ... code above ...
+    
     return `**Context**
 - Work item:
 Use this information to understand the scope and expectation to generate relevant tasks.
@@ -961,6 +982,58 @@ Visual aids or references that provide additional context for task generation.
 - Additional contextual knowledge (if any):
 Extra domain knowledge, system information, or reference material to guide more context-aware and accurate task generation.
   ${knowledgeSection || 'None'}`;
+  }
+
+  /**
+   * Constructs the user prompt for work item refinement based on user instructions
+   */
+  private async buildWorkItemRefinementUserPrompt(
+    workItem: WorkItem,
+    draftWorkItems: WorkItem[],
+    instructions: string,
+    existingChildWorkItems: WorkItem[],
+    knowledgeContext: BedrockKnowledgeDocument[]
+  ): Promise<string> {
+    
+    const childWorkItemType = `${getExpectedChildWorkItemType(workItem, true) || 'child work items'}`;
+    
+    // Format the current draft list
+    const draftList = draftWorkItems.map((item, i) => {
+        let text = `${i + 1}. ${item.title}`;
+        if (item.description) text += `\n   Description: ${item.description.replace(/<[^>]*>/g, '').substring(0, 150)}...`; // Brief description
+        return text;
+    }).join('\n\n');
+
+    // Build context similar to generation (brief version)
+    const knowledgeSection = knowledgeContext.length > 0
+        ? `\n\nReference Context:\n${knowledgeContext.map((doc) => `- ${doc.content.substring(0, 300)}...`).join('\n')}`
+        : '';
+        
+     let criteriaSection = '';
+    if ((isProductBacklogItem(workItem) || isUserStory(workItem)) && workItem.acceptanceCriteria) {
+      criteriaSection = `\nRequired Criteria: ${workItem.acceptanceCriteria}`;
+    }
+
+    return `**Refinement Request**
+
+You have previously generated a list of ${childWorkItemType} for the ${workItem.workItemType}: "${workItem.title}".
+Criteria: ${criteriaSection}
+
+**Current Draft List:**
+${draftList}
+
+**User Instructions:**
+"${instructions}"
+
+**Task:**
+Update the list of ${childWorkItemType} based on the User Instructions. 
+- If the user asks to add something, add it as a new item.
+- If the user asks to remove something, remove it.
+- If the user asks to change details, update the relevant item.
+- Keep the rest of the list stable unless the instructions imply broader changes.
+- Ensure all items remain clear, actionable, and appropriately sized.
+
+Return the COMPLETE updated list of work items in the specified JSON format.`;
   }
 
   /**

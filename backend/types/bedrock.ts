@@ -5,6 +5,9 @@ export interface BedrockInferenceParams {
   maxTokens?: number;
   temperature?: number;
   topP?: number;
+  preview?: boolean;
+  generatedWorkItems?: WorkItem[];
+  refinementInstructions?: string;
 }
 
 export interface BedrockKnowledgeDocument {

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Task Genie</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: 'Segoe UI VSS (Regular)', '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 13px;
+            color: #333;
+            background-color: transparent;
+        }
+
+        body.dark-mode {
+            color: #f1f1f1;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-width: 800px;
+        }
+
+        /* Buttons */
+        button {
+            padding: 6px 16px;
+            border-radius: 2px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #0078d4;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #106ebe;
+        }
+
+        .btn-primary:disabled {
+            background-color: #c8c8c8;
+            cursor: not-allowed;
+            color: #666;
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border-color: #8a8886;
+        }
+        
+        .dark-mode .btn-secondary {
+            background-color: transparent;
+            color: #f1f1f1;
+            border-color: #f1f1f1;
+        }
+
+        .btn-secondary:hover {
+            background-color: #f3f2f1;
+        }
+        
+        .dark-mode .btn-secondary:hover {
+            background-color: #333;
+        }
+
+        /* Results Area */
+        .results-area {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .work-item-card {
+            border: 1px solid #e1dfdd;
+            border-left: 4px solid #0078d4;
+            border-radius: 2px;
+            padding: 12px;
+            background-color: #fff;
+        }
+        
+        .dark-mode .work-item-card {
+            background-color: #252526;
+            border-color: #3e3e42;
+            border-left-color: #0078d4;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            gap: 8px;
+        }
+
+        .work-item-type {
+            font-weight: 600;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background-color: #eff6fc;
+            color: #0078d4;
+            text-transform: uppercase;
+        }
+        
+        .dark-mode .work-item-type {
+            background-color: #3a3d41;
+            color: #61dafb;
+        }
+
+        .work-item-title {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .work-item-description {
+            color: #666;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .dark-mode .work-item-description {
+            color: #ccc;
+        }
+
+        /* Status & Feedback */
+        .status-message {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        
+        .status-info { background-color: #eff6fc; color: #005a9e; }
+        .status-success { background-color: #dff6dd; color: #107c10; }
+        .status-error { background-color: #fde7e9; color: #a80000; }
+        
+        .dark-mode .status-info { background-color: #2b3c4e; color: #92c5f9; }
+        .dark-mode .status-success { background-color: #0f3d0f; color: #92f992; }
+        .dark-mode .status-error { background-color: #4e2b2c; color: #f99292; }
+
+        .spinner {
+            border: 2px solid #c7e0f4;
+            border-top: 2px solid #0078d4;
+            border-radius: 50%;
+            width: 14px;
+            height: 14px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden { display: none !important; }
+
+        .empty-state {
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            border: 1px dashed #ccc;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Status Area -->
+        <div id="statusContainer" class="hidden"></div>
+
+        <!-- Waiting for Generation / Empty State -->
+        <div id="emptyState" class="empty-state">
+            <p>No work items found.</p>
+            <p>Click "Generate" with "Preview" checked on the Details tab to generate work items.</p>
+        </div>
+
+        <!-- Results / Preview Area -->
+        <div id="resultsArea" class="results-area hidden">
+            <h3 style="margin: 0;">Generated Work Items</h3>
+            <div id="itemsContainer">
+                <!-- Items injected here -->
+            </div>
+            <div style="margin-top: 12px;">
+                <button id="createItemsBtn" class="btn-primary">Create Work Items</button>
+                <button id="discardBtn" class="btn-secondary">Discard</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.requirejs.config({
+            enforceDefine: true,
+            paths: {
+                SDK: './lib/SDK.min',
+            },
+        });
+
+        window.requirejs(['SDK'], function (SDK) {
+            
+            // State
+            let generatedItems = [];
+            let sourceWorkItem = null;
+            let currentConfig = null; // { apiUrl, apiKey }
+            let pollInterval = null;
+
+            SDK.init().then(() => {
+                SDK.ready().then(() => {
+                    initialize();
+                });
+            });
+
+            async function initialize() {
+                // Determine theme (simple check)
+                const theme = SDK.getConfiguration().colorTheme; 
+                if (theme && theme.kind === 2) { // Dark
+                    document.body.classList.add('dark-mode');
+                }
+
+                document.getElementById('createItemsBtn').addEventListener('click', onCreateItems);
+                document.getElementById('discardBtn').addEventListener('click', onDiscard);
+
+                // Start polling for data sharing
+                startPollingForSharedData();
+            }
+
+            async function startPollingForSharedData() {
+                try {
+                    const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+                    const workItemId = await workItemFormService.getId();
+                    
+                    const resultKey = `taskGenie_results_${workItemId}`;
+                    
+                    console.log('Polling localStorage for key:', resultKey);
+                    console.log('Origin:', window.location.origin);
+
+                    // Poll check function
+                    const checkData = () => {
+                        try {
+                            const rawData = localStorage.getItem(resultKey);
+                            
+                            if (rawData) {
+                                const data = JSON.parse(rawData);
+                                
+                                if (data && data.workItems && data.workItems.length > 0) {
+                                    // New data found!
+                                    // Only update if changed? For now just render.
+                                    generatedItems = data.workItems;
+                                    sourceWorkItem = data.workItem;
+                                    currentConfig = data.config;
+                                    
+                                    renderResults(generatedItems);
+                                }
+                            } else {
+                                // No data (or cleared)
+                            }
+                        } catch (e) {
+                            console.error('Error polling data', e);
+                        }
+                    };
+
+                    // Initial check
+                    checkData();
+
+                    // Set interval
+                    pollInterval = setInterval(checkData, 2000);
+
+                    // Add listener for storage events (faster if frames are in same window context?)
+                    window.addEventListener('storage', (event) => {
+                        if (event.key === resultKey) {
+                            checkData();
+                        }
+                    });
+
+                } catch (e) {
+                    console.error('Error initializing polling', e);
+                    showStatus('Error initializing tab: ' + e.message, 'error');
+                }
+            }
+
+            function renderResults(items) {
+                const container = document.getElementById('itemsContainer');
+                
+                // If already rendered same items, skip?
+                // Simple innerHTML replacement is fine for now.
+                container.innerHTML = '';
+                
+                if(!items || items.length === 0) {
+                    showEmptyState();
+                    return;
+                }
+
+                items.forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = 'work-item-card';
+                    
+                    const header = document.createElement('div');
+                    header.className = 'card-header';
+                    header.innerHTML = `
+                         <span class="work-item-type">${item.workItemType}</span>
+                         <span class="work-item-title">${item.title}</span>
+                    `;
+                    
+                    const body = document.createElement('div');
+                    body.className = 'work-item-description';
+                    body.innerHTML = item.description;
+                    // Default visible
+                    
+                    card.appendChild(header);
+                    card.appendChild(body);
+                    container.appendChild(card);
+                });
+
+                document.getElementById('emptyState').classList.add('hidden');
+                document.getElementById('resultsArea').classList.remove('hidden');
+                
+                // Hide any previous status
+                // showStatus('', 'hidden'); 
+            }
+
+            function showEmptyState() {
+                document.getElementById('resultsArea').classList.add('hidden');
+                document.getElementById('emptyState').classList.remove('hidden');
+            }
+
+            async function onCreateItems() {
+                const btn = document.getElementById('createItemsBtn');
+                btn.disabled = true;
+                showStatus('Creating items...', 'info', true);
+
+                try {
+                     if (!currentConfig || !currentConfig.apiUrl || !currentConfig.apiKey) {
+                         throw new Error('Configuration missing. Please try generating again.');
+                     }
+
+                     const requestBody = {
+                         workItem: sourceWorkItem,
+                         params: {
+                             generatedWorkItems: generatedItems
+                         }
+                     };
+                     
+                     const response = await fetch(currentConfig.apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-api-key': currentConfig.apiKey
+                        },
+                        body: JSON.stringify(requestBody)
+                    });
+                    
+                    if(!response.ok) throw new Error('Failed to submit creation');
+                    
+                    const data = await response.json();
+                    const execId = data.executionArn.split(':').slice(-2).join(':'); // Fix extraction here too!
+
+                    await pollForCompletion(execId, currentConfig);
+                    
+                    showStatus('Items created successfully!', 'success');
+                    
+                    // Clear data
+                    await clearSharedData();
+                    
+                    // Wait a bit then clear UI
+                    setTimeout(() => {
+                        generatedItems = [];
+                        renderResults([]);
+                        showStatus('', 'hidden');
+                        btn.disabled = false;
+                    }, 2000);
+                    
+                } catch(e) {
+                    console.error(e);
+                    showStatus('Error creating items: ' + e.message, 'error');
+                    btn.disabled = false;
+                }
+            }
+            
+            async function pollForCompletion(executionId, config) {
+                return new Promise((resolve, reject) => {
+                     const pollUrl = `${config.apiUrl}/${executionId}`;
+                     const interval = setInterval(async () => {
+                         try {
+                            const res = await fetch(pollUrl, { headers: { 'x-api-key': config.apiKey }});
+                            const data = await res.json();
+                            if(data.status === 'completed') {
+                                clearInterval(interval);
+                                resolve();
+                            } else if (data.status === 'failed') {
+                                clearInterval(interval);
+                                reject(new Error('Background process failed'));
+                            }
+                         } catch(e) { }
+                     }, 2000);
+                });
+            }
+
+            async function onDiscard() {
+                await clearSharedData();
+                generatedItems = [];
+                renderResults([]);
+                showStatus('Discarded.', 'info');
+                setTimeout(() => showStatus('', 'hidden'), 1500);
+            }
+
+            async function clearSharedData() {
+                try {
+                    const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+                    const workItemId = await workItemFormService.getId();
+                    
+                    const resultKey = `taskGenie_results_${workItemId}`;
+                    localStorage.removeItem(resultKey);
+                    
+                } catch (e) {
+                    console.error('Error clearing shared data', e);
+                }
+            }
+
+            function showStatus(msg, type, spinner = false) {
+                const el = document.getElementById('statusContainer');
+                if(type === 'hidden') {
+                    el.classList.add('hidden');
+                    return;
+                }
+                
+                let content = '';
+                if(spinner) content += '<div class="spinner"></div>';
+                content += msg;
+                
+                el.innerHTML = content;
+                el.className = 'status-message status-' + type;
+                el.classList.remove('hidden');
+            }
+
+        });
+    </script>
+</body>
+</html>

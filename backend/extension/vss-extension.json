@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "task-genie",
   "publisher": "AMA",
-  "version": "1.1.9",
+  "version": "1.1.50",
   "name": "Task Genie",
   "description": "Agile extension to generate child work items from Epics, Features, User Stories, and Product Backlog Items using AI.",
   "public": false,
@@ -26,6 +26,15 @@
     }
   },
   "contributions": [
+    {
+      "id": "task-genie-tab",
+      "type": "ms.vss-work-web.work-item-form-page",
+      "targets": ["ms.vss-work-web.work-item-form"],
+      "properties": {
+        "name": "Task Genie",
+        "uri": "task-genie-tab.html"
+      }
+    },
     {
       "id": "user-story-button",
       "type": "ms.vss-work-web.work-item-form-control",
@@ -55,6 +64,10 @@
     }
   ],
   "files": [
+    {
+      "path": "task-genie-tab.html",
+      "addressable": true
+    },
     {
       "path": "user-story-button.html",
       "addressable": true
