@@ -19,9 +19,26 @@
 
         .container {
             display: flex;
+            flex-direction: row;
+            gap: 20px;
+            width: 100%;
+            max-width: none;
+        }
+
+        .left-column {
+            flex: 0 0 auto;
+            width: 800px; /* Or 50% if preferred, but user said "existing container width ... half of form" */
+            max-width: 50%;
+            display: flex;
             flex-direction: column;
             gap: 16px;
-            max-width: 800px;
+        }
+
+        .right-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
 
         /* Buttons */
@@ -168,31 +185,78 @@
             border: 1px dashed #ccc;
             border-radius: 4px;
         }
+        .results-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .results-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .config-info {
+            margin-top: 12px;
+            padding: 8px;
+            border-top: 1px solid #eee;
+            font-size: 11px;
+            color: #777;
+        }
+        
+        .dark-mode .config-info {
+            border-top-color: #3e3e42;
+            color: #aaa;
+        }
+
+        .config-item {
+            margin-bottom: 2px;
+            word-break: break-all;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Status Area -->
-        <div id="statusContainer" class="hidden"></div>
+        <!-- Left Column: Content -->
+        <div class="left-column">
+            <!-- Waiting for Generation / Empty State -->
+            <div id="emptyState" class="empty-state">
+                <p>No work items found.</p>
+                <p>Click "Generate" with "Preview" checked on the Details tab to generate work items.</p>
+            </div>
 
-        <!-- Waiting for Generation / Empty State -->
-        <div id="emptyState" class="empty-state">
-            <p>No work items found.</p>
-            <p>Click "Generate" with "Preview" checked on the Details tab to generate work items.</p>
+            <!-- Results / Preview Area -->
+            <div id="resultsArea" class="results-area hidden">
+                <div class="results-header">
+                    <h3 style="margin: 0;">Generated Work Items</h3>
+                </div>
+                <div id="itemsContainer">
+                    <!-- Items injected here -->
+                </div>
+            </div>
         </div>
 
-        <!-- Results / Preview Area -->
-        <div id="resultsArea" class="results-area hidden">
-            <h3 style="margin: 0;">Generated Work Items</h3>
-            <div id="itemsContainer">
-                <!-- Items injected here -->
-            </div>
-            <div style="margin-top: 12px;">
+        <!-- Right Column: Status -->
+        <div class="right-column">
+            <div class="results-actions">
                 <button id="createItemsBtn" class="btn-primary">Create Work Items</button>
                 <button id="discardBtn" class="btn-secondary">Discard</button>
             </div>
+             <!-- Status Area -->
+            <div id="statusContainer" class="hidden"></div>
+            
+            <!-- Config Info -->
+            <div id="configInfo" class="config-info hidden"></div>
         </div>
     </div>
+
+
 
     <script>
         window.requirejs.config({
@@ -208,7 +272,6 @@
             let generatedItems = [];
             let sourceWorkItem = null;
             let currentConfig = null; // { apiUrl, apiKey }
-            let pollInterval = null;
 
             SDK.init().then(() => {
                 SDK.ready().then(() => {
@@ -256,6 +319,7 @@
                                     currentConfig = data.config;
                                     
                                     renderResults(generatedItems);
+                                    showConfigInfo(currentConfig);
                                 }
                             } else {
                                 // No data (or cleared)
@@ -335,16 +399,19 @@
                 showStatus('Creating items...', 'info', true);
 
                 try {
-                     if (!currentConfig || !currentConfig.apiUrl || !currentConfig.apiKey) {
-                         throw new Error('Configuration missing. Please try generating again.');
-                     }
+                    if (!currentConfig || !currentConfig.apiUrl || !currentConfig.apiKey) {
+                        throw new Error('Configuration missing. Please try generating again.');
+                    }
 
-                     const requestBody = {
-                         workItem: sourceWorkItem,
-                         params: {
-                             generatedWorkItems: generatedItems
-                         }
-                     };
+                    const requestBody = {
+                        resource: sourceWorkItem.resource,
+                        generatedWorkItems: generatedItems,
+                        params: {
+                            preview: false
+                        }
+                    };
+
+                     console.log('Request body:', requestBody);
                      
                      const response = await fetch(currentConfig.apiUrl, {
                         method: 'POST',
@@ -357,12 +424,7 @@
                     
                     if(!response.ok) throw new Error('Failed to submit creation');
                     
-                    const data = await response.json();
-                    const execId = data.executionArn.split(':').slice(-2).join(':'); // Fix extraction here too!
-
-                    await pollForCompletion(execId, currentConfig);
-                    
-                    showStatus('Items created successfully!', 'success');
+                    showStatus('Creation process started successfully!', 'success');
                     
                     // Clear data
                     await clearSharedData();
@@ -373,6 +435,7 @@
                         renderResults([]);
                         showStatus('', 'hidden');
                         btn.disabled = false;
+                        showConfigInfo(null);
                     }, 2000);
                     
                 } catch(e) {
@@ -382,29 +445,13 @@
                 }
             }
             
-            async function pollForCompletion(executionId, config) {
-                return new Promise((resolve, reject) => {
-                     const pollUrl = `${config.apiUrl}/${executionId}`;
-                     const interval = setInterval(async () => {
-                         try {
-                            const res = await fetch(pollUrl, { headers: { 'x-api-key': config.apiKey }});
-                            const data = await res.json();
-                            if(data.status === 'completed') {
-                                clearInterval(interval);
-                                resolve();
-                            } else if (data.status === 'failed') {
-                                clearInterval(interval);
-                                reject(new Error('Background process failed'));
-                            }
-                         } catch(e) { }
-                     }, 2000);
-                });
-            }
+
 
             async function onDiscard() {
                 await clearSharedData();
                 generatedItems = [];
                 renderResults([]);
+                showConfigInfo(null);
                 showStatus('Discarded.', 'info');
                 setTimeout(() => showStatus('', 'hidden'), 1500);
             }
@@ -435,6 +482,27 @@
                 
                 el.innerHTML = content;
                 el.className = 'status-message status-' + type;
+                el.classList.remove('hidden');
+            }
+
+            function showConfigInfo(config) {
+                const el = document.getElementById('configInfo');
+                if (!config || !config.apiUrl) {
+                    el.classList.add('hidden');
+                    return;
+                }
+                
+                let maskedKey = 'N/A';
+                if (config.apiKey && config.apiKey.length > 8) {
+                     maskedKey = config.apiKey.substring(0, 4) + '...' + config.apiKey.substring(config.apiKey.length - 4);
+                } else if (config.apiKey) {
+                    maskedKey = '***';
+                }
+                
+                el.innerHTML = `
+                    <div class="config-item"><strong>API URL:</strong> ${config.apiUrl}</div>
+                    <div class="config-item"><strong>API Key:</strong> ${maskedKey}</div>
+                `;
                 el.classList.remove('hidden');
             }
 

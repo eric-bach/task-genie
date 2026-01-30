@@ -188,14 +188,14 @@
                 // TEMP (PILOT ONLY) - End
 
                 button.addEventListener('click', async function () {
+                  const isPreview = previewCheckbox.checked;
+
                   button.disabled = true;
                   previewCheckbox.disabled = true;
-                  statusMessage.textContent = 'Submitting request...';
+                  statusMessage.textContent = isPreview ? 'Submitting request...do not leave this tab' : 'Submitting request...';
                   statusMessage.className = 'status-message';
 
                   try {
-                    const isPreview = previewCheckbox.checked;
-
                     // Get the current work item
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
 
@@ -350,7 +350,7 @@
                       const resultKey = `taskGenie_results_${workItemId}`;
                       const payload = {
                           workItems: workItems,
-                          workItem: result.result.workItem, // Source work item details
+                          workItem: requestBody,
                           config: { apiUrl, apiKey },
                           timestamp: Date.now()
                       };

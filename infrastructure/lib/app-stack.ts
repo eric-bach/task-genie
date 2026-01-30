@@ -728,6 +728,10 @@ export class AppStack extends Stack {
       }
     );
 
+    // Chain states
+    addCommentTaskWithCatch.next(finalizeResponseTask);
+    createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch);
+
     // State Machine Definition with error handling
     const definition = evaluateWorkItemTaskWithCatch.next(
       new Choice(this, 'Work item is defined?')
@@ -746,9 +750,13 @@ export class AppStack extends Stack {
           new Choice(this, 'Add comment?')
             .when(
               Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-              addCommentTaskWithCatch.next(finalizeResponseTask)
+              addCommentTaskWithCatch
             )
             .otherwise(finalizeResponseTask)
+        )
+        .when(
+          Condition.isPresent('$.body.workItems'),
+          createWorkItemsTaskWithCatch
         )
         .otherwise(
           generateWorkItemsTaskWithCatch.next(
@@ -768,7 +776,7 @@ export class AppStack extends Stack {
                       '$.body.workItem.workItemId',
                       0
                     ),
-                    createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch)
+                    createWorkItemsTaskWithCatch
                   )
                   .otherwise(finalizeResponseTask)
               )
