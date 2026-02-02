@@ -10,6 +10,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "azure-devops-extension-sdk": "^4.1.0"
+    "azure-devops-extension-sdk": "^4.2.0"
   }
 }

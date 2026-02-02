@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
@@ -76,8 +76,8 @@
       <div class="controls">
         <button id="taskGenieButton" class="task-genie-button">Generate</button>
         <label class="checkbox-container">
-            <input type="checkbox" id="previewCheckbox">
-            Preview
+          <input type="checkbox" id="previewCheckbox" />
+          Preview
         </label>
       </div>
       <div id="statusMessage" class="status-message"></div>
@@ -114,7 +114,7 @@
                     console.log('Work item loaded:', workItemLoadedArgs);
                     setupButton();
                   },
-                  
+
                   // Called when work item field values change
                   onFieldChanged: function (fieldChangedArgs) {
                     // console.log('Field changed:', fieldChangedArgs);
@@ -137,7 +137,6 @@
                 };
               });
 
-              // function setupButton() {
               async function setupButton() {
                 const button = document.getElementById('taskGenieButton');
                 const statusMessage = document.getElementById('statusMessage');
@@ -146,7 +145,10 @@
                 // Get configuration values from extension inputs
                 const config = SDK.getConfiguration();
                 const apiUrl = config.witInputs['ApiUrl'] || '';
-                const apiKey = config.witInputs['ApiKey'] || '';
+
+                // Get App Token for authentication
+                const token = await SDK.getAppToken();
+                console.log('Token: ' + token);
 
                 // Get work item type to set appropriate button text
                 try {
@@ -154,7 +156,7 @@
                   const fields = await workItemFormService.getFieldValues(['System.WorkItemType', 'System.AreaPath']);
                   const workItemType = fields['System.WorkItemType'];
                   const areaPath = fields['System.AreaPath'];
-                  
+
                   button.textContent = 'Generate';
 
                   // TEMP (PILOT ONLY) - Check if current work item is in the allowed area path
@@ -188,14 +190,14 @@
                 // TEMP (PILOT ONLY) - End
 
                 button.addEventListener('click', async function () {
-                  const isPreview = previewCheckbox.checked;
-
                   button.disabled = true;
                   previewCheckbox.disabled = true;
-                  statusMessage.textContent = isPreview ? 'Submitting request...do not leave this tab' : 'Submitting request...';
+                  statusMessage.textContent = 'Submitting request...';
                   statusMessage.className = 'status-message';
 
                   try {
+                    const isPreview = previewCheckbox.checked;
+
                     // Get the current work item
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
 
@@ -230,9 +232,13 @@
                       'Custom.ReleaseNotes',
                       'Custom.QANotes',
                     ]);
-                    
+
                     // Call your REST API here
-                    await callTaskGenieAPI(statusMessage, workItemId, fields, revision, { preview: isPreview });
+                    await callTaskGenieAPI(statusMessage, workItemId, fields, revision, {
+                      preview: isPreview,
+                      token,
+                      apiUrl,
+                    });
 
                     button.disabled = true;
                     previewCheckbox.disabled = true;
@@ -251,21 +257,16 @@
                   }
                 });
               }
-              
+
               async function callTaskGenieAPI(statusMessage, workItemId, fields, revision, params) {
-                // Get configuration values from extension inputs
-                const config = SDK.getConfiguration();
+                const { apiUrl, token } = params;
 
-               // Get API URL and API Key from configuration
-                const apiUrl = config.witInputs['ApiUrl'] || '';
-                const apiKey = config.witInputs['ApiKey'] || '';
-
-                console.log('Calling Task Genie API:', {
+                console.log('Calling Task Genie API', {
                   workItemId: workItemId,
                   revision: revision,
-                  fields,
                   apiUrl,
-                  apiKey: apiKey.substring(0, 4) + '***' + apiKey.substring(apiKey.length - 4),
+                  // Verified token exists
+                  hasToken: !!token,
                   params,
                 });
 
@@ -312,7 +313,7 @@
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
+                    Authorization: `Bearer ${token}`,
                   },
                   body: JSON.stringify(requestBody),
                 });
@@ -324,89 +325,46 @@
                 const result = await response.json();
                 console.log('Task Genie response:', result);
 
-                // Extract Execution ID
-                // Response format: { message: "...", executionArn: "...", startDate: "..." }
                 const executionArn = result.executionArn;
                 if (!executionArn) {
                   throw new Error('No execution ARN received from API');
                 }
                 const executionId = executionArn.split(':').slice(-2).join(':');
 
-               if (params.preview) {
-                  console.log("Polling for results for executionId: " + executionId);
-
-                  // Poll for results
-                  const result = await pollForCompletion(apiUrl, apiKey, executionId);
-                  console.log('Task Genie result:', result);
-
-                  const workItems = result.result.workItems;
-                  console.log('Task Genie workItems:', workItems);
-
-                  // Save results to localStorage for the Tab to pick up
+                if (params.preview) {
                   try {
-                      console.log('Attempting to save to localStorage...');
-                      console.log('Origin:', window.location.origin);
-                      
-                      const resultKey = `taskGenie_results_${workItemId}`;
-                      const payload = {
-                          workItems: workItems,
-                          workItem: requestBody,
-                          config: { apiUrl, apiKey },
-                          timestamp: Date.now()
-                      };
-                      
-                      // Use localStorage (shared across frames on same origin)
-                      localStorage.setItem(resultKey, JSON.stringify(payload));
-                      console.log('Saved generated items to localStorage:', resultKey);
-                      
-                      statusMessage.textContent = 'Tasks generated! Please check the Task Genie tab.';
-                      statusMessage.className = 'status-message success-message';
+                    console.log('Saving execution details: ' + executionId);
+
+                    const executionKey = `taskGenie_execution_${workItemId}`;
+                    const payload = {
+                      executionId: executionId,
+                      executionArn: executionArn,
+                      sourceWorkItem: requestBody,
+                      config: { apiUrl },
+                      timestamp: Date.now(),
+                    };
+
+                    // Use localStorage (shared across frames on same origin)
+                    localStorage.setItem(executionKey, JSON.stringify(payload));
+                    console.log('Saved execution details:', executionKey);
+
+                    statusMessage.textContent = 'Processing...see the Task Genie tab for results.';
+                    statusMessage.className = 'status-message success-message';
+
+                    // Re-enable button quickly since we are not waiting
+                    setTimeout(() => {
+                      // Keep success message for a bit
+                    }, 2000);
                   } catch (err) {
-                      console.error('Failed to save simple storage', err);
-                      // Log the stack for more details
-                      if (err.stack) console.error(err.stack);
-                        statusMessage.textContent = 'Tasks generated, but failed to send to tab. Check console.';
-                        statusMessage.className = 'status-message error-message';
+                    console.error('Failed to save execution details', err);
+                    statusMessage.textContent = 'Request submitted, but failed to notify tab.';
+                    statusMessage.className = 'status-message error-message';
                   }
-
                 } else {
-                    // Let it asynchronously complete
-                    statusMessage.textContent = 'Task Genie is processing...';
-                    setTimeout(() => statusMessage.textContent = '', 5000);
+                  // Let it asynchronously complete
+                  statusMessage.textContent = 'Task Genie is processing...';
+                  setTimeout(() => (statusMessage.textContent = ''), 5000);
                 }
-              }
-
-              async function pollForCompletion(apiUrl, apiKey, executionId) {
-                console.log(`Polling ${apiUrl}/${executionId}`);
-
-                const pollUrl = `${apiUrl}/${executionId}`;
-                const maxAttempts = 60; // 300 seconds timeout
-                const delay = 5000;
-
-                for (let i = 0; i < maxAttempts; i++) {
-                  await new Promise(resolve => setTimeout(resolve, delay));
-
-                  try {
-                    console.log(`Polling ${pollUrl}`);
-
-                    const resp = await fetch(pollUrl, { headers: { 'x-api-key': apiKey } });
-                    console.log(`Response: ${resp.status}`);
-                          
-                    if (resp.status === 200) {
-                      const data = await resp.json();
-                      if (data.status === 'completed') {
-                        return data;
-                      } else if (data.status === 'failed') {
-                        throw new Error('Task Genie execution failed');
-                      }
-                      // If 'running' or other status, loop continues
-                    }
-                  } catch (e) {
-                      console.error("Polling error:", e);
-                      // Continue polling on error
-                  }
-                }
-                throw new Error('Polling timed out');
               }
             })
             .catch((error) => {

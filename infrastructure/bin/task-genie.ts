@@ -20,6 +20,7 @@ export interface BaseStackProps extends StackProps {
 }
 export interface DataStackProps extends BaseStackProps {}
 export interface AppStackProps extends BaseStackProps {
+  extensionId?: string;
   params: {
     configTableArn: string;
     resultsTableArn: string;
@@ -79,8 +80,7 @@ const appProps = new AppStack(app, `${APP_NAME}-app-${ENV_NAME}`, {
     resultsTableArn: dataProps.resultsTableArn,
     feedbackTableArn: dataProps.feedbackTableArn,
     dataSourceBucketArn: dataProps.dataSourceBucketArn,
-    azureDevOpsCredentialsSecretName:
-      dataProps.azureDevOpsCredentialsSecretName,
+    azureDevOpsCredentialsSecretName: dataProps.azureDevOpsCredentialsSecretName,
   },
 });
 
