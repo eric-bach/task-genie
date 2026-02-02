@@ -95,6 +95,23 @@ const lambdaHandler = async (event: any, context: Context) => {
       };
     }
 
+    // Check if generated work items are provided (Commit Mode)
+    if (event.generatedWorkItems && event.generatedWorkItems.length > 0) {
+        logger.info(`⏩ Generated work items provided for ${workItem.workItemId}. Skipping evaluation and passing through.`);
+        return {
+            statusCode: 200,
+            body: {
+                params,
+                workItem,
+                documents: [],
+                workItems: event.generatedWorkItems,
+                workItemStatus: {
+                    pass: true
+                }
+            }
+        };
+    }
+
     let statusCode = 200;
 
     // Evaluate work item

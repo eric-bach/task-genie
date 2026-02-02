@@ -8,40 +8,14 @@ import { Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info } from 'lucide-react';
 import { PromptSuffixInfo } from '@/components/ui/prompt-suffix-info';
@@ -81,10 +55,7 @@ const formSchema = z.object({
   topP: z.number().min(0.1).max(1),
 });
 
-export async function generateTasks(
-  values: z.infer<typeof formSchema>,
-  userId: string
-) {
+export async function generateTasks(values: z.infer<typeof formSchema>, userId: string) {
   const baseUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}`;
   const backendUrl = `${baseUrl}/executions`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
@@ -149,6 +120,7 @@ export async function generateTasks(
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': apiKey,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
     });
@@ -161,12 +133,7 @@ export async function generateTasks(
     // The executionId can contain colons, so we need to extract everything after the 7th colon
     const arnParts = data.executionArn.split(':');
     const executionId = arnParts.slice(7).join(':') || '';
-    console.log(
-      'Extracted execution id:',
-      executionId,
-      'from ARN:',
-      data.executionArn
-    );
+    console.log('Extracted execution id:', executionId, 'from ARN:', data.executionArn);
 
     return {
       statusCode: response.status,
@@ -182,11 +149,7 @@ export async function generateTasks(
   }
 }
 
-export async function pollForResults(
-  executionId: string,
-  maxAttempts: number = 36,
-  intervalMs: number = 5000
-) {
+export async function pollForResults(executionId: string, maxAttempts: number = 36, intervalMs: number = 5000) {
   const encodedExecutionId = encodeURIComponent(executionId);
   const apiUrl = `${process.env.NEXT_PUBLIC_API_GATEWAY_URL}/executions/${encodedExecutionId}`;
   const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
@@ -198,16 +161,13 @@ export async function pollForResults(
         headers: {
           'Content-Type': 'application/json',
           'x-api-key': apiKey,
+          Authorization: `Bearer ${apiKey}`,
         },
       });
 
       const data = await response.json();
 
-      console.log(
-        `Polling for results (attempt ${attempt + 1
-        }/${maxAttempts}) for execution: ${executionId}`,
-        data
-      );
+      console.log(`Polling for results (attempt ${attempt + 1}/${maxAttempts}) for execution: ${executionId}`, data);
 
       // Check if execution is complete
       if (data.status === 'completed') {
@@ -333,11 +293,7 @@ export function UserStoryForm() {
     const intervalMs = 5000;
 
     try {
-      const pollResponse = await pollForResults(
-        executionId,
-        maxAttempts,
-        intervalMs
-      );
+      const pollResponse = await pollForResults(executionId, maxAttempts, intervalMs);
       setResult(pollResponse);
 
       if (pollResponse.statusCode === 200) {
@@ -357,14 +313,12 @@ export function UserStoryForm() {
       } else if (pollResponse.statusCode === 408) {
         // Still timed out - result will show the timeout message with retry button
         toast.warning('Request still processing', {
-          description:
-            'The request is still taking longer than expected. You can try again.',
+          description: 'The request is still taking longer than expected. You can try again.',
         });
       } else {
         console.log('Poll response indicates failure:', pollResponse);
         toast.error('User Story is not accepted', {
-          description:
-            'Please see the reason for more details and correct the user story to try again',
+          description: 'Please see the reason for more details and correct the user story to try again',
         });
       }
     } catch (error) {
@@ -372,17 +326,13 @@ export function UserStoryForm() {
         statusCode: 500,
         body: {
           workItemStatus: {
-            comment:
-              error instanceof Error
-                ? error.message
-                : 'Unknown error occurred during polling',
+            comment: error instanceof Error ? error.message : 'Unknown error occurred during polling',
           },
         },
       });
 
       toast.error('An error occurred while processing', {
-        description:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
       setIsPolling(false);
@@ -472,9 +422,7 @@ export function UserStoryForm() {
       if (initialResponse.statusCode === 202) {
         setIsSubmitting(false);
         setIsPolling(true);
-        setPollingMessage(
-          'Request submitted successfully. Waiting for results...'
-        );
+        setPollingMessage('Request submitted successfully. Waiting for results...');
 
         const executionId = initialResponse.executionId;
 
@@ -490,11 +438,7 @@ export function UserStoryForm() {
         // Handle immediate response (if API changed behavior)
         setResult(initialResponse);
 
-        if (
-          initialResponse.statusCode &&
-          initialResponse.statusCode >= 200 &&
-          initialResponse.statusCode < 400
-        ) {
+        if (initialResponse.statusCode && initialResponse.statusCode >= 200 && initialResponse.statusCode < 400) {
           const tasks = initialResponse.data?.tasks || [];
           setTasks(tasks);
 
@@ -503,8 +447,7 @@ export function UserStoryForm() {
           });
         } else {
           toast.error('User Story is not accepted', {
-            description:
-              'Please see the reason for more details and correct the user story to try again',
+            description: 'Please see the reason for more details and correct the user story to try again',
           });
         }
       }
@@ -512,8 +455,7 @@ export function UserStoryForm() {
       // form.reset();
     } catch (error) {
       toast.error('An unexpected error occurred', {
-        description:
-          error instanceof Error ? error.message : 'Unknown error occurred',
+        description: error instanceof Error ? error.message : 'Unknown error occurred',
       });
     } finally {
       setIsSubmitting(false);
@@ -522,28 +464,20 @@ export function UserStoryForm() {
 
   return (
     <div className='container mx-auto py-10 px-4 min-h-screen'>
-      <h1 className='text-2xl font-bold mb-2'>
-        Test Playground (*User Stories only)
-      </h1>
+      <h1 className='text-2xl font-bold mb-2'>Test Playground (*User Stories only)</h1>
       <p className='text-md text-muted-foreground mb-8'>
-        Use this playground to experiment with different AI prompts and
-        inference parameters to test how Task Genie generates tasks.
+        Use this playground to experiment with different AI prompts and inference parameters to test how Task Genie
+        generates tasks.
       </p>
       <div className='flex w-full space-x-4'>
         <Card className='w-full h-full flex flex-col overflow-hidden'>
           <CardHeader className='flex-shrink-0'>
             <CardTitle>New User Story</CardTitle>
-            <CardDescription>
-              Test the model&apos;s task generation capabilities with a new user
-              story.
-            </CardDescription>
+            <CardDescription>Test the model&apos;s task generation capabilities with a new user story.</CardDescription>
           </CardHeader>
           <CardContent className='flex-grow overflow-hidden'>
             <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className='h-full flex flex-col'
-              >
+              <form onSubmit={form.handleSubmit(onSubmit)} className='h-full flex flex-col'>
                 <ScrollArea className='flex-grow pr-4'>
                   <div className='space-y-6 pb-4'>
                     <Accordion
@@ -554,9 +488,7 @@ export function UserStoryForm() {
                     >
                       <AccordionItem value='ai-settings'>
                         <AccordionTrigger>
-                          <div className='font-semibold'>
-                            AI Prompt Customization
-                          </div>
+                          <div className='font-semibold'>AI Prompt Customization</div>
                         </AccordionTrigger>
                         <AccordionContent>
                           <Card>
@@ -569,9 +501,7 @@ export function UserStoryForm() {
                                   render={({ field }) => (
                                     <FormItem className='space-y-2'>
                                       <div className='flex items-center justify-between'>
-                                        <FormLabel className='text-base'>
-                                          Custom Prompt
-                                        </FormLabel>
+                                        <FormLabel className='text-base'>Custom Prompt</FormLabel>
                                         <div className='flex items-center text-sm text-muted-foreground'>
                                           <Sparkles className='h-3.5 w-3.5 mr-1' />
                                           AI Prompt
@@ -586,8 +516,7 @@ export function UserStoryForm() {
                                       </FormControl>
                                       <PromptSuffixInfo />
                                       <FormDescription>
-                                        Customize how the AI generates tasks
-                                        from your user story.
+                                        Customize how the AI generates tasks from your user story.
                                       </FormDescription>
                                       <FormMessage />
                                     </FormItem>
@@ -597,8 +526,7 @@ export function UserStoryForm() {
                                 <Alert className='mb-4'>
                                   <Info className='h-4 w-4' />
                                   <AlertDescription>
-                                    <strong>Claude 4.5 Sonnet</strong> only
-                                    supports either Temperature or Top P, not
+                                    <strong>Claude 4.5 Sonnet</strong> only supports either Temperature or Top P, not
                                     both.
                                   </AlertDescription>
                                 </Alert>
@@ -611,12 +539,8 @@ export function UserStoryForm() {
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
                                         <div className='flex items-center justify-between'>
-                                          <FormLabel className='text-base'>
-                                            Max Tokens
-                                          </FormLabel>
-                                          <span className='text-sm text-muted-foreground'>
-                                            {field.value}
-                                          </span>
+                                          <FormLabel className='text-base'>Max Tokens</FormLabel>
+                                          <span className='text-sm text-muted-foreground'>{field.value}</span>
                                         </div>
                                         <FormControl>
                                           <Slider
@@ -624,14 +548,11 @@ export function UserStoryForm() {
                                             max={MAX_OUTPUT_TOKENS}
                                             step={128}
                                             value={[field.value]}
-                                            onValueChange={(value) =>
-                                              field.onChange(value[0])
-                                            }
+                                            onValueChange={(value) => field.onChange(value[0])}
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Maximum length of generated content
-                                          (256-${MAX_OUTPUT_TOKENS} tokens)
+                                          Maximum length of generated content (256-${MAX_OUTPUT_TOKENS} tokens)
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
@@ -644,30 +565,20 @@ export function UserStoryForm() {
                                     name='parameterMode'
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
-                                        <FormLabel className='text-base'>
-                                          Inference Parameter
-                                        </FormLabel>
-                                        <Select
-                                          onValueChange={field.onChange}
-                                          value={field.value}
-                                        >
+                                        <FormLabel className='text-base'>Inference Parameter</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
                                           <FormControl>
                                             <SelectTrigger>
                                               <SelectValue />
                                             </SelectTrigger>
                                           </FormControl>
                                           <SelectContent>
-                                            <SelectItem value='temperature'>
-                                              Temperature
-                                            </SelectItem>
-                                            <SelectItem value='topP'>
-                                              Top P
-                                            </SelectItem>
+                                            <SelectItem value='temperature'>Temperature</SelectItem>
+                                            <SelectItem value='topP'>Top P</SelectItem>
                                           </SelectContent>
                                         </Select>
                                         <FormDescription className='text-xs'>
-                                          Select which inference parameter to
-                                          use
+                                          Select which inference parameter to use
                                         </FormDescription>
                                         <FormMessage />
                                       </FormItem>
@@ -675,42 +586,36 @@ export function UserStoryForm() {
                                   />
                                 </div>
 
-                                {form.watch('parameterMode') ===
-                                  'temperature' && (
-                                    <FormField
-                                      control={form.control}
-                                      disabled={isSubmitting || isPolling}
-                                      name='temperature'
-                                      render={({ field }) => (
-                                        <FormItem className='space-y-2'>
-                                          <div className='flex items-center justify-between'>
-                                            <FormLabel className='text-base'>
-                                              Temperature
-                                            </FormLabel>
-                                            <span className='text-sm text-muted-foreground'>
-                                              {field.value.toFixed(1)}
-                                            </span>
-                                          </div>
-                                          <FormControl>
-                                            <Slider
-                                              min={0}
-                                              max={1}
-                                              step={0.1}
-                                              value={[field.value]}
-                                              onValueChange={(value) =>
-                                                field.onChange(value[0])
-                                              }
-                                            />
-                                          </FormControl>
-                                          <FormDescription className='text-xs'>
-                                            Controls randomness: 0 = deterministic
-                                            and focused, 1 = creative and diverse
-                                          </FormDescription>
-                                          <FormMessage />
-                                        </FormItem>
-                                      )}
-                                    />
-                                  )}
+                                {form.watch('parameterMode') === 'temperature' && (
+                                  <FormField
+                                    control={form.control}
+                                    disabled={isSubmitting || isPolling}
+                                    name='temperature'
+                                    render={({ field }) => (
+                                      <FormItem className='space-y-2'>
+                                        <div className='flex items-center justify-between'>
+                                          <FormLabel className='text-base'>Temperature</FormLabel>
+                                          <span className='text-sm text-muted-foreground'>
+                                            {field.value.toFixed(1)}
+                                          </span>
+                                        </div>
+                                        <FormControl>
+                                          <Slider
+                                            min={0}
+                                            max={1}
+                                            step={0.1}
+                                            value={[field.value]}
+                                            onValueChange={(value) => field.onChange(value[0])}
+                                          />
+                                        </FormControl>
+                                        <FormDescription className='text-xs'>
+                                          Controls randomness: 0 = deterministic and focused, 1 = creative and diverse
+                                        </FormDescription>
+                                        <FormMessage />
+                                      </FormItem>
+                                    )}
+                                  />
+                                )}
 
                                 {form.watch('parameterMode') === 'topP' && (
                                   <FormField
@@ -720,9 +625,7 @@ export function UserStoryForm() {
                                     render={({ field }) => (
                                       <FormItem className='space-y-2'>
                                         <div className='flex items-center justify-between'>
-                                          <FormLabel className='text-base'>
-                                            Top P (Nucleus Sampling)
-                                          </FormLabel>
+                                          <FormLabel className='text-base'>Top P (Nucleus Sampling)</FormLabel>
                                           <span className='text-sm text-muted-foreground'>
                                             {field.value.toFixed(1)}
                                           </span>
@@ -733,14 +636,11 @@ export function UserStoryForm() {
                                             max={1}
                                             step={0.1}
                                             value={[field.value]}
-                                            onValueChange={(value) =>
-                                              field.onChange(value[0])
-                                            }
+                                            onValueChange={(value) => field.onChange(value[0])}
                                           />
                                         </FormControl>
                                         <FormDescription className='text-xs'>
-                                          Controls diversity: 0.1 = focused on
-                                          most likely words, 1.0 = considers all
+                                          Controls diversity: 0.1 = focused on most likely words, 1.0 = considers all
                                           possibilities
                                         </FormDescription>
                                         <FormMessage />
@@ -764,10 +664,7 @@ export function UserStoryForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Area Path</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder='Select an area path' />
@@ -793,10 +690,7 @@ export function UserStoryForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Business Unit</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder='Select a business unit' />
@@ -822,10 +716,7 @@ export function UserStoryForm() {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>System</FormLabel>
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
+                          <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder='Select a system' />
@@ -844,21 +735,21 @@ export function UserStoryForm() {
                       )}
                     />
 
-                    <div className="flex items-end gap-4">
-                      <div className="flex-[2]">
-                        <div className="space-y-2">
-                          <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    <div className='flex items-end gap-4'>
+                      <div className='flex-[2]'>
+                        <div className='space-y-2'>
+                          <label className='text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'>
                             ADO Work Item ID (optional)
                           </label>
                           <Input
-                            placeholder="ADO Work Item ID"
-                            id="ado-id-input"
+                            placeholder='ADO Work Item ID'
+                            id='ado-id-input'
                             disabled={isSubmitting || isPolling}
                             ref={adoInputRef}
                             value={adoId}
                             onChange={(e) => setAdoId(e.target.value)}
                             aria-invalid={adoError}
-                            className={adoError ? "border-red-500 focus-visible:ring-red-500" : ""}
+                            className={adoError ? 'border-red-500 focus-visible:ring-red-500' : ''}
                             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
@@ -872,7 +763,7 @@ export function UserStoryForm() {
                               }
                             }}
                           />
-                          <p className="text-[0.8rem] text-muted-foreground">
+                          <p className='text-[0.8rem] text-muted-foreground'>
                             Enter an ADO Work Item ID to pre-populate Title, Description, and Acceptance Criteria.
                           </p>
                         </div>
@@ -889,7 +780,7 @@ export function UserStoryForm() {
                           <FormControl>
                             <Input
                               placeholder='As a user, I want to...'
-                              className={adoSuccess ? "border-green-500 focus-visible:ring-green-500" : ""}
+                              className={adoSuccess ? 'border-green-500 focus-visible:ring-green-500' : ''}
                               {...field}
                             />
                           </FormControl>
@@ -908,7 +799,7 @@ export function UserStoryForm() {
                           <FormControl>
                             <Textarea
                               placeholder='Provide a detailed description of the user story...'
-                              className={`min-h-[120px] ${adoSuccess ? "border-green-500 focus-visible:ring-green-500" : ""}`}
+                              className={`min-h-[120px] ${adoSuccess ? 'border-green-500 focus-visible:ring-green-500' : ''}`}
                               {...field}
                             />
                           </FormControl>
@@ -927,7 +818,7 @@ export function UserStoryForm() {
                           <FormControl>
                             <Textarea
                               placeholder='List the acceptance criteria...'
-                              className={`min-h-[180px] ${adoSuccess ? "border-green-500 focus-visible:ring-green-500" : ""}`}
+                              className={`min-h-[180px] ${adoSuccess ? 'border-green-500 focus-visible:ring-green-500' : ''}`}
                               {...field}
                             />
                           </FormControl>

@@ -11,12 +11,7 @@ import {
   Pass,
 } from 'aws-cdk-lib/aws-stepfunctions';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
-import {
-  PolicyStatement,
-  Role,
-  ServicePrincipal,
-  ManagedPolicy,
-} from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import {
   AccessLogFormat,
   ApiKey,
@@ -30,6 +25,9 @@ import {
   MethodLoggingLevel,
   PassthroughBehavior,
   RestApi,
+  TokenAuthorizer,
+  IdentitySource,
+  ResponseType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Bucket, EventType } from 'aws-cdk-lib/aws-s3';
 import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
@@ -75,161 +73,107 @@ export class AppStack extends Stack {
      * Lookup properties
      */
 
-    const azureDevOpsCredentialsSecretName =
-      props.params.azureDevOpsCredentialsSecretName;
+    const azureDevOpsCredentialsSecretName = props.params.azureDevOpsCredentialsSecretName;
     const azureDevOpsCredentialsSecret = Secret.fromSecretNameV2(
       this,
       'AzureDevOpsCredentialsSecret',
-      azureDevOpsCredentialsSecretName
+      azureDevOpsCredentialsSecretName,
     );
 
-    const resultsTable = Table.fromTableArn(
-      this,
-      'ResultsTable',
-      props.params.resultsTableArn
-    );
-    const configTable = Table.fromTableArn(
-      this,
-      'ConfigTable',
-      props.params.configTableArn
-    );
-    const feedbackTable = Table.fromTableArn(
-      this,
-      'FeedbackTable',
-      props.params.feedbackTableArn
-    );
+    const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
+    const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
+    const feedbackTable = Table.fromTableArn(this, 'FeedbackTable', props.params.feedbackTableArn);
 
-    const dataSourceBucket = Bucket.fromBucketArn(
-      this,
-      'DataSourceBucket',
-      props.params.dataSourceBucketArn
-    );
+    const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
 
     /*
      * AWS Lambda
      */
 
-    const evaluateWorkItemFunction = new TaskGenieLambda(
-      this,
-      'EvaluateWorkItem',
-      {
-        functionName: `${props.appName}-evaluate-work-item-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/workflow/evaluateWorkItem/index.ts'
-        ),
-        memorySize: 1024,
-        timeout: Duration.seconds(120),
-        // vpc: removed to use default VPC with internet access
-        environment: {
-          AWS_ACCOUNT_ID: this.account,
-          AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AZURE_DEVOPS_CREDENTIALS_SECRET_NAME:
-            azureDevOpsCredentialsSecretName,
-          AZURE_DEVOPS_ORGANIZATION:
-            process.env.AZURE_DEVOPS_ORGANIZATION || '',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        managedPolicies: [
-          ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'),
-        ],
-        policyStatements: [
-          new PolicyStatement({
-            actions: ['cloudwatch:PutMetricData'],
-            resources: ['*'],
-          }),
-        ],
-        // interfaceEndpoints: removed since not using private VPC
-      }
-    );
+    const evaluateWorkItemFunction = new TaskGenieLambda(this, 'EvaluateWorkItem', {
+      functionName: `${props.appName}-evaluate-work-item-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/evaluateWorkItem/index.ts'),
+      memorySize: 1024,
+      timeout: Duration.seconds(120),
+      // vpc: removed to use default VPC with internet access
+      environment: {
+        AWS_ACCOUNT_ID: this.account,
+        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess')],
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['cloudwatch:PutMetricData'],
+          resources: ['*'],
+        }),
+      ],
+      // interfaceEndpoints: removed since not using private VPC
+    });
     azureDevOpsCredentialsSecret.grantRead(evaluateWorkItemFunction);
 
-    const generateWorkItemsFunction = new TaskGenieLambda(
-      this,
-      'GenerateWorkItems',
-      {
-        functionName: `${props.appName}-generate-work-items-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/workflow/generateWorkItems/index.ts'
-        ),
-        memorySize: 1024,
-        timeout: Duration.seconds(300),
-        // vpc: removed to use default VPC with internet access
-        environment: {
-          AWS_ACCOUNT_ID: this.account,
-          AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AZURE_DEVOPS_CREDENTIALS_SECRET_NAME:
-            azureDevOpsCredentialsSecretName,
-          AZURE_DEVOPS_ORGANIZATION:
-            process.env.AZURE_DEVOPS_ORGANIZATION || '',
-          CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
-          FEEDBACK_TABLE_NAME: feedbackTable.tableName,
-          FEEDBACK_FEATURE_ENABLED:
-            process.env.FEEDBACK_FEATURE_ENABLED || 'false',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        managedPolicies: [
-          ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess'),
-        ],
-        policyStatements: [
-          new PolicyStatement({
-            actions: ['dynamodb:GetItem'],
-            resources: [props.params.configTableArn],
-          }),
-          new PolicyStatement({
-            actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
-            resources: [
-              feedbackTable.tableArn,
-              `${feedbackTable.tableArn}/index/*`, // For GSI access
-            ],
-          }),
-        ],
-        // interfaceEndpoints: removed since not using private VPC
-      }
-    );
+    const generateWorkItemsFunction = new TaskGenieLambda(this, 'GenerateWorkItems', {
+      functionName: `${props.appName}-generate-work-items-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/generateWorkItems/index.ts'),
+      memorySize: 1024,
+      timeout: Duration.seconds(300),
+      // vpc: removed to use default VPC with internet access
+      environment: {
+        AWS_ACCOUNT_ID: this.account,
+        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
+        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
+        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess')],
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['dynamodb:GetItem'],
+          resources: [props.params.configTableArn],
+        }),
+        new PolicyStatement({
+          actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
+          resources: [
+            feedbackTable.tableArn,
+            `${feedbackTable.tableArn}/index/*`, // For GSI access
+          ],
+        }),
+      ],
+      // interfaceEndpoints: removed since not using private VPC
+    });
     azureDevOpsCredentialsSecret.grantRead(generateWorkItemsFunction);
 
-    const createWorkItemsFunction = new TaskGenieLambda(
-      this,
-      'CreateWorkItems',
-      {
-        functionName: `${props.appName}-create-work-items-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/workflow/createWorkItems/index.ts'
-        ),
-        memorySize: 1024,
-        timeout: Duration.seconds(30),
-        // vpc: removed to use default VPC with internet access
-        environment: {
-          AZURE_DEVOPS_CREDENTIALS_SECRET_NAME:
-            azureDevOpsCredentialsSecretName,
-          AZURE_DEVOPS_ORGANIZATION:
-            process.env.AZURE_DEVOPS_ORGANIZATION || '',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        policyStatements: [
-          new PolicyStatement({
-            actions: ['cloudwatch:PutMetricData'],
-            resources: ['*'],
-          }),
-        ],
-        // interfaceEndpoints: removed since not using private VPC
-      }
-    );
+    const createWorkItemsFunction = new TaskGenieLambda(this, 'CreateWorkItems', {
+      functionName: `${props.appName}-create-work-items-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/createWorkItems/index.ts'),
+      memorySize: 1024,
+      timeout: Duration.seconds(30),
+      // vpc: removed to use default VPC with internet access
+      environment: {
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['cloudwatch:PutMetricData'],
+          resources: ['*'],
+        }),
+      ],
+      // interfaceEndpoints: removed since not using private VPC
+    });
     azureDevOpsCredentialsSecret.grantRead(createWorkItemsFunction);
 
     const addCommentFunction = new TaskGenieLambda(this, 'AddComment', {
       functionName: `${props.appName}-add-comment-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/workflow/addComment/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/addComment/index.ts'),
       memorySize: 1024,
       timeout: Duration.seconds(10),
       // vpc: removed to use default VPC with internet access
@@ -242,33 +186,23 @@ export class AppStack extends Stack {
     });
     azureDevOpsCredentialsSecret.grantRead(addCommentFunction);
 
-    const finalizeResponseFunction = new TaskGenieLambda(
-      this,
-      'FinalizeResponse',
-      {
-        functionName: `${props.appName}-finalize-response-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/workflow/finalizeResponse/index.ts'
-        ),
-        memorySize: 256,
-        timeout: Duration.seconds(3),
-        environment: {
-          AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
-          TABLE_NAME: resultsTable.tableName,
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-      }
-    );
+    const finalizeResponseFunction = new TaskGenieLambda(this, 'FinalizeResponse', {
+      functionName: `${props.appName}-finalize-response-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/finalizeResponse/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(3),
+      environment: {
+        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+        TABLE_NAME: resultsTable.tableName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
     resultsTable.grantWriteData(finalizeResponseFunction);
 
     // Error Handling Lambda
     const handleErrorFunction = new TaskGenieLambda(this, 'HandleError', {
       functionName: `${props.appName}-handle-error-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/workflow/handleError/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/handleError/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(30),
       environment: {
@@ -281,10 +215,7 @@ export class AppStack extends Stack {
 
     const pollExecutionFunction = new TaskGenieLambda(this, 'PollExecution', {
       functionName: `${props.appName}-poll-execution-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/workflow/pollExecution/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/pollExecution/index.ts'),
       memorySize: 384,
       timeout: Duration.seconds(5),
       environment: {
@@ -294,38 +225,29 @@ export class AppStack extends Stack {
     });
     resultsTable.grantReadData(pollExecutionFunction);
 
-    const syncKnowledgeBaseFunction = new TaskGenieLambda(
-      this,
-      'SyncKnowledgeBase',
-      {
-        functionName: `${props.appName}-sync-knowledge-base-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/knowledgeBase/syncKnowledgeBase/index.ts'
-        ),
-        memorySize: 512,
-        timeout: Duration.minutes(5),
-        environment: {
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        policyStatements: [
-          new PolicyStatement({
-            actions: [
-              'bedrock:StartIngestionJob',
-              'bedrock:GetIngestionJob',
-              'bedrock:ListIngestionJobs',
-              'bedrock:GetKnowledgeBase',
-              'bedrock:ListKnowledgeBases',
-            ],
-            resources: ['*'],
-          }),
-        ],
-      }
-    );
+    const syncKnowledgeBaseFunction = new TaskGenieLambda(this, 'SyncKnowledgeBase', {
+      functionName: `${props.appName}-sync-knowledge-base-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/syncKnowledgeBase/index.ts'),
+      memorySize: 512,
+      timeout: Duration.minutes(5),
+      environment: {
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: [
+            'bedrock:StartIngestionJob',
+            'bedrock:GetIngestionJob',
+            'bedrock:ListIngestionJobs',
+            'bedrock:GetKnowledgeBase',
+            'bedrock:ListKnowledgeBases',
+          ],
+          resources: ['*'],
+        }),
+      ],
+    });
     dataSourceBucket.grantRead(syncKnowledgeBaseFunction);
 
     // Add S3 event notification to trigger syncKnowledgeBase when files are uploaded
@@ -335,137 +257,98 @@ export class AppStack extends Stack {
       {
         // Only trigger for non-metadata files (exclude .metadata.json files)
         suffix: '.pdf',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.docx',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.md',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.txt',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.doc',
-      }
+      },
     );
     // Also trigger for object deletions (covers Delete and DeleteMarkerCreated) to sync removals
-    dataSourceBucket.addEventNotification(
-      EventType.OBJECT_REMOVED,
-      new LambdaDestination(syncKnowledgeBaseFunction)
-    );
+    dataSourceBucket.addEventNotification(EventType.OBJECT_REMOVED, new LambdaDestination(syncKnowledgeBaseFunction));
 
-    const generatePresignedUrlFunction = new TaskGenieLambda(
-      this,
-      'GeneratePresignedUrl',
-      {
-        functionName: `${props.appName}-generate-presigned-url-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/knowledgeBase/generatePresignedUrl/index.ts'
-        ),
-        memorySize: 384,
-        timeout: Duration.seconds(5),
-        environment: {
-          S3_BUCKET_NAME: dataSourceBucket.bucketName,
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-      }
-    );
+    const generatePresignedUrlFunction = new TaskGenieLambda(this, 'GeneratePresignedUrl', {
+      functionName: `${props.appName}-generate-presigned-url-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/generatePresignedUrl/index.ts'),
+      memorySize: 384,
+      timeout: Duration.seconds(5),
+      environment: {
+        S3_BUCKET_NAME: dataSourceBucket.bucketName,
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
     // Grant the Lambda function permission to generate a presigned URL for the S3 bucket
     dataSourceBucket.grantPut(generatePresignedUrlFunction);
 
-    const listKnowledgeBaseDocumentsFunction = new TaskGenieLambda(
-      this,
-      'ListKnowledgeBaseDocuments',
-      {
-        functionName: `${props.appName}-list-knowledge-base-documents-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/knowledgeBase/listKnowledgeBaseDocuments/index.ts'
-        ),
-        memorySize: 512,
-        timeout: Duration.seconds(30),
-        environment: {
-          S3_BUCKET_NAME: dataSourceBucket.bucketName,
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        policyStatements: [
-          new PolicyStatement({
-            actions: [
-              'bedrock:GetKnowledgeBase',
-              'bedrock:ListKnowledgeBases',
-              'bedrock:ListKnowledgeBaseDocuments',
-            ],
-            resources: ['*'],
-          }),
-        ],
-      }
-    );
+    const listKnowledgeBaseDocumentsFunction = new TaskGenieLambda(this, 'ListKnowledgeBaseDocuments', {
+      functionName: `${props.appName}-list-knowledge-base-documents-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/listKnowledgeBaseDocuments/index.ts'),
+      memorySize: 512,
+      timeout: Duration.seconds(30),
+      environment: {
+        S3_BUCKET_NAME: dataSourceBucket.bucketName,
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['bedrock:GetKnowledgeBase', 'bedrock:ListKnowledgeBases', 'bedrock:ListKnowledgeBaseDocuments'],
+          resources: ['*'],
+        }),
+      ],
+    });
     // Grant the Lambda function permission to read from the S3 bucket
     dataSourceBucket.grantRead(listKnowledgeBaseDocumentsFunction);
 
-    const deleteKnowledgeBaseDocumentFunction = new TaskGenieLambda(
-      this,
-      'DeleteKnowledgeBaseDocument',
-      {
-        functionName: `${props.appName}-delete-knowledge-base-document-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/knowledgeBase/deleteKnowledgeBaseDocument/index.ts'
-        ),
-        memorySize: 512,
-        timeout: Duration.minutes(3),
-        environment: {
-          S3_BUCKET_NAME: dataSourceBucket.bucketName,
-          AWS_BEDROCK_KNOWLEDGE_BASE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-          AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID:
-            process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        policyStatements: [
-          new PolicyStatement({
-            actions: [
-              'bedrock:StartIngestionJob',
-              'bedrock:GetIngestionJob',
-              'bedrock:ListIngestionJobs',
-            ],
-            resources: ['*'],
-          }),
-        ],
-      }
-    );
+    const deleteKnowledgeBaseDocumentFunction = new TaskGenieLambda(this, 'DeleteKnowledgeBaseDocument', {
+      functionName: `${props.appName}-delete-knowledge-base-document-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/deleteKnowledgeBaseDocument/index.ts'),
+      memorySize: 512,
+      timeout: Duration.minutes(3),
+      environment: {
+        S3_BUCKET_NAME: dataSourceBucket.bucketName,
+        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['bedrock:StartIngestionJob', 'bedrock:GetIngestionJob', 'bedrock:ListIngestionJobs'],
+          resources: ['*'],
+        }),
+      ],
+    });
     dataSourceBucket.grantDelete(deleteKnowledgeBaseDocumentFunction);
     dataSourceBucket.grantRead(deleteKnowledgeBaseDocumentFunction);
 
     // Update Config Lambda
     const updateConfigFunction = new TaskGenieLambda(this, 'UpdateConfig', {
       functionName: `${props.appName}-update-config-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/config/updateConfig/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/config/updateConfig/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(10),
       environment: {
@@ -478,10 +361,7 @@ export class AppStack extends Stack {
     // List Config Lambda
     const listConfigFunction = new TaskGenieLambda(this, 'ListConfig', {
       functionName: `${props.appName}-list-config-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/config/listConfig/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/config/listConfig/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(10),
       environment: {
@@ -494,10 +374,7 @@ export class AppStack extends Stack {
     // Delete Config Lambda
     const deleteConfigFunction = new TaskGenieLambda(this, 'DeleteConfig', {
       functionName: `${props.appName}-delete-config-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/config/deleteConfig/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/config/deleteConfig/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(10),
       environment: {
@@ -508,51 +385,34 @@ export class AppStack extends Stack {
     configTable.grantWriteData(deleteConfigFunction);
 
     // Feedback Tracking Lambda
-    const trackTaskFeedbackFunction = new TaskGenieLambda(
-      this,
-      'TrackTaskFeedback',
-      {
-        functionName: `${props.appName}-track-task-feedback-${props.envName}`,
-        entry: path.resolve(
-          __dirname,
-          '../../backend/lambda/feedback/trackTaskFeedback/index.ts'
-        ),
-        memorySize: 512,
-        timeout: Duration.seconds(30),
-        environment: {
-          FEEDBACK_TABLE_NAME: feedbackTable.tableName,
-          RESULTS_TABLE_NAME: resultsTable.tableName,
-          FEEDBACK_FEATURE_ENABLED:
-            process.env.FEEDBACK_FEATURE_ENABLED || 'false',
-          POWERTOOLS_LOG_LEVEL: 'DEBUG',
-        },
-        policyStatements: [
-          new PolicyStatement({
-            actions: [
-              'dynamodb:PutItem',
-              'dynamodb:GetItem',
-              'dynamodb:UpdateItem',
-              'dynamodb:Query',
-              'dynamodb:Scan',
-            ],
-            resources: [
-              feedbackTable.tableArn,
-              `${feedbackTable.tableArn}/index/*`, // For GSI access
-              resultsTable.tableArn,
-              `${resultsTable.tableArn}/index/*`, // For GSI access
-            ],
-          }),
-        ],
-      }
-    );
+    const trackTaskFeedbackFunction = new TaskGenieLambda(this, 'TrackTaskFeedback', {
+      functionName: `${props.appName}-track-task-feedback-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/feedback/trackTaskFeedback/index.ts'),
+      memorySize: 512,
+      timeout: Duration.seconds(30),
+      environment: {
+        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
+        RESULTS_TABLE_NAME: resultsTable.tableName,
+        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+      policyStatements: [
+        new PolicyStatement({
+          actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:UpdateItem', 'dynamodb:Query', 'dynamodb:Scan'],
+          resources: [
+            feedbackTable.tableArn,
+            `${feedbackTable.tableArn}/index/*`, // For GSI access
+            resultsTable.tableArn,
+            `${resultsTable.tableArn}/index/*`, // For GSI access
+          ],
+        }),
+      ],
+    });
 
     // Get Work Item Lambda
     const getWorkItemFunction = new TaskGenieLambda(this, 'GetWorkItem', {
       functionName: `${props.appName}-get-work-item-${props.envName}`,
-      entry: path.resolve(
-        __dirname,
-        '../../backend/lambda/workflow/getWorkItem/index.ts'
-      ),
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/getWorkItem/index.ts'),
       memorySize: 256,
       timeout: Duration.seconds(10),
       environment: {
@@ -563,28 +423,32 @@ export class AppStack extends Stack {
     });
     azureDevOpsCredentialsSecret.grantRead(getWorkItemFunction);
 
+    const authorizerFunction = new TaskGenieLambda(this, 'AuthorizerFunction', {
+      functionName: `${props.appName}-authorizer-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/auth/authorizer/index.ts'),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        EXTENSION_ID: process.env.AZURE_DEVOPS_EXTENSION_ID || '',
+        EXTENSION_SECRET: process.env.AZURE_DEVOPS_EXTENSION_SECRET || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
+    });
+
     /*
      * AWS Step Functions
      */
 
     // Tasks
-    const evaluateWorkItemTask = new LambdaInvoke(
-      this,
-      'EvaluateWorkItemTask',
-      {
-        lambdaFunction: evaluateWorkItemFunction,
-        outputPath: '$.Payload',
-      }
-    );
+    const evaluateWorkItemTask = new LambdaInvoke(this, 'EvaluateWorkItemTask', {
+      lambdaFunction: evaluateWorkItemFunction,
+      outputPath: '$.Payload',
+    });
 
-    const generateWorkItemsTask = new LambdaInvoke(
-      this,
-      'GenerateWorkItemsTask',
-      {
-        lambdaFunction: generateWorkItemsFunction,
-        outputPath: '$.Payload',
-      }
-    );
+    const generateWorkItemsTask = new LambdaInvoke(this, 'GenerateWorkItemsTask', {
+      lambdaFunction: generateWorkItemsFunction,
+      outputPath: '$.Payload',
+    });
 
     const createWorkItemsTask = new LambdaInvoke(this, 'CreateWorkItemsTask', {
       lambdaFunction: createWorkItemsFunction,
@@ -596,65 +460,49 @@ export class AppStack extends Stack {
       outputPath: '$.Payload',
     });
 
-    const finalizeResponseTask = new LambdaInvoke(
-      this,
-      'FinalizeResponseTask',
-      {
-        lambdaFunction: finalizeResponseFunction,
-        payload: TaskInput.fromObject({
-          'body.$': '$.body',
-          'statusCode.$': '$.statusCode',
-          'executionArn.$': '$$.Execution.Id',
-        }),
-        outputPath: '$.Payload',
-      }
-    );
+    const finalizeResponseTask = new LambdaInvoke(this, 'FinalizeResponseTask', {
+      lambdaFunction: finalizeResponseFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'statusCode.$': '$.statusCode',
+        'executionArn.$': '$$.Execution.Id',
+      }),
+      outputPath: '$.Payload',
+    });
 
     // Create separate error handling tasks for each catch block
-    const evaluateWorkItemErrorTask = new LambdaInvoke(
-      this,
-      'EvaluateWorkItemErrorTask',
-      {
-        lambdaFunction: handleErrorFunction,
-        payload: TaskInput.fromObject({
-          'resource.$': '$.resource',
-          'Error.$': '$.Error',
-          'Cause.$': '$.Cause',
-          'errorStep.$': '$.errorStep',
-        }),
-        outputPath: '$.Payload',
-      }
-    ).next(finalizeResponseTask);
+    const evaluateWorkItemErrorTask = new LambdaInvoke(this, 'EvaluateWorkItemErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'resource.$': '$.resource',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(finalizeResponseTask);
 
-    const generateWorkItemsErrorTask = new LambdaInvoke(
-      this,
-      'GenerateWorkItemsErrorTask',
-      {
-        lambdaFunction: handleErrorFunction,
-        payload: TaskInput.fromObject({
-          'body.$': '$.body',
-          'Error.$': '$.Error',
-          'Cause.$': '$.Cause',
-          'errorStep.$': '$.errorStep',
-        }),
-        outputPath: '$.Payload',
-      }
-    ).next(finalizeResponseTask);
+    const generateWorkItemsErrorTask = new LambdaInvoke(this, 'GenerateWorkItemsErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(finalizeResponseTask);
 
-    const createWorkItemsErrorTask = new LambdaInvoke(
-      this,
-      'CreateWorkItemsErrorTask',
-      {
-        lambdaFunction: handleErrorFunction,
-        payload: TaskInput.fromObject({
-          'body.$': '$.body',
-          'Error.$': '$.Error',
-          'Cause.$': '$.Cause',
-          'errorStep.$': '$.errorStep',
-        }),
-        outputPath: '$.Payload',
-      }
-    ).next(finalizeResponseTask);
+    const createWorkItemsErrorTask = new LambdaInvoke(this, 'CreateWorkItemsErrorTask', {
+      lambdaFunction: handleErrorFunction,
+      payload: TaskInput.fromObject({
+        'body.$': '$.body',
+        'Error.$': '$.Error',
+        'Cause.$': '$.Cause',
+        'errorStep.$': '$.errorStep',
+      }),
+      outputPath: '$.Payload',
+    }).next(finalizeResponseTask);
 
     const addCommentErrorTask = new LambdaInvoke(this, 'AddCommentErrorTask', {
       lambdaFunction: handleErrorFunction,
@@ -680,7 +528,7 @@ export class AppStack extends Stack {
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
-      }
+      },
     );
 
     const generateWorkItemsTaskWithCatch = generateWorkItemsTask.addCatch(
@@ -695,7 +543,7 @@ export class AppStack extends Stack {
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
-      }
+      },
     );
 
     const createWorkItemsTaskWithCatch = createWorkItemsTask.addCatch(
@@ -710,7 +558,7 @@ export class AppStack extends Stack {
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
-      }
+      },
     );
 
     const addCommentTaskWithCatch = addCommentTask.addCatch(
@@ -725,45 +573,39 @@ export class AppStack extends Stack {
       {
         errors: [Errors.ALL],
         resultPath: '$.error',
-      }
+      },
     );
+
+    // Chain states
+    addCommentTaskWithCatch.next(finalizeResponseTask);
+    createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch);
 
     // State Machine Definition with error handling
     const definition = evaluateWorkItemTaskWithCatch.next(
       new Choice(this, 'Work item is defined?')
         .when(
-          Condition.or(
-            Condition.numberEquals('$.statusCode', 400),
-            Condition.numberEquals('$.statusCode', 500)
-          ),
-          finalizeResponseTask
+          Condition.or(Condition.numberEquals('$.statusCode', 400), Condition.numberEquals('$.statusCode', 500)),
+          finalizeResponseTask,
         )
         .when(
-          Condition.or(
-            Condition.numberEquals('$.statusCode', 204),
-            Condition.numberEquals('$.statusCode', 412)
-          ),
+          Condition.or(Condition.numberEquals('$.statusCode', 204), Condition.numberEquals('$.statusCode', 412)),
           new Choice(this, 'Add comment?')
-            .when(
-              Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-              addCommentTaskWithCatch.next(finalizeResponseTask)
-            )
-            .otherwise(finalizeResponseTask)
+            .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), addCommentTaskWithCatch)
+            .otherwise(finalizeResponseTask),
         )
+        .when(Condition.isPresent('$.body.workItems'), createWorkItemsTaskWithCatch)
         .otherwise(
           generateWorkItemsTaskWithCatch.next(
-            new Choice(this, 'Create task?')
-              .when(
-                Condition.numberEquals('$.statusCode', 500),
-                finalizeResponseTask
-              )
-              .when(
-                Condition.numberGreaterThan('$.body.workItem.workItemId', 0),
-                createWorkItemsTaskWithCatch.next(addCommentTaskWithCatch)
-              )
-              .otherwise(finalizeResponseTask)
-          )
-        )
+            new Choice(this, 'Preview Mode?')
+              .when(Condition.booleanEquals('$.body.params.preview', true), finalizeResponseTask)
+              .otherwise(
+                new Choice(this, 'Create task?')
+                  .when(Condition.numberEquals('$.statusCode', 500), finalizeResponseTask)
+                  .when(Condition.numberGreaterThan('$.body.workItem.workItemId', 0), createWorkItemsTaskWithCatch)
+                  .otherwise(finalizeResponseTask),
+              ),
+          ),
+        ),
     );
 
     // Create the Log Group for State Machine separately
@@ -799,18 +641,10 @@ export class AppStack extends Stack {
     });
 
     // Create CloudWatch Logs role for API Gateway
-    const apiGatewayCloudWatchLogsRole = new Role(
-      this,
-      'ApiGatewayCloudWatchLogsRole',
-      {
-        assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
-        managedPolicies: [
-          ManagedPolicy.fromAwsManagedPolicyName(
-            'service-role/AmazonAPIGatewayPushToCloudWatchLogs'
-          ),
-        ],
-      }
-    );
+    const apiGatewayCloudWatchLogsRole = new Role(this, 'ApiGatewayCloudWatchLogsRole', {
+      assumedBy: new ServicePrincipal('apigateway.amazonaws.com'),
+      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonAPIGatewayPushToCloudWatchLogs')],
+    });
 
     // Configure API Gateway account settings for CloudWatch logging
     new CfnAccount(this, 'ApiGatewayAccount', {
@@ -830,6 +664,7 @@ export class AppStack extends Stack {
           'X-Api-Key',
           'X-Amz-Security-Token',
           'X-Amz-User-Agent',
+          'Authorization',
         ],
         allowCredentials: true,
       },
@@ -851,6 +686,30 @@ export class AppStack extends Stack {
         }),
       },
     });
+
+    // Add comprehensive Gateway Responses for CORS on errors
+    [
+      ResponseType.DEFAULT_4XX,
+      ResponseType.DEFAULT_5XX,
+      ResponseType.ACCESS_DENIED,
+      ResponseType.UNAUTHORIZED,
+      ResponseType.EXPIRED_TOKEN,
+    ].forEach((type) => {
+      api.addGatewayResponse(`GatewayResponse_${type.responseType}`, {
+        type,
+        responseHeaders: {
+          'Access-Control-Allow-Origin': "'*'",
+          'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+        },
+      });
+    });
+
+    const tokenAuthorizer = new TokenAuthorizer(this, 'TaskGenieTokenAuthorizer', {
+      handler: authorizerFunction,
+      resultsCacheTtl: Duration.seconds(300),
+      identitySource: IdentitySource.header('Authorization'),
+    });
+
     new LogRetention(this, 'APIExecutionLogsRetention', {
       logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
       retention: RetentionDays.ONE_MONTH,
@@ -863,7 +722,7 @@ export class AppStack extends Stack {
       new PolicyStatement({
         actions: ['states:StartExecution', 'states:DescribeExecution'],
         resources: [stateMachine.stateMachineArn],
-      })
+      }),
     );
 
     // Add method to execute Step Function workflow
@@ -887,12 +746,10 @@ export class AppStack extends Stack {
             statusCode: '202',
             responseParameters: {
               'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods':
-                "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
               'method.response.header.Access-Control-Allow-Headers':
                 "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-              'method.response.header.Access-Control-Allow-Credentials':
-                "'true'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
             },
             responseTemplates: {
               'application/json': JSON.stringify({
@@ -906,12 +763,10 @@ export class AppStack extends Stack {
             statusCode: '400',
             responseParameters: {
               'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods':
-                "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
               'method.response.header.Access-Control-Allow-Headers':
                 "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-              'method.response.header.Access-Control-Allow-Credentials':
-                "'true'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
             },
             responseTemplates: {
               'application/json': JSON.stringify({ message: 'Bad request' }),
@@ -921,12 +776,10 @@ export class AppStack extends Stack {
             statusCode: '500',
             responseParameters: {
               'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods':
-                "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
               'method.response.header.Access-Control-Allow-Headers':
                 "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-              'method.response.header.Access-Control-Allow-Credentials':
-                "'true'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
             },
             responseTemplates: {
               'application/json': JSON.stringify({
@@ -940,8 +793,9 @@ export class AppStack extends Stack {
     });
 
     const executionsResource = api.root.addResource('executions');
+
     executionsResource.addMethod('POST', startExecutionIntegration, {
-      apiKeyRequired: true,
+      authorizer: tokenAuthorizer,
       methodResponses: [
         {
           statusCode: '202',
@@ -979,8 +833,7 @@ export class AppStack extends Stack {
 
     // Add method to generate a S3 presigned URL
     //  GET /knowledge-base/presigned-url
-    const generatePresignedUrlResource =
-      knowledgeBaseResource.addResource('presigned-url');
+    const generatePresignedUrlResource = knowledgeBaseResource.addResource('presigned-url');
     generatePresignedUrlResource.addMethod(
       'GET',
       new LambdaIntegration(generatePresignedUrlFunction, {
@@ -988,7 +841,7 @@ export class AppStack extends Stack {
       }),
       {
         apiKeyRequired: false, // No API key required for uploading documents
-      }
+      },
     );
     const documentsResource = knowledgeBaseResource.addResource('documents');
     documentsResource.addMethod(
@@ -998,7 +851,7 @@ export class AppStack extends Stack {
       }),
       {
         apiKeyRequired: false, // No API key required for listing documents
-      }
+      },
     );
     documentsResource.addMethod(
       'DELETE',
@@ -1007,45 +860,29 @@ export class AppStack extends Stack {
       }),
       {
         apiKeyRequired: false,
-      }
+      },
     );
 
     // Config API resource
     //  PUT /config
     const configResource = api.root.addResource('config');
-    configResource.addMethod(
-      'PUT',
-      new LambdaIntegration(updateConfigFunction, { proxy: true }),
-      {
-        apiKeyRequired: false,
-      }
-    );
-    configResource.addMethod(
-      'GET',
-      new LambdaIntegration(listConfigFunction, { proxy: true }),
-      {
-        apiKeyRequired: false,
-      }
-    );
-    configResource.addMethod(
-      'DELETE',
-      new LambdaIntegration(deleteConfigFunction, { proxy: true }),
-      {
-        apiKeyRequired: false,
-      }
-    );
+    configResource.addMethod('PUT', new LambdaIntegration(updateConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+    configResource.addMethod('GET', new LambdaIntegration(listConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+    configResource.addMethod('DELETE', new LambdaIntegration(deleteConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
 
     // Work Item Details API resource (ADO)
     //  GET /work-items/{id}
     const workItemsResource = api.root.addResource('work-items');
     const workItemResource = workItemsResource.addResource('{id}');
-    workItemResource.addMethod(
-      'GET',
-      new LambdaIntegration(getWorkItemFunction, { proxy: true }),
-      {
-        apiKeyRequired: true,
-      }
-    );
+    workItemResource.addMethod('GET', new LambdaIntegration(getWorkItemFunction, { proxy: true }), {
+      authorizer: tokenAuthorizer,
+    });
 
     // Feedback webhook API resource for Azure DevOps (Asynchronous)
     //  POST /feedback/track
@@ -1062,8 +899,7 @@ export class AppStack extends Stack {
             statusCode: '202',
             responseParameters: {
               'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods':
-                "'OPTIONS,POST'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,POST'",
               'method.response.header.Access-Control-Allow-Headers':
                 "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
             },
@@ -1083,7 +919,7 @@ export class AppStack extends Stack {
         },
       }),
       {
-        apiKeyRequired: true,
+        authorizer: tokenAuthorizer,
         methodResponses: [
           {
             statusCode: '202',
@@ -1094,7 +930,7 @@ export class AppStack extends Stack {
             },
           },
         ],
-      }
+      },
     );
 
     // Add method to poll Step Function execution results
@@ -1106,28 +942,9 @@ export class AppStack extends Stack {
         proxy: true,
       }),
       {
-        apiKeyRequired: true, // Require API key for polling endpoint
-      }
-    );
-
-    // Add API key
-    const apiKey = new ApiKey(this, 'TaskGenieApiKey', {
-      apiKeyName: `${props.appName}-web-api-key-${props.envName}`,
-    });
-
-    // Set API usage plan
-    const usagePlan = api.addUsagePlan('TaskGenieUsagePlan', {
-      name: `${props.appName}-usage-plan-${props.envName}`,
-      throttle: {
-        rateLimit: 200,
-        burstLimit: 50,
+        authorizer: tokenAuthorizer,
       },
-    });
-
-    usagePlan.addApiKey(apiKey);
-    usagePlan.addApiStage({
-      stage: api.deploymentStage,
-    });
+    );
 
     /*
      * Outputs

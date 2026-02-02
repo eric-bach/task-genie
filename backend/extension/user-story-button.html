@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
@@ -7,6 +7,18 @@
         margin: 0;
         padding: 10px;
         font-family: 'Segoe UI VSS (Regular)', '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
       }
 
       .task-genie-button {
@@ -30,8 +42,20 @@
         cursor: not-allowed;
       }
 
+      .checkbox-container {
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        color: #333;
+        cursor: pointer;
+      }
+
+      .checkbox-container input {
+        margin-right: 6px;
+      }
+
       .status-message {
-        margin-top: 8px;
+        margin-top: 4px;
         font-size: 12px;
         color: #666;
         min-height: 16px;
@@ -48,8 +72,14 @@
     </style>
   </head>
   <body>
-    <div>
-      <button id="taskGenieButton" class="task-genie-button">Generate</button>
+    <div class="container">
+      <div class="controls">
+        <button id="taskGenieButton" class="task-genie-button">Generate</button>
+        <label class="checkbox-container">
+          <input type="checkbox" id="previewCheckbox" />
+          Preview
+        </label>
+      </div>
       <div id="statusMessage" class="status-message"></div>
     </div>
 
@@ -107,10 +137,18 @@
                 };
               });
 
-              // function setupButton() {
               async function setupButton() {
                 const button = document.getElementById('taskGenieButton');
                 const statusMessage = document.getElementById('statusMessage');
+                const previewCheckbox = document.getElementById('previewCheckbox');
+
+                // Get configuration values from extension inputs
+                const config = SDK.getConfiguration();
+                const apiUrl = config.witInputs['ApiUrl'] || '';
+
+                // Get App Token for authentication
+                const token = await SDK.getAppToken();
+                console.log('Token: ' + token);
 
                 // Get work item type to set appropriate button text
                 try {
@@ -119,32 +157,9 @@
                   const workItemType = fields['System.WorkItemType'];
                   const areaPath = fields['System.AreaPath'];
 
-                  // Set button text based on work item type
-                  let buttonText = 'Generate';
-                  switch (workItemType) {
-                    case 'Product Backlog Item':
-                      buttonText = 'Generate Tasks';
-                      break;
-                    case 'User Story':
-                      buttonText = 'Generate Tasks';
-                      break;
-                    case 'Feature':
-                      buttonText = 'Generate PBIs/User Stories';
-                      break;
-                    case 'Epic':
-                      buttonText = 'Generate Features';
-                      break;
-                    default:
-                      buttonText = 'Generate';
-                      break;
-                  }
-
-                  button.textContent = buttonText;
-                  console.log('Set button text based on work item type:', workItemType, '->', buttonText);
+                  button.textContent = 'Generate';
 
                   // TEMP (PILOT ONLY) - Check if current work item is in the allowed area path
-                  console.log('Current area path:', areaPath);
-
                   // Check if the area path matches any of the allowed pilot teams
                   const allowedAreaPaths = [
                     'eric-agile-test',
@@ -156,12 +171,6 @@
                     'AMA-Ent\\AI CoE\\AI Foundation',
                     'Digital Experience Dev\\Rewards and Registries',
                     'Digital Experience Dev\\Rewards and Registries\\Dev',
-                    // 'Digital Experience Dev\\Membership and Automotive',
-                    // 'Digital Experience Dev\\Membership and Automotive\\Dev',
-                    // 'Digital Experience Dev\\Insurance and Corporate Purpose',
-                    // 'Digital Experience Dev\\Insurance and Corporate Purpose\\Dev',
-                    // 'Digital Experience Dev\\Travel',
-                    // 'Digital Experience Dev\\Travel\\Dev',
                   ];
 
                   if (!allowedAreaPaths.includes(areaPath)) {
@@ -182,10 +191,13 @@
 
                 button.addEventListener('click', async function () {
                   button.disabled = true;
+                  previewCheckbox.disabled = true;
                   statusMessage.textContent = 'Submitting request...';
                   statusMessage.className = 'status-message';
 
                   try {
+                    const isPreview = previewCheckbox.checked;
+
                     // Get the current work item
                     const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
 
@@ -222,16 +234,21 @@
                     ]);
 
                     // Call your REST API here
-                    await callTaskGenieAPI(workItemId, fields, revision);
+                    await callTaskGenieAPI(statusMessage, workItemId, fields, revision, {
+                      preview: isPreview,
+                      token,
+                      apiUrl,
+                    });
 
-                    statusMessage.textContent = 'Task Genie is processing...';
-                    statusMessage.className = 'status-message success-message';
+                    button.disabled = true;
+                    previewCheckbox.disabled = true;
                   } catch (error) {
                     console.error('An error occurred:', error);
                     statusMessage.textContent = 'An error occurred. Please try again.';
                     statusMessage.className = 'status-message error-message';
                   } finally {
                     button.disabled = false;
+                    previewCheckbox.disabled = false;
 
                     // Clear status message after 5 seconds
                     setTimeout(() => {
@@ -241,20 +258,16 @@
                 });
               }
 
-              async function callTaskGenieAPI(workItemId, fields, revision) {
-                // Get configuration values from extension inputs
-                const config = SDK.getConfiguration();
+              async function callTaskGenieAPI(statusMessage, workItemId, fields, revision, params) {
+                const { apiUrl, token } = params;
 
-                // Get API URL and API Key from configuration
-                const apiUrl = config.witInputs['ApiUrl'] || '';
-                const apiKey = config.witInputs['ApiKey'] || '';
-
-                console.log('Calling Task Genie API:', {
+                console.log('Calling Task Genie API', {
                   workItemId: workItemId,
                   revision: revision,
-                  fields,
                   apiUrl,
-                  apiKey: apiKey.substring(0, 4) + '***' + apiKey.substring(apiKey.length - 4),
+                  // Verified token exists
+                  hasToken: !!token,
+                  params,
                 });
 
                 const requestBody = {
@@ -293,13 +306,14 @@
                       },
                     },
                   },
+                  params,
                 };
 
                 const response = await fetch(apiUrl, {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'x-api-key': apiKey,
+                    Authorization: `Bearer ${token}`,
                   },
                   body: JSON.stringify(requestBody),
                 });
@@ -310,14 +324,52 @@
 
                 const result = await response.json();
                 console.log('Task Genie response:', result);
-                return result;
+
+                const executionArn = result.executionArn;
+                if (!executionArn) {
+                  throw new Error('No execution ARN received from API');
+                }
+                const executionId = executionArn.split(':').slice(-2).join(':');
+
+                if (params.preview) {
+                  try {
+                    console.log('Saving execution details: ' + executionId);
+
+                    const executionKey = `taskGenie_execution_${workItemId}`;
+                    const payload = {
+                      executionId: executionId,
+                      executionArn: executionArn,
+                      sourceWorkItem: requestBody,
+                      config: { apiUrl },
+                      timestamp: Date.now(),
+                    };
+
+                    // Use localStorage (shared across frames on same origin)
+                    localStorage.setItem(executionKey, JSON.stringify(payload));
+                    console.log('Saved execution details:', executionKey);
+
+                    statusMessage.textContent = 'Processing...see the Task Genie tab for results.';
+                    statusMessage.className = 'status-message success-message';
+
+                    // Re-enable button quickly since we are not waiting
+                    setTimeout(() => {
+                      // Keep success message for a bit
+                    }, 2000);
+                  } catch (err) {
+                    console.error('Failed to save execution details', err);
+                    statusMessage.textContent = 'Request submitted, but failed to notify tab.';
+                    statusMessage.className = 'status-message error-message';
+                  }
+                } else {
+                  // Let it asynchronously complete
+                  statusMessage.textContent = 'Task Genie is processing...';
+                  setTimeout(() => (statusMessage.textContent = ''), 5000);
+                }
               }
             })
             .catch((error) => {
               console.error('Error initializing SDK:', error);
             });
-        } else {
-          console.log('SDK is not defined');
         }
       });
     </script>

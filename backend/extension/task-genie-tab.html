@@ -1,0 +1,812 @@
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <title>Task Genie</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <style>
+      body {
+        margin: 0;
+        padding: 10px;
+        font-family: 'Segoe UI VSS (Regular)', '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 13px;
+        color: #333;
+        background-color: transparent;
+      }
+
+      body.dark-mode {
+        color: #f1f1f1;
+      }
+
+      .container {
+        display: flex;
+        flex-direction: row;
+        gap: 20px;
+        width: 100%;
+        max-width: none;
+      }
+
+      .left-column {
+        flex: 0 0 auto;
+        width: 800px; /* Or 50% if preferred, but user said "existing container width ... half of form" */
+        max-width: 50%;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .right-column {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      /* Buttons */
+      button {
+        padding: 6px 16px;
+        border-radius: 2px;
+        border: 1px solid transparent;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        transition: background-color 0.2s;
+      }
+
+      .btn-primary {
+        background-color: #0078d4;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background-color: #106ebe;
+      }
+
+      .btn-primary:disabled {
+        background-color: #c8c8c8;
+        cursor: not-allowed;
+        color: #666;
+      }
+
+      .btn-secondary {
+        background-color: white;
+        border-color: #8a8886;
+      }
+
+      .dark-mode .btn-secondary {
+        background-color: transparent;
+        color: #f1f1f1;
+        border-color: #f1f1f1;
+      }
+
+      .btn-secondary:hover {
+        background-color: #f3f2f1;
+      }
+
+      .dark-mode .btn-secondary:hover {
+        background-color: #333;
+      }
+
+      /* Results Area */
+      .results-area {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .work-item-card {
+        border: 1px solid #e1dfdd;
+        border-left: 4px solid #0078d4;
+        border-radius: 2px;
+        padding: 12px;
+        background-color: #fff;
+      }
+
+      .dark-mode .work-item-card {
+        background-color: #252526;
+        border-color: #3e3e42;
+        border-left-color: #0078d4;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 6px;
+        gap: 8px;
+      }
+
+      .work-item-type {
+        font-weight: 600;
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background-color: #eff6fc;
+        color: #0078d4;
+        text-transform: uppercase;
+      }
+
+      .dark-mode .work-item-type {
+        background-color: #3a3d41;
+        color: #61dafb;
+      }
+
+      .work-item-title {
+        font-weight: 600;
+        font-size: 14px;
+      }
+
+      .work-item-description {
+        color: #666;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+
+      .dark-mode .work-item-description {
+        color: #ccc;
+      }
+
+      /* Status & Feedback */
+      .status-message {
+        padding: 8px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+
+      .status-info {
+        background-color: #eff6fc;
+        color: #005a9e;
+      }
+      .status-success {
+        background-color: #dff6dd;
+        color: #107c10;
+      }
+      .status-error {
+        background-color: #fde7e9;
+        color: #a80000;
+      }
+
+      .dark-mode .status-info {
+        background-color: #2b3c4e;
+        color: #92c5f9;
+      }
+      .dark-mode .status-success {
+        background-color: #0f3d0f;
+        color: #92f992;
+      }
+      .dark-mode .status-error {
+        background-color: #4e2b2c;
+        color: #f99292;
+      }
+
+      .spinner {
+        border: 2px solid #c7e0f4;
+        border-top: 2px solid #0078d4;
+        border-radius: 50%;
+        width: 14px;
+        height: 14px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        margin-right: 6px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .empty-state {
+        padding: 20px;
+        text-align: center;
+        color: #666;
+        border: 1px dashed #ccc;
+        border-radius: 4px;
+      }
+      .results-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 12px;
+      }
+      .results-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .results-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      /* CRUD Actions */
+      .card-actions {
+        margin-left: auto;
+        display: flex;
+        gap: 4px;
+      }
+
+      .btn-icon {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        color: #666;
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .btn-icon:hover {
+        background-color: #f3f2f1;
+        color: #0078d4;
+      }
+
+      .dark-mode .btn-icon:hover {
+        background-color: #3a3d41;
+        color: #61dafb;
+      }
+
+      .btn-sm {
+        padding: 4px 8px;
+        font-size: 11px;
+      }
+
+      /* Edit Mode Inputs */
+      .edit-input {
+        width: 100%;
+        padding: 6px;
+        margin-bottom: 8px;
+        border: 1px solid #8a8886;
+        border-radius: 2px;
+        font-family: inherit;
+        font-size: inherit;
+        box-sizing: border-box;
+      }
+
+      .dark-mode .edit-input {
+        background-color: #333;
+        color: #f1f1f1;
+        border-color: #8a8886;
+      }
+
+      .edit-textarea {
+        width: 100%;
+        padding: 6px;
+        min-height: 60px;
+        border: 1px solid #8a8886;
+        border-radius: 2px;
+        font-family: inherit;
+        font-size: inherit;
+        resize: vertical;
+        box-sizing: border-box;
+      }
+
+      .dark-mode .edit-textarea {
+        background-color: #333;
+        color: #f1f1f1;
+        border-color: #8a8886;
+      }
+
+      .edit-controls {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Left Column: Content -->
+      <div class="left-column">
+        <!-- Waiting for Generation / Empty State -->
+        <div id="emptyState" class="empty-state">
+          <p>No work items found.</p>
+          <p>Click "Generate" with "Preview" checked on the Details tab to generate work items.</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="empty-state hidden">
+          <div class="spinner"></div>
+          <p style="margin-top: 10px">Generating work items... this may take a minute.</p>
+        </div>
+
+        <!-- Results / Preview Area -->
+        <div id="resultsArea" class="results-area hidden">
+          <div class="results-header">
+            <h3 style="margin: 0">Generated Work Items</h3>
+            <button id="addItemBtn" class="btn-secondary btn-sm" title="Add New Task">+ Add Task</button>
+          </div>
+          <div id="itemsContainer">
+            <!-- Items injected here -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Status -->
+      <div class="right-column">
+        <div class="results-actions">
+          <button id="createItemsBtn" class="btn-primary">Create Work Items</button>
+          <button id="discardBtn" class="btn-secondary">Discard</button>
+        </div>
+        <!-- Status Area -->
+        <div id="statusContainer" class="hidden"></div>
+      </div>
+    </div>
+
+    <script>
+      window.requirejs.config({
+        enforceDefine: true,
+        paths: {
+          SDK: './lib/SDK.min',
+        },
+      });
+
+      window.requirejs(['SDK'], function (SDK) {
+        // State
+        let generatedItems = [];
+        let sourceWorkItem = null;
+        let currentConfig = null; // { apiUrl, apiKey }
+        let lastRawData = '';
+        let isPollingBackend = false;
+
+        SDK.init().then(() => {
+          SDK.ready().then(() => {
+            initialize();
+          });
+        });
+
+        async function initialize() {
+          // Determine theme (simple check)
+          const theme = SDK.getConfiguration().colorTheme;
+          if (theme && theme.kind === 2) {
+            // Dark
+            document.body.classList.add('dark-mode');
+          }
+
+          document.getElementById('createItemsBtn').addEventListener('click', onCreateItems);
+          document.getElementById('discardBtn').addEventListener('click', onDiscard);
+          document.getElementById('addItemBtn').addEventListener('click', onAddItem);
+
+          // Start polling for data sharing
+          startPollingForSharedData();
+        }
+
+        async function startPollingForSharedData() {
+          try {
+            const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+            const workItemId = await workItemFormService.getId();
+
+            const resultKey = `taskGenie_results_${workItemId}`;
+            const executionKey = `taskGenie_execution_${workItemId}`;
+
+            console.log('Checking for saved data:', resultKey, executionKey);
+
+            // Poll check function
+            const checkData = async () => {
+              try {
+                // Check for new execution request first
+                const executionRaw = localStorage.getItem(executionKey);
+                if (executionRaw && executionRaw !== lastRawData && !isPollingBackend) {
+                  lastRawData = executionRaw;
+                  const executionData = JSON.parse(executionRaw);
+
+                  // Check if this is a fresh request (compare timestamp?)
+                  // For now, if we see it and it changed, we process it.
+                  if (executionData && executionData.executionId) {
+                    console.log('Found execution details:', executionData.executionId);
+                    handleExecutionRequest(executionData);
+                    return;
+                  }
+                }
+
+                // Check for results
+                const resultRaw = localStorage.getItem(resultKey);
+                if (resultRaw && resultRaw !== lastRawData && !isPollingBackend) {
+                  // Only load if different and not currently polling something else
+                  lastRawData = resultRaw;
+                  const data = JSON.parse(resultRaw);
+                  if (data && data.workItems) {
+                    generatedItems = data.workItems;
+                    sourceWorkItem = data.workItem;
+                    currentConfig = data.config;
+
+                    // Ensure IDs
+                    generatedItems = generatedItems.map((item) => ({
+                      ...item,
+                      _tempId: item._tempId || Date.now() + Math.random().toString(36).substr(2, 9),
+                      _isEditing: false,
+                    }));
+
+                    renderResults();
+                  }
+                }
+              } catch (e) {
+                console.error('Error checking for saved data', e);
+              }
+            };
+
+            // Initial check
+            checkData();
+
+            // Set interval
+            pollInterval = setInterval(checkData, 2000);
+
+            // Add listener for storage events
+            window.addEventListener('storage', (event) => {
+              if (event.key === resultKey || event.key === executionKey) {
+                checkData();
+              }
+            });
+          } catch (e) {
+            console.error('Error initializing polling', e);
+            showStatus('Error initializing tab: ' + e.message, 'error');
+          }
+        }
+
+        async function handleExecutionRequest(executionData) {
+          isPollingBackend = true;
+          showLoadingState();
+
+          // Clear previous results
+          generatedItems = [];
+          // Do NOT call renderResults() here as it triggers showEmptyState() which hides the loader
+
+          try {
+            const { executionId, config, sourceWorkItem: srcItem } = executionData;
+            sourceWorkItem = srcItem;
+            currentConfig = config;
+
+            // Get App Token
+            const token = await SDK.getAppToken();
+
+            const result = await pollForCompletion(config.apiUrl, token, executionId);
+
+            if (result && result.result && result.result.workItems) {
+              generatedItems = result.result.workItems;
+              // Add temp IDs
+              generatedItems = generatedItems.map((item) => ({
+                ...item,
+                _tempId: item._tempId || Date.now() + Math.random().toString(36).substr(2, 9),
+                _isEditing: false,
+              }));
+
+              renderResults();
+
+              // Save results to local storage so they persist on reload/swapping tabs
+              try {
+                const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+                const workItemId = await workItemFormService.getId();
+                const resultKey = `taskGenie_results_${workItemId}`;
+                const executionKey = `taskGenie_execution_${workItemId}`;
+                const payload = {
+                  workItems: generatedItems,
+                  workItem: sourceWorkItem,
+                  config: currentConfig,
+                  timestamp: Date.now(),
+                };
+                localStorage.setItem(resultKey, JSON.stringify(payload));
+                lastRawData = JSON.stringify(payload);
+
+                // Clear the trigger key so we don't re-poll on reload
+                localStorage.removeItem(executionKey);
+              } catch (e) {
+                console.error('Error saving results to storage', e);
+              }
+            } else {
+              throw new Error('No work items returned.');
+            }
+          } catch (e) {
+            console.error('Could not find execution results', e);
+            showStatus('Generation failed: ' + e.message, 'error');
+            showEmptyState();
+          } finally {
+            isPollingBackend = false;
+            document.getElementById('loadingState').classList.add('hidden');
+          }
+        }
+
+        async function pollForCompletion(apiUrl, token, executionId) {
+          const pollUrl = `${apiUrl}/${executionId}`;
+          const maxAttempts = 60; // 300 seconds timeout
+          const delay = 5000;
+
+          for (let i = 0; i < maxAttempts; i++) {
+            // Wait first
+            await new Promise((resolve) => setTimeout(resolve, delay));
+
+            try {
+              console.log(`Polling for execution results at ${pollUrl}`);
+
+              const resp = await fetch(pollUrl, {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+
+              if (resp.status === 200) {
+                const data = await resp.json();
+                const status = (data.status || '').toLowerCase();
+
+                if (status === 'completed' || status === 'succeeded') {
+                  console.log('Execution completed:', data);
+                  return data;
+                } else if (status === 'failed') {
+                  throw new Error('Task Genie execution failed');
+                }
+              }
+            } catch (e) {
+              console.error('Could not poll for execution results', e);
+            }
+          }
+          throw new Error('Polling timed out');
+        }
+
+        function renderResults() {
+          const container = document.getElementById('itemsContainer');
+          container.innerHTML = '';
+
+          if (!generatedItems || generatedItems.length === 0) {
+            showEmptyState();
+            return;
+          }
+
+          document.getElementById('emptyState').classList.add('hidden');
+          document.getElementById('resultsArea').classList.remove('hidden');
+
+          generatedItems.forEach((item, index) => {
+            const card = document.createElement('div');
+            card.className = 'work-item-card';
+            card.dataset.id = item._tempId;
+
+            if (item._isEditing) {
+              // Edit Mode
+              card.innerHTML = `
+                    <div class="edit-mode">
+                        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Type</label>
+                        <input type="text" class="edit-input item-type" value="${escapeHtml(item.workItemType)}" placeholder="e.g. Task, User Story" />
+                        
+                        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Title</label>
+                        <input type="text" class="edit-input item-title" value="${escapeHtml(item.title)}" placeholder="Title" />
+                        
+                        <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Description</label>
+                        <textarea class="edit-textarea item-desc" placeholder="Description">${escapeHtml(item.description)}</textarea>
+                        
+                        <div class="edit-controls">
+                            <button class="btn-secondary btn-sm cancel-btn">Cancel</button>
+                            <button class="btn-primary btn-sm save-btn">Save</button>
+                        </div>
+                    </div>
+                `;
+
+              // Bind events
+              const cancelBtn = card.querySelector('.cancel-btn');
+              const saveBtn = card.querySelector('.save-btn');
+
+              cancelBtn.onclick = () => {
+                if (item._isNew && !item.title) {
+                  onDeleteItem(index);
+                } else {
+                  item._isEditing = false;
+                  item._isNew = false;
+                  renderResults();
+                }
+              };
+
+              saveBtn.onclick = () => {
+                const newType = card.querySelector('.item-type').value;
+                const newTitle = card.querySelector('.item-title').value;
+                const newDesc = card.querySelector('.item-desc').value;
+
+                if (!newTitle) {
+                  alert('Title is required');
+                  return;
+                }
+
+                item.workItemType = newType;
+                item.title = newTitle;
+                item.description = newDesc;
+                item._isEditing = false;
+                item._isNew = false;
+
+                renderResults();
+              };
+            } else {
+              // View Mode
+              card.innerHTML = `
+                    <div class="card-header">
+                        <span class="work-item-type">${escapeHtml(item.workItemType)}</span>
+                        <span class="work-item-title">${escapeHtml(item.title)}</span>
+                        <div class="card-actions">
+                            <button class="btn-icon edit-btn" title="Edit">
+                                <svg fill="currentColor" height="14" viewBox="0 0 16 16" width="14"><path d="M11.06 1.31L13.69 3.94 4.5 13.13 1.88 10.5 11.06 1.31ZM10 2.38L2.94 9.44 4.56 11.06 11.63 4 10 2.38ZM1.06 11.31L4.69 14.94 0 16 1.06 11.31ZM2.13 12.38L1.5 14.5 3.63 13.88 2.13 12.38Z"/></svg>
+                            </button>
+                            <button class="btn-icon delete-btn" title="Delete">
+                                <svg fill="currentColor" height="14" viewBox="0 0 16 16" width="14"><path d="M14 3H9.1L8.6 2.3H5.4L4.9 3H0V4H14V3ZM2 5H12V14.5C12 14.8 11.8 15 11.5 15H2.5C2.2 15 2 14.8 2 14.5V5ZM3 14H11V5H3V14Z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="work-item-description">${item.description}</div> 
+                `;
+
+              card.querySelector('.edit-btn').onclick = () => {
+                generatedItems.forEach((i) => (i._isEditing = false)); // Close others
+                item._isEditing = true;
+                renderResults();
+              };
+
+              card.querySelector('.delete-btn').onclick = () => onDeleteItem(index);
+            }
+
+            container.appendChild(card);
+          });
+        }
+
+        function onAddItem() {
+          const newItem = {
+            workItemType: 'Task',
+            title: '',
+            description: '',
+            _isEditing: true,
+            _isNew: true,
+            _tempId: Date.now() + Math.random().toString(36).substr(2, 9),
+          };
+          generatedItems.push(newItem);
+          // Switch off other edits
+          generatedItems.forEach((i) => {
+            if (i !== newItem) i._isEditing = false;
+          });
+
+          document.getElementById('emptyState').classList.add('hidden');
+          document.getElementById('resultsArea').classList.remove('hidden');
+
+          renderResults();
+
+          // Scroll to bottom
+          const container = document.getElementById('itemsContainer');
+          container.lastElementChild.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function onDeleteItem(index) {
+          if (confirm('Are you sure you want to delete this item?')) {
+            generatedItems.splice(index, 1);
+            renderResults();
+          }
+        }
+
+        function escapeHtml(text) {
+          if (!text) return '';
+          return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+        }
+
+        function showEmptyState() {
+          document.getElementById('resultsArea').classList.add('hidden');
+          document.getElementById('loadingState').classList.add('hidden');
+          document.getElementById('emptyState').classList.remove('hidden');
+        }
+
+        function showLoadingState() {
+          document.getElementById('resultsArea').classList.add('hidden');
+          document.getElementById('emptyState').classList.add('hidden');
+          document.getElementById('loadingState').classList.remove('hidden');
+        }
+
+        async function onCreateItems() {
+          const btn = document.getElementById('createItemsBtn');
+          btn.disabled = true;
+          showStatus('Creating items...', 'info', true);
+
+          try {
+            if (!currentConfig || !currentConfig.apiUrl) {
+              throw new Error('Configuration missing (ApiUrl). Please try generating again.');
+            }
+
+            if (generatedItems.length === 0) {
+              alert('No items to create.');
+              btn.disabled = false;
+              showStatus('', 'hidden');
+              return;
+            }
+
+            // Remove internal state properties
+            const cleanedItems = generatedItems.map((item) => {
+              const { _tempId, _isEditing, _isNew, ...rest } = item;
+              return rest;
+            });
+
+            const requestBody = {
+              resource: sourceWorkItem.resource,
+              generatedWorkItems: cleanedItems,
+              params: {
+                preview: false,
+              },
+            };
+
+            console.log('Request body:', requestBody);
+
+            // Get token for creation
+            const token = await SDK.getAppToken();
+
+            const response = await fetch(currentConfig.apiUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(requestBody),
+            });
+
+            if (!response.ok) throw new Error('Failed to submit creation');
+
+            showStatus('Creation process started successfully!', 'success');
+
+            // Clear data
+            await clearSharedData();
+
+            // Wait a bit then clear UI
+            setTimeout(() => {
+              generatedItems = [];
+              renderResults();
+              showStatus('', 'hidden');
+              btn.disabled = false;
+            }, 2000);
+          } catch (e) {
+            console.error(e);
+            showStatus('Error creating items: ' + e.message, 'error');
+            btn.disabled = false;
+          }
+        }
+
+        async function onDiscard() {
+          await clearSharedData();
+          generatedItems = [];
+          renderResults();
+          showStatus('Discarded.', 'info');
+          setTimeout(() => showStatus('', 'hidden'), 1500);
+        }
+
+        async function clearSharedData() {
+          try {
+            const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+            const workItemId = await workItemFormService.getId();
+
+            const resultKey = `taskGenie_results_${workItemId}`;
+            const executionKey = `taskGenie_execution_${workItemId}`;
+            localStorage.removeItem(resultKey);
+            localStorage.removeItem(executionKey);
+          } catch (e) {
+            console.error('Error clearing shared data', e);
+          }
+        }
+
+        function showStatus(msg, type, spinner = false) {
+          const el = document.getElementById('statusContainer');
+          if (type === 'hidden') {
+            el.classList.add('hidden');
+            return;
+          }
+
+          let content = '';
+          if (spinner) content += '<div class="spinner"></div>';
+          content += msg;
+
+          el.innerHTML = content;
+          el.className = 'status-message status-' + type;
+          el.classList.remove('hidden');
+        }
+      });
+    </script>
+  </body>
+</html>

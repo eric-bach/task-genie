@@ -64,12 +64,35 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     // Parse event body
     const { workItem, params, workItemStatus } = parseEventBody(event.body);
 
+    // Check if we are in "Commit" mode (generated work items provided)
+    if (params && params.generatedWorkItems) {
+      logger.info(`Redirecting ${params.generatedWorkItems.length} provided work items for creation (Commit Mode)`);
+      return {
+        statusCode: 200,
+        body: {
+          workItem,
+          workItems: params.generatedWorkItems,
+          documents: [],
+          workItemStatus,
+          params, // Pass params through for Step Function logic
+        },
+      };
+    }
+
     const azureService = getAzureService();
     const existingChildItems = await azureService.getChildWorkItems(workItem);
 
-    // Generate child work items
+    // Generate work items
     const bedrock = getBedrockService();
+    // If not in "Commit" mode, check for refinement or generation
     const bedrockResponse = await bedrock.generateWorkItems(workItem, existingChildItems, params);
+
+    // Ensure workItemType is set on generated items
+    const expectedChildType = getExpectedChildWorkItemType(workItem) || 'Task';
+    bedrockResponse.workItems = bedrockResponse.workItems.map((item: any) => ({
+      ...item,
+      workItemType: item.workItemType || expectedChildType,
+    }));
 
     logger.info(
       `✅ Generated ${bedrockResponse.workItems.length} child ${getExpectedChildWorkItemType(workItem, true)} for ${
@@ -90,6 +113,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
         workItems: bedrockResponse.workItems,
         documents: bedrockResponse.documents,
         workItemStatus,
+        params, // Pass params through for Step Function logic
       },
     };
   } catch (error: any) {
@@ -164,6 +188,7 @@ const parseEventBody = (
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
     feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
+    isRefinement: !!(params && params.refinementInstructions),
   });
 
   return { params, workItem, workItemStatus };

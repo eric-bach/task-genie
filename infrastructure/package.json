@@ -6,7 +6,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "build-all": "npm run build-backend && npm run build-docs",
+    "build-all": "npm run build-backend",
     "build-backend": "sh -c \"find ../backend -mindepth 2 -maxdepth 4 -type f -name \\\"package.json\\\" -not -path \\\"*/node_modules/*\\\" -not -path \\\"*/extension/*\\\" -exec echo \\\"🚧 Building {}\\\" \\; -execdir npm run build \\;\"",
     "build-docs": "echo \"🚧 Building ../docs/package.json\" && npm run build --prefix ../docs",
     "deploy-dev": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=dev",
