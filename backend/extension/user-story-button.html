@@ -265,7 +265,10 @@
                   apiUrl,
                   // Verified token exists
                   hasToken: !!token,
-                  params,
+                  params: {
+                    ...params,
+                    token: token ? `${token.substring(0, 5)}****${token.substring(token.length - 5)}` : undefined,
+                  },
                 });
 
                 const requestBody = {
