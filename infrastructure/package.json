@@ -12,6 +12,7 @@
     "deploy-dev": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=dev",
     "deploy-stage": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-stage --context envName=stage",
     "deploy-prod": "npm run build-all && echo '🚀 Deploying backend' && npm run cdk -- deploy --all --require-approval=never --profile task-genie-prod --context envName=prod",
+    "deploy-app-stack": "npm run build-all && echo '🚀 Deploying app stack' &&  cdk deploy task-genie-app-dev --exclusively --profile task-genie-stage --context envName=dev --require-approval=never",
     "install-all": "sh -c \"find ../backend -mindepth 2 -maxdepth 4 -type f -name \\\"package.json\\\" -not -path \\\"*/node_modules/*\\\" -exec echo \\\"🛠️ Installing {}\\\" \\; -execdir npm install \\; && echo \\\"🛠️ Installing ../docs/package.json\\\" && npm install --prefix ../docs\"",
     "watch": "tsc -w",
     "test": "jest",

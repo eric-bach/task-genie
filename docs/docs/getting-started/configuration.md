@@ -43,25 +43,6 @@ Task Genie requires specific work item fields to function properly:
 The `Custom.BusinessUnit` and `Custom.System` fields need to be created in your Azure DevOps process template. Contact your Azure DevOps administrator to add these custom fields to your User Story work item type.
 :::
 
-#### **Azure DevOps Service Principal Configuration**
-
-For Service Hooks integration, configure these Azure DevOps settings:
-
-```json
-{
-  "tenant_id": "your-azure-tenant-id",
-  "client_id": "service-principal-client-id",
-  "client_secret": "service-principal-secret",
-  "scope": "https://app.vssps.visualstudio.com/.default"
-}
-```
-
-**Required Permissions:**
-
-- Work Items: Read & Write
-- Project and team: Read
-- Analytics: Read (for dashboard features)
-
 ---
 
 ## AI Model Configuration
@@ -213,13 +194,11 @@ Generate infrastructure and deployment tasks.
 #### **Web Interface Configuration**
 
 1. **Access Configuration**
-
    - Login to Task Genie web interface
    - Navigate to **Configuration** page
    - View existing team configurations
 
 2. **Create New Configuration**
-
    - Click **New Configuration**
    - Fill in required fields:
      - **Area Path**: Select your team's area path
@@ -267,7 +246,6 @@ The Task Genie extension requires configuration within Azure DevOps:
 #### **Configuration Steps**
 
 1. **Install Extension**
-
    - Install from Azure DevOps marketplace
    - Grant necessary permissions
 
@@ -425,13 +403,6 @@ NEXT_PUBLIC_TURNSTILE_SITE_KEY=cloudflare-turnstile-key
 4. Generate tasks and verify output quality
 5. Check configuration settings are applied
 
-#### **Service Hooks Test**
-
-1. Create or update a User Story in Azure DevOps
-2. Check Service Hooks activity logs
-3. Verify API calls are successful
-4. Confirm tasks are automatically generated
-
 ### Troubleshooting Configuration Issues
 
 **Common Issues and Solutions:**
@@ -441,8 +412,8 @@ NEXT_PUBLIC_TURNSTILE_SITE_KEY=cloudflare-turnstile-key
 | Extension button not appearing | Extension not installed or configured | Check extension installation and permissions  |
 | API authentication errors      | Invalid API key or URL                | Verify API credentials and endpoint           |
 | No tasks generated             | Missing custom fields or prompt       | Check required fields and custom prompt setup |
-| Duplicate tasks                | Multiple Service Hooks triggered      | Review Service Hook configuration             |
-| Poor task quality              | Generic or poorly designed prompt     | Refine custom prompt with specific context    |
+
+| Poor task quality | Generic or poorly designed prompt | Refine custom prompt with specific context |
 
 ---
 

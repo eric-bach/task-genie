@@ -14,7 +14,6 @@ import { LambdaInvoke } from 'aws-cdk-lib/aws-stepfunctions-tasks';
 import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import {
   AccessLogFormat,
-  ApiKey,
   ApiKeySourceType,
   AwsIntegration,
   CfnAccount,
@@ -50,7 +49,6 @@ export class AppStack extends Stack {
   public addCommentFunctionArn: string;
   public finalizeResponseFunctionArn: string;
   public handleErrorFunctionArn: string;
-  public trackTaskFeedbackFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
   public apiName: string;
 
@@ -82,7 +80,6 @@ export class AppStack extends Stack {
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
     const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
-    const feedbackTable = Table.fromTableArn(this, 'FeedbackTable', props.params.feedbackTableArn);
 
     const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
 
@@ -128,8 +125,6 @@ export class AppStack extends Stack {
         AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
         AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         CONFIG_TABLE_NAME: props.params.configTableArn.split('/').pop() || '',
-        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
-        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('AmazonBedrockFullAccess')],
@@ -137,13 +132,6 @@ export class AppStack extends Stack {
         new PolicyStatement({
           actions: ['dynamodb:GetItem'],
           resources: [props.params.configTableArn],
-        }),
-        new PolicyStatement({
-          actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
-          resources: [
-            feedbackTable.tableArn,
-            `${feedbackTable.tableArn}/index/*`, // For GSI access
-          ],
         }),
       ],
       // interfaceEndpoints: removed since not using private VPC
@@ -383,31 +371,6 @@ export class AppStack extends Stack {
       },
     });
     configTable.grantWriteData(deleteConfigFunction);
-
-    // Feedback Tracking Lambda
-    const trackTaskFeedbackFunction = new TaskGenieLambda(this, 'TrackTaskFeedback', {
-      functionName: `${props.appName}-track-task-feedback-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/feedback/trackTaskFeedback/index.ts'),
-      memorySize: 512,
-      timeout: Duration.seconds(30),
-      environment: {
-        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
-        RESULTS_TABLE_NAME: resultsTable.tableName,
-        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
-        POWERTOOLS_LOG_LEVEL: 'DEBUG',
-      },
-      policyStatements: [
-        new PolicyStatement({
-          actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:UpdateItem', 'dynamodb:Query', 'dynamodb:Scan'],
-          resources: [
-            feedbackTable.tableArn,
-            `${feedbackTable.tableArn}/index/*`, // For GSI access
-            resultsTable.tableArn,
-            `${resultsTable.tableArn}/index/*`, // For GSI access
-          ],
-        }),
-      ],
-    });
 
     // Get Work Item Lambda
     const getWorkItemFunction = new TaskGenieLambda(this, 'GetWorkItem', {
@@ -884,55 +847,6 @@ export class AppStack extends Stack {
       authorizer: tokenAuthorizer,
     });
 
-    // Feedback webhook API resource for Azure DevOps (Asynchronous)
-    //  POST /feedback/track
-    const feedbackResource = api.root.addResource('feedback');
-    const trackFeedbackResource = feedbackResource.addResource('track');
-
-    // Asynchronous Lambda integration for feedback tracking
-    trackFeedbackResource.addMethod(
-      'POST',
-      new LambdaIntegration(trackTaskFeedbackFunction, {
-        proxy: false, // Don't use proxy integration for async
-        integrationResponses: [
-          {
-            statusCode: '202',
-            responseParameters: {
-              'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,POST'",
-              'method.response.header.Access-Control-Allow-Headers':
-                "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
-            },
-            responseTemplates: {
-              'application/json': JSON.stringify({
-                message: 'Feedback request accepted for processing',
-                timestamp: '$context.requestTime',
-              }),
-            },
-          },
-        ],
-        requestTemplates: {
-          'application/json': '$input.body', // Pass the request body directly
-        },
-        requestParameters: {
-          'integration.request.header.X-Amz-Invocation-Type': "'Event'", // Async invocation
-        },
-      }),
-      {
-        authorizer: tokenAuthorizer,
-        methodResponses: [
-          {
-            statusCode: '202',
-            responseParameters: {
-              'method.response.header.Access-Control-Allow-Origin': true,
-              'method.response.header.Access-Control-Allow-Methods': true,
-              'method.response.header.Access-Control-Allow-Headers': true,
-            },
-          },
-        ],
-      },
-    );
-
     // Add method to poll Step Function execution results
     //  GET /executions/{executionId} (URL-encoded execution ID with colons)
     const pollResource = executionsResource.addResource('{executionId}');
@@ -965,7 +879,6 @@ export class AppStack extends Stack {
     this.addCommentFunctionArn = addCommentFunction.functionArn;
     this.finalizeResponseFunctionArn = finalizeResponseFunction.functionArn;
     this.handleErrorFunctionArn = handleErrorFunction.functionArn;
-    this.trackTaskFeedbackFunctionArn = trackTaskFeedbackFunction.functionArn;
     this.apiGwAccessLogGroupArn = apiGwAccessLogGroup.logGroupArn;
     this.apiName = api.restApiName;
   }

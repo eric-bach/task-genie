@@ -46,10 +46,6 @@ Use this information to understand the scope and expectation to generate relevan
 Current tasks already created for this user story. Avoid duplicating these; generate only missing or supplementary tasks for completeness.
   \${tasks}
 
-- Feedback or past learnings (if any):
-Previous user feedback relevant to this user story; such as tasks that were missed, or tasks that were removed or not relevant. Incorporate these insights to improve quality and relevance.
-  \${feedback}
-
 - Images (if any):
 Visual aids or references that provide additional context for task generation.
   \${images}

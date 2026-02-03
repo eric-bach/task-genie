@@ -38,28 +38,28 @@ export class ObservabilityStack extends Stack {
     const evaluateWorkItemFunction = Function.fromFunctionArn(
       this,
       'EvaluateWorkItem',
-      props.params.evaluateWorkItemFunctionArn
+      props.params.evaluateWorkItemFunctionArn,
     );
     const generateWorkItemsFunction = Function.fromFunctionArn(
       this,
       'GenerateWorkItems',
-      props.params.generateWorkItemsFunctionArn
+      props.params.generateWorkItemsFunctionArn,
     );
     const createWorkItemsFunction = Function.fromFunctionArn(
       this,
       'CreateWorkItems',
-      props.params.createWorkItemsFunctionArn
+      props.params.createWorkItemsFunctionArn,
     );
     const addCommentFunction = Function.fromFunctionArn(this, 'AddComment', props.params.addCommentFunctionArn);
     const finalizeResponseFunction = Function.fromFunctionArn(
       this,
       'FinalizeResponse',
-      props.params.finalizeResponseFunctionArn
+      props.params.finalizeResponseFunctionArn,
     );
     const apiGwAccessLogGroup = LogGroup.fromLogGroupArn(
       this,
       'ApiGwAccessLogGroup',
-      props.params.apiGwAccessLogGroupArn
+      props.params.apiGwAccessLogGroupArn,
     );
 
     /*
@@ -363,7 +363,7 @@ export class ObservabilityStack extends Stack {
       incompleteUserStories,
       apiGatewayAccessLogs,
       apiGatewayRequestsWidget,
-      apiGatewayLatencyWidget
+      apiGatewayLatencyWidget,
     );
   }
 }
