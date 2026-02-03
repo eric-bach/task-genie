@@ -29,7 +29,7 @@
 </div>
 
 <div align="center">
-  <strong>An AI-powered assistant that integrates with Azure DevOps Boards to ensure work items (Epic, Feature, User Story, Product Backlog Item) are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.</strong><br />
+  <strong>An AI-powered Azure DevOps extension that ensures work items (Epic, Feature, User Story, Product Backlog Item) are well-defined and automatically breaks them down into actionable work items, streamlining the Agile process and enhancing developer productivity.</strong><br />
   Task Genie follows Azure DevOps hierarchy where Epics are broken down into Features, Features into User Stories, and User Stories and Product Backlog Items into Tasks.
 </div>
 
@@ -57,7 +57,6 @@
 - Automatically decomposes validated Epics, Features, User Stories, and Product Backlog Items into smaller, actionable work items
 - Understands images within user stories as context in task breakdown process
 - Uses RAG to support additional context like tech details, domain context, application knowledge, etc.
-- Learns from user feedback on generated tasks to improve future task generation action using RAG
 - Ability to fully customize the AI prompt for mutliple workflows
 
 <div align="center">
@@ -66,7 +65,7 @@
 
 ### 🔗 Azure DevOps Boards Integration
 
-- Multiple, seamless integration options with Azure DevOps Boards (Extension or Service Hooks)
+- Seamless integration with Azure DevOps Boards
 - Automatically updates work items and comments
 - Built-in dashboards to visualize performance and effectiveness of task generation
 
@@ -76,7 +75,7 @@
 
 ## 🏗️ Architecture
 
-The architecture is deployed in AWS using an **agentic architecture model** with **Amazon Bedrock AgentCore**. Integration with Azure DevOps is done through **Service Hooks** for each board.
+The architecture is deployed in AWS using an **agentic architecture model** with **Amazon Bedrock AgentCore**. Integration with Azure DevOps is done through an **Azure DevOps extension**.
 
 <div align="center">
   <img src="images/architecture_v3.png" alt="Architecture Diagram" width="800">
@@ -95,11 +94,6 @@ The architecture is deployed in AWS using an **agentic architecture model** with
 |  <img height="40" src="https://raw.githubusercontent.com/marwin1991/profile-technology-icons/refs/heads/main/icons/typescript.png">  |     **TypeScript** - Type-safe development     |
 
 </div>
-
-### ⚠️ Current Limitations
-
-> **Azure DevOps Service Hooks Limitation**  
-> Azure DevOps Service Hooks can only be configured to trigger on one or all fields when a work item is updated. When the Title, Description, and Acceptance Criteria of a work item are updated simultaneously, Task Genie will be triggered 3 times, resulting in 3x the number of tasks being generated.
 
 ## 💰 Pricing
 
@@ -125,16 +119,12 @@ Estimated monthly costs (USD) for running in AWS:
 ### 📋 Prerequisites (One-time setup)
 
 1. **Azure Service Principal Setup**
-
    - Request the `Identity and Productivity Team` to create an Azure Service Principal in Azure DevOps with "Read & Write" permissions to "Work Items"
    - Use these values to populate the `.env` in the next step
 
 2. **Azure DevOps User Configuration**
-
    - Log in to Azure DevOps → `Organization Settings` → `Users` → `Add users`
    - Enter the Service Principal Client Id and set the `Access Level` and `Project`
-   - Uncheck `Send email invites`
-
    - Uncheck `Send email invites`
 
 <div align="center">
@@ -169,7 +159,6 @@ The backend is deployed using GitHub Actions with the following pipelines:
    ```
 
    This will deploy all stacks including:
-
    - AWS OIDC provider for GitHub Actions
    - IAM role with necessary permissions for CDK deployment
    - Your application infrastructure (data, app, observability stacks)
@@ -178,7 +167,6 @@ The backend is deployed using GitHub Actions with the following pipelines:
 2. **Configure GitHub Repository**
 
    **Create Environments:**
-
    1. Go to your GitHub repository
    2. Navigate to **Settings** → **Environments**
    3. Create two environments: `staging` and `production`
@@ -187,23 +175,23 @@ The backend is deployed using GitHub Actions with the following pipelines:
    For each environment, add the following secrets under **Settings** → **Secrets and variables** → **Actions**:
 
    **Required Secrets:**
-
    - `AZURE_DEVOPS_TENANT_ID`: Azure tenant ID
    - `AZURE_DEVOPS_CLIENT_ID`: Azure client ID
    - `AZURE_DEVOPS_CLIENT_SECRET`: Azure client secret
+   - `AZURE_DEVOPS_EXTENSION_ID`: Azure DevOps extension ID
+   - `AZURE_DEVOPS_EXTENSION_SECRET`: Azure DevOps extension secret key
    - `AWS_BEDROCK_MODEL_ID`: Bedrock model ID
+   - `DOMAIN_NAME`: Domain name of the Task Genie frontend
 
    **Environment-Specific Secrets:**
    For **staging** and **production** environments:
-
    - `AZURE_DEVOPS_ORGANIZATION`: Your Azure DevOps organization name
    - `AZURE_DEVOPS_SCOPE`: Azure DevOps scope
    - `AWS_ROLE_ARN`: AWS IAM role for Github Actions deployment
    - `AWS_BEDROCK_KNOWLEDGE_BASE_ID`: Amazon Bedrock Knowledge Base ID
    - `AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID`: Amazon Bedrock Knowledge Base Data Source ID
-   - `AWS_CERTIFICATE_ARN`: ARN of the AWS Certificate used for the Docusarus Cloudfront Distribution
    - `DOCS_DOMAIN_NAME`: domain name of the Docusarus website
-   - `FEEDBACK_FEATURE_ENABLED`: true or false to toggle Adapative Feedback feature
+   - `AWS_CERTIFICATE_ARN`: ARN of the AWS Certificate used for the Docusarus Cloudfront Distribution
 
 #### Option 2: Manual Deployment (CDK)
 
@@ -217,12 +205,13 @@ The backend is deployed using GitHub Actions with the following pipelines:
    AZURE_DEVOPS_CLIENT_ID=
    AZURE_DEVOPS_CLIENT_SECRET=
    AZURE_DEVOPS_SCOPE=
+   AZURE_DEVOPS_EXTENSION_ID=
+   AZURE_DEVOPS_EXTENSION_SECRET=
    AWS_BEDROCK_MODEL_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_ID=
    AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID=
    AWS_CERTIFICATE_ARN=
    DOCS_DOMAIN_NAME=
-   FEEDBACK_FEATURE_ENABLED=
    ```
 
 2. **Install Dependencies**
@@ -257,6 +246,7 @@ The frontend is deployed using **AWS Amplify Console**.
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
    NEXT_PUBLIC_DOCS_URL=
+   NEXT_PUBLIC_ADO_DEFAULT_PROJECT=
    ```
 
 #### Local Development
@@ -274,6 +264,7 @@ The frontend is deployed using **AWS Amplify Console**.
    NEXT_PUBLIC_API_GATEWAY_URL=
    NEXT_PUBLIC_API_GATEWAY_API_KEY=
    NEXT_PUBLIC_DOCS_URL=
+   NEXT_PUBLIC_ADO_DEFAULT_PROJECT=
    ```
 
 2. **Install Dependencies**
@@ -290,99 +281,25 @@ The frontend is deployed using **AWS Amplify Console**.
 
 ## ⚙️ Setup
 
-### 🔗 Azure DevOps Configuration (ont-time, per board)
+### 🔗 Azure DevOps Configuration (one-time, per organization)
 
-#### Option 1: Azure DevOps Extension
+#### Install Azure DevOps Extension
 
 1. Install the [Task Genie](https://marketplace.visualstudio.com/items?itemName=AMA.task-genie) extension to the Azure DevOps organization
 
 2. Add the extension to the Process template
-
    - Go to the [Organization Settings](https://amaabca.visualstudio.com/_settings) in Azure DevOps and click [Process](https://amaabca.visualstudio.com/_settings/process)
    - Click on the Process to edit
    - Click on `User Story`
    - Click `Add custom control` and select the ~Task Genie Button (AMA)`
      ![](/images/custom_control.png)
-   - Click `Options` and set the API URL and API Key to the values in the AWS environment
+   - Click `Options` and set the API URL to the values in the AWS environment
      ![](/images/custom_control_options.png)
 
 3. The `Generate Tasks` button should now appear on any User Stories using the Process
    ![](/images/azure_devops_user_story.png)
 
-#### Option 2: Azure DevOps Service Hooks
-
-The integration with Azure DevOps leverages **Service Hooks** and requires **4 Service Hooks** to be created for each Board:
-
-- Work item created
-- Work item updated (title)
-- Work item updated (description)
-- Work item updated (acceptance criteria)
-
-<div align="center">
-  <img src="images/service_hooks.png" alt="Service Hooks Configuration" width="700">
-</div>
-
-> ⚠️ **Important**: When the title, acceptance criteria, and description are updated simultaneously, it will trigger 3 times, resulting in 3x the number of tasks being generated. This is a limitation of Azure DevOps, not Task Genie.
-
-1. **Access Project Settings**
-
-   - In Azure DevOps project → Click the gear icon → `Project Settings`
-
-2. **Navigate to Service Hooks**
-
-   - Click on `Service hooks`
-
-3. **Create New Service Hook**
-
-   - Click the `+` plus sign to create a new Service Hook
-
-4. **Configure Four Service Hooks**
-
-   Create **four (4) Service Hooks** with the following configuration:
-
-   | Setting                           | Value                                                                                                                          |
-   | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-   | **Trigger on this type of event** | work item created (1), work item updated (3)                                                                                   |
-   | **Area path**                     | Azure DevOps project name                                                                                                      |
-   | **Work item type**                | User Story                                                                                                                     |
-   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/executions` or `https://api.taskgenie.YOUR_DOMAIN.NAME/executions` |
-   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                                                                             |
-
-#### Task Feedback
-
-To setup the task feedback which will be used as supplemental information in the task generation process, setup three Azure DevOps Service Hooks:
-
-- Work item created
-- Work item updated
-- Work item deleted
-
-  ![Tasks Service Hooks](/images/service_hooks_tasks.png)
-
-1. **Access Project Settings**
-
-   - In Azure DevOps project → Click the gear icon → `Project Settings`
-
-2. **Navigate to Service Hooks**
-
-   - Click on `Service hooks`
-
-3. **Create New Service Hook**
-
-   - Click the `+` plus sign to create a new Service Hook
-
-4. **Configure Three Service Hooks**
-
-   Create **thress (3) Service Hooks** with the following configuration:
-
-   | Setting                           | Value                                                                                                                                  |
-   | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-   | **Trigger on this type of event** | work item created (1), work item updated (2)                                                                                           |
-   | **Area path**                     | Azure DevOps project name                                                                                                              |
-   | **Work item type**                | Task                                                                                                                                   |
-   | **URL**                           | `https://API_GW_ID.execute-api.us-west-2.amazonaws.com/prod/feedback/track` or `https://api.taskgenie.YOUR_DOMAIN.NAME/feedback/track` |
-   | **HTTP headers**                  | `x-api-key: <API_Gateway_API_Key>`                                                                                                     |
-
-## 💻 Azure DevOps Extension
+## 💻 Development
 
 ### Building the extension
 

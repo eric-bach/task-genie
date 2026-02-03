@@ -1,23 +1,7 @@
-import {
-  CfnOutput,
-  Duration,
-  RemovalPolicy,
-  SecretValue,
-  Stack,
-} from 'aws-cdk-lib';
+import { CfnOutput, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import {
-  AccountRecovery,
-  UserPool,
-  UserPoolClient,
-  UserPoolDomain,
-} from 'aws-cdk-lib/aws-cognito';
-import {
-  Bucket,
-  BucketEncryption,
-  CfnBucket,
-  HttpMethods,
-} from 'aws-cdk-lib/aws-s3';
+import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
+import { Bucket, BucketEncryption, HttpMethods } from 'aws-cdk-lib/aws-s3';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { DataStackProps } from '../bin/task-genie';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
@@ -31,7 +15,6 @@ dotenv.config();
 export class DataStack extends Stack {
   public configTableArn: string;
   public resultsTableArn: string;
-  public feedbackTableArn: string;
   public dataSourceBucketArn: string;
   public azureDevOpsCredentialsSecretName: string;
 
@@ -130,58 +113,6 @@ export class DataStack extends Stack {
       },
     });
 
-    // Task Feedback table for AI learning and improvement
-    const feedbackTable = new Table(this, 'TaskFeedbackTable', {
-      tableName: `${props.appName}-feedback-${props.envName}`,
-      partitionKey: {
-        name: 'feedbackId',
-        type: AttributeType.STRING,
-      },
-      billingMode: BillingMode.PAY_PER_REQUEST,
-      removalPolicy: RemovalPolicy.DESTROY,
-      pointInTimeRecovery: true,
-      timeToLiveAttribute: 'ttl',
-    });
-
-    // GSI for querying feedback by work item
-    feedbackTable.addGlobalSecondaryIndex({
-      indexName: 'workItemId-timestamp-index',
-      partitionKey: {
-        name: 'workItemId',
-        type: AttributeType.NUMBER,
-      },
-      sortKey: {
-        name: 'timestamp',
-        type: AttributeType.STRING,
-      },
-    });
-
-    // GSI for querying feedback by task ID
-    feedbackTable.addGlobalSecondaryIndex({
-      indexName: 'taskId-timestamp-index',
-      partitionKey: {
-        name: 'taskId',
-        type: AttributeType.NUMBER,
-      },
-      sortKey: {
-        name: 'timestamp',
-        type: AttributeType.STRING,
-      },
-    });
-
-    // GSI for querying feedback by context key
-    feedbackTable.addGlobalSecondaryIndex({
-      indexName: 'contextKey-timestamp-index',
-      partitionKey: {
-        name: 'contextKey',
-        type: AttributeType.STRING,
-      },
-      sortKey: {
-        name: 'timestamp',
-        type: AttributeType.STRING,
-      },
-    });
-
     /*
      * Amazon S3 Buckets
      */
@@ -201,16 +132,12 @@ export class DataStack extends Stack {
       maxAge: 3000,
     });
 
-    const vectorStoreBucket = new CfnVectorBucket(
-      this,
-      'KnowledgeBaseVectorStoreBucket',
-      {
-        vectorBucketName: `${props.appName}-vector-store-${props.envName}`,
-        encryptionConfiguration: {
-          sseType: 'AES256',
-        },
-      }
-    );
+    const vectorStoreBucket = new CfnVectorBucket(this, 'KnowledgeBaseVectorStoreBucket', {
+      vectorBucketName: `${props.appName}-vector-store-${props.envName}`,
+      encryptionConfiguration: {
+        sseType: 'AES256',
+      },
+    });
     const vectorIndex = new CfnIndex(this, 'KnowledgeBaseVectorIndex', {
       indexName: `${props.appName}-vector-index-${props.envName}`,
       vectorBucketName: vectorStoreBucket.vectorBucketName,
@@ -218,10 +145,7 @@ export class DataStack extends Stack {
       dimension: 1024,
       distanceMetric: 'euclidean',
       metadataConfiguration: {
-        nonFilterableMetadataKeys: [
-          'AMAZON_BEDROCK_TEXT',
-          'AMAZON_BEDROCK_METADATA',
-        ],
+        nonFilterableMetadataKeys: ['AMAZON_BEDROCK_TEXT', 'AMAZON_BEDROCK_METADATA'],
       },
     });
     vectorIndex.node.addDependency(vectorStoreBucket);
@@ -231,42 +155,36 @@ export class DataStack extends Stack {
      */
 
     // Knowledge Base Service Role
-    const knowledgeBaseRole = new Role(
-      this,
-      'BedrockKnowledgeBaseServiceRole',
-      {
-        roleName: `${props.appName}-bedrock-knowledge-base-role-${props.envName}`,
-        assumedBy: new ServicePrincipal('bedrock.amazonaws.com', {
-          conditions: {
-            StringEquals: {
-              'aws:SourceAccount': this.account,
-            },
-            ArnLike: {
-              'aws:SourceArn': `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`,
-            },
+    const knowledgeBaseRole = new Role(this, 'BedrockKnowledgeBaseServiceRole', {
+      roleName: `${props.appName}-bedrock-knowledge-base-role-${props.envName}`,
+      assumedBy: new ServicePrincipal('bedrock.amazonaws.com', {
+        conditions: {
+          StringEquals: {
+            'aws:SourceAccount': this.account,
           },
-        }),
-      }
-    );
+          ArnLike: {
+            'aws:SourceArn': `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`,
+          },
+        },
+      }),
+    });
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
-        resources: [
-          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
-        ],
-      })
+        resources: [`arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`],
+      }),
     );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
         actions: ['s3:GetObject'],
         resources: [`${dataSourceBucket.bucketArn}/*`],
-      })
+      }),
     );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
         actions: ['s3:ListBucket'],
         resources: [dataSourceBucket.bucketArn],
-      })
+      }),
     );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
@@ -281,27 +199,22 @@ export class DataStack extends Stack {
           `arn:aws:s3vectors:${this.region}:${this.account}:bucket/${vectorStoreBucket.vectorBucketName}`,
           `arn:aws:s3vectors:${this.region}:${this.account}:bucket/${vectorStoreBucket.vectorBucketName}/*`,
         ],
-      })
+      }),
     );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
-        actions: [
-          's3:GetObject',
-          's3:PutObject',
-          's3:ListBucket',
-          's3:DeleteObject',
-        ],
+        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:DeleteObject'],
         resources: [
           `arn:aws:s3:::${vectorStoreBucket.vectorBucketName}`,
           `arn:aws:s3:::${vectorStoreBucket.vectorBucketName}/*`,
         ],
-      })
+      }),
     );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
         actions: ['bedrock:GetInferenceProfile', 'bedrock:InvokeModel'],
         resources: ['arn:aws:bedrock:*'],
-      })
+      }),
     );
 
     const knowledgeBase = new CfnKnowledgeBase(this, 'KnowledgeBase', {
@@ -324,31 +237,27 @@ export class DataStack extends Stack {
     });
     knowledgeBase.node.addDependency(knowledgeBaseRole);
 
-    const knowledgeBaseDataSource = new CfnDataSource(
-      this,
-      'S3KnowledgeBaseDataSource',
-      {
-        knowledgeBaseId: knowledgeBase.ref,
-        name: `${props.appName}-data-source-${props.envName}`,
-        description: 'S3 Data Source for Task Genie Knowledge Base',
-        dataSourceConfiguration: {
-          type: 'S3',
-          s3Configuration: {
-            bucketArn: dataSourceBucket.bucketArn,
+    const knowledgeBaseDataSource = new CfnDataSource(this, 'S3KnowledgeBaseDataSource', {
+      knowledgeBaseId: knowledgeBase.ref,
+      name: `${props.appName}-data-source-${props.envName}`,
+      description: 'S3 Data Source for Task Genie Knowledge Base',
+      dataSourceConfiguration: {
+        type: 'S3',
+        s3Configuration: {
+          bucketArn: dataSourceBucket.bucketArn,
+        },
+      },
+      vectorIngestionConfiguration: {
+        chunkingConfiguration: {
+          chunkingStrategy: 'SEMANTIC',
+          semanticChunkingConfiguration: {
+            breakpointPercentileThreshold: 90,
+            bufferSize: 1,
+            maxTokens: 512,
           },
         },
-        vectorIngestionConfiguration: {
-          chunkingConfiguration: {
-            chunkingStrategy: 'SEMANTIC',
-            semanticChunkingConfiguration: {
-              breakpointPercentileThreshold: 90,
-              bufferSize: 1,
-              maxTokens: 512,
-            },
-          },
-        },
-      }
-    );
+      },
+    });
 
     /*
      * AWS Secrets Manager
@@ -358,18 +267,10 @@ export class DataStack extends Stack {
       secretName: `${props.appName}/${props.envName}/azure-devops-credentials`,
       description: 'Azure DevOps OAuth credentials',
       secretObjectValue: {
-        tenantId: SecretValue.unsafePlainText(
-          process.env.AZURE_DEVOPS_TENANT_ID || ''
-        ),
-        clientId: SecretValue.unsafePlainText(
-          process.env.AZURE_DEVOPS_CLIENT_ID || ''
-        ),
-        clientSecret: SecretValue.unsafePlainText(
-          process.env.AZURE_DEVOPS_CLIENT_SECRET || ''
-        ),
-        scope: SecretValue.unsafePlainText(
-          process.env.AZURE_DEVOPS_SCOPE || ''
-        ),
+        tenantId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_TENANT_ID || ''),
+        clientId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_ID || ''),
+        clientSecret: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_SECRET || ''),
+        scope: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_SCOPE || ''),
       },
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -404,7 +305,6 @@ export class DataStack extends Stack {
 
     this.configTableArn = configTable.tableArn;
     this.resultsTableArn = resultsTable.tableArn;
-    this.feedbackTableArn = feedbackTable.tableArn;
     this.dataSourceBucketArn = dataSourceBucket.bucketArn;
     this.azureDevOpsCredentialsSecretName = azureDevOpsCredentials.secretName;
   }

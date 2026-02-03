@@ -15,6 +15,7 @@ import {
   isEpic,
   isFeature,
   ADOProcessTemplate,
+  BaseWorkItem,
 } from '../../../types/azureDevOps';
 import { CloudWatchService } from '../../../services/CloudWatchService';
 import { InvalidWorkItemError } from '../../../types/errors';
@@ -92,6 +93,23 @@ const lambdaHandler = async (event: any, context: Context) => {
           },
         },
       };
+    }
+
+    // Check if generated work items are provided (Commit Mode)
+    if (event.generatedWorkItems && event.generatedWorkItems.length > 0) {
+        logger.info(`⏩ Generated work items provided for ${workItem.workItemId}. Skipping evaluation and passing through.`);
+        return {
+            statusCode: 200,
+            body: {
+                params,
+                workItem,
+                documents: [],
+                workItems: event.generatedWorkItems,
+                workItemStatus: {
+                    pass: true
+                }
+            }
+        };
     }
 
     let statusCode = 200;
@@ -176,6 +194,9 @@ const validateWorkItem = (resource: any) => {
     'System.Title',
     'System.Description',
     'System.WorkItemType',
+    'Custom.AMAValueArea',
+    'Custom.BusinessUnit',
+    'Custom.System',
   ];
 
   if (!resource) {
@@ -333,12 +354,13 @@ const parseEvent = async (event: any): Promise<WorkItemRequest> => {
   );
 
   // Create base work item with common fields
-  const baseWorkItem = {
+  const baseWorkItem: BaseWorkItem = {
     workItemId: workItemId ?? 0,
     workItemType,
     teamProject,
     areaPath: sanitizeField(fields['System.AreaPath']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
+    amaValueArea: fields['Custom.AMAValueArea'] ? sanitizeField(fields['Custom.AMAValueArea']) : undefined, // Custom Field
     businessUnit: fields['Custom.BusinessUnit'] ? sanitizeField(fields['Custom.BusinessUnit']) : undefined, // Custom Field
     system: fields['Custom.System'] ? sanitizeField(fields['Custom.System']) : undefined, // Custom Field
     releaseNotes: fields['Custom.ReleaseNotes'] ? sanitizeField(fields['Custom.ReleaseNotes']) : undefined, // Custom Field
@@ -399,6 +421,7 @@ const parseEvent = async (event: any): Promise<WorkItemRequest> => {
     workItemType: workItem.workItemType,
     title: workItem.title,
     areaPath: workItem.areaPath,
+    amaValueArea: workItem.amaValueArea,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
     releaseNotes: workItem.releaseNotes,

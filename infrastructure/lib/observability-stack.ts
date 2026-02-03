@@ -7,12 +7,9 @@ import {
   GraphWidgetView,
   LogQueryWidget,
   Metric,
-  SingleValueWidget,
 } from 'aws-cdk-lib/aws-cloudwatch';
 import { ObservabilityStackProps } from '../bin/task-genie';
-import { StateMachine } from 'aws-cdk-lib/aws-stepfunctions';
 import * as dotenv from 'dotenv';
-import { Function } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup } from 'aws-cdk-lib/aws-logs';
 
 dotenv.config();
@@ -37,7 +34,7 @@ export class ObservabilityStack extends Stack {
     const apiGwAccessLogGroup = LogGroup.fromLogGroupArn(
       this,
       'ApiGwAccessLogGroup',
-      props.params.apiGwAccessLogGroupArn
+      props.params.apiGwAccessLogGroupArn,
     );
 
     /*
@@ -161,7 +158,7 @@ export class ObservabilityStack extends Stack {
       incompleteUserStoriesWidget,
       apiGatewayAccessLogs,
       apiGatewayRequestsWidget,
-      apiGatewayLatencyWidget
+      apiGatewayLatencyWidget,
     );
   }
 }

@@ -16,11 +16,13 @@ export interface WorkItemImage {
 // Base work item interface with common fields
 export interface BaseWorkItem {
   workItemId: number;
+  workItemType: string;
   rev?: number;
   teamProject: string;
   state?: string;
   areaPath: string;
   iterationPath: string;
+  amaValueArea?: string;
   businessUnit?: string;
   system?: string;
   releaseNotes?: string; // used for PBI

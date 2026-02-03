@@ -20,7 +20,6 @@ import { AzureService } from '../../../services/AzureService';
  * Environment Variables:
  * - AWS_BEDROCK_MODEL_ID: The Bedrock model ID to use for work item generation
  * - AWS_BEDROCK_KNOWLEDGE_BASE_ID: Knowledge base ID for retrieving context
- * - FEEDBACK_FEATURE_ENABLED: Feature flag to enable/disable feedback learning (true/false)
  * - AZURE_DEVOPS_PAT_PARAMETER_NAME: Parameter Store parameter name containing Azure DevOps PAT
  */
 
@@ -46,11 +45,6 @@ export const AZURE_DEVOPS_ORGANIZATION = process.env.AZURE_DEVOPS_ORGANIZATION;
 if (AZURE_DEVOPS_ORGANIZATION === undefined) {
   throw new Error('AZURE_DEVOPS_ORGANIZATION environment variable is required');
 }
-const FEEDBACK_TABLE_NAME = process.env.FEEDBACK_TABLE_NAME;
-if (!FEEDBACK_TABLE_NAME) {
-  throw new Error('FEEDBACK_TABLE_NAME environment variable is required');
-}
-const FEEDBACK_FEATURE_ENABLED = process.env.FEEDBACK_FEATURE_ENABLED === 'true';
 
 // Clients and services
 const logger = new Logger({ serviceName: 'generateWorkItems' });
@@ -64,12 +58,35 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
     // Parse event body
     const { workItem, params, workItemStatus } = parseEventBody(event.body);
 
+    // Check if we are in "Commit" mode (generated work items provided)
+    if (params && params.generatedWorkItems) {
+      logger.info(`Redirecting ${params.generatedWorkItems.length} provided work items for creation (Commit Mode)`);
+      return {
+        statusCode: 200,
+        body: {
+          workItem,
+          workItems: params.generatedWorkItems,
+          documents: [],
+          workItemStatus,
+          params, // Pass params through for Step Function logic
+        },
+      };
+    }
+
     const azureService = getAzureService();
     const existingChildItems = await azureService.getChildWorkItems(workItem);
 
-    // Generate child work items
+    // Generate work items
     const bedrock = getBedrockService();
+    // If not in "Commit" mode, check for refinement or generation
     const bedrockResponse = await bedrock.generateWorkItems(workItem, existingChildItems, params);
+
+    // Ensure workItemType is set on generated items
+    const expectedChildType = getExpectedChildWorkItemType(workItem) || 'Task';
+    bedrockResponse.workItems = bedrockResponse.workItems.map((item: any) => ({
+      ...item,
+      workItemType: item.workItemType || expectedChildType,
+    }));
 
     logger.info(
       `✅ Generated ${bedrockResponse.workItems.length} child ${getExpectedChildWorkItemType(workItem, true)} for ${
@@ -80,7 +97,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
         processTemplate: workItem.processTemplate,
         childItemsGenerated: bedrockResponse.workItems.length,
         existingChildItems: existingChildItems.length,
-      }
+      },
     );
 
     return {
@@ -90,6 +107,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
         workItems: bedrockResponse.workItems,
         documents: bedrockResponse.documents,
         workItemStatus,
+        params, // Pass params through for Step Function logic
       },
     };
   } catch (error: any) {
@@ -102,7 +120,7 @@ const lambdaHandler = async (event: Record<string, any>, context: Context) => {
       `Work item generation failed: ${JSON.stringify({
         statusCode: 500,
         error: error.message,
-      })}`
+      })}`,
     );
   }
 };
@@ -131,8 +149,6 @@ const getBedrockService = (): BedrockService => {
       maxImageSize: 5, // 5MB
       maxImages: 3,
       configTableName: CONFIG_TABLE_NAME,
-      feedbackTableName: FEEDBACK_TABLE_NAME,
-      feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
     };
 
     bedrockService = new BedrockService(config);
@@ -144,7 +160,7 @@ const getBedrockService = (): BedrockService => {
  * Parse and validate the event body
  */
 const parseEventBody = (
-  body: any
+  body: any,
 ): { workItem: WorkItem; params: BedrockInferenceParams; workItemStatus: BedrockWorkItemEvaluationResponse } => {
   if (!body || !body.workItem) {
     throw new Error('Invalid event payload: missing workItem in request body');
@@ -157,12 +173,13 @@ const parseEventBody = (
     title: workItem.title,
     areaPath: workItem.areaPath,
     iterationPath: workItem.iterationPath,
+    amaValueArea: workItem.amaValueArea,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
     processTemplate: workItem.processTemplate,
     hasImages: !!(workItem.images && workItem.images.length > 0),
     imagesCount: workItem.images?.length || 0,
-    feedbackFeatureEnabled: FEEDBACK_FEATURE_ENABLED,
+    isRefinement: !!(params && params.refinementInstructions),
   });
 
   return { params, workItem, workItemStatus };

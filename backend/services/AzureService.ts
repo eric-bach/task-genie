@@ -321,7 +321,7 @@ export class AzureService {
 
     try {
       const url = `https://${this.azureDevOpsOrganization}.visualstudio.com/_apis/projects/${encodeURIComponent(
-        teamProject
+        teamProject,
       )}?includeCapabilities=true&api-version=7.1`;
 
       const headers = {
@@ -416,6 +416,11 @@ export class AzureService {
         Authorization: `Bearer ${await this.getAccessToken()}`,
       };
 
+      this.logger.debug('Getting work item', {
+        workItemId,
+        url,
+      });
+
       const response = await fetch(url, {
         method: 'GET',
         headers,
@@ -467,7 +472,7 @@ export class AzureService {
         teamProject: workItem.teamProject,
         processTemplate: workItem.processTemplate,
         azureDevOpsOrganization: this.azureDevOpsOrganization,
-      }
+      },
     );
 
     try {
@@ -477,7 +482,7 @@ export class AzureService {
         this.logger.info(
           `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
             workItem.workItemId
-          }`
+          }`,
         );
         return childItems;
       }
@@ -537,7 +542,7 @@ export class AzureService {
         this.logger.info(
           `No existing child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.workItemType} ${
             workItem.workItemId
-          }`
+          }`,
         );
         return childItems;
       }
@@ -565,6 +570,7 @@ export class AzureService {
           // Feature specific fields
           'Custom.BusinessDeliverable',
           // Common custom fields
+          'Custom.AMAValueArea',
           'Custom.BusinessUnit',
           'Custom.System',
           'Custom.ReleaseNotes',
@@ -587,7 +593,7 @@ export class AzureService {
         throw new Error(
           `Failed to get child ${getExpectedChildWorkItemType(workItem, true)} in ${workItem.teamProject} ${
             workItem.workItemId
-          }`
+          }`,
         );
       }
 
@@ -613,7 +619,7 @@ export class AzureService {
                 parentId: workItem.workItemId,
                 childId: childItem.id,
                 childType: childWorkItemType,
-              }
+              },
             );
             // Continue processing rather than skipping, in case of custom configurations
           }
@@ -631,6 +637,7 @@ export class AzureService {
           const workItemType = childItem.fields['System.WorkItemType'];
           const baseWorkItem: BaseWorkItem = {
             workItemId: childItem.id,
+            workItemType: '', // To be set later based on the work item type
             rev: childItem.rev ?? 0,
             title: childItem.fields['System.Title'],
             description: childItem.fields['System.Description'],
@@ -638,6 +645,7 @@ export class AzureService {
             tags: childItem.fields['System.Tags'] || '',
             areaPath: childItem.fields['System.AreaPath'] || '',
             iterationPath: childItem.fields['System.IterationPath'] || '',
+            amaValueArea: childItem.fields['Custom.AMAValueArea'] || '',
             businessUnit: childItem.fields['Custom.BusinessUnit'] || '', // Required but may not be set in existing data
             system: childItem.fields['Custom.System'] || '', // Required but may not be set in existing data
             teamProject: workItem.teamProject,
@@ -719,7 +727,7 @@ export class AzureService {
             id: item.workItemId,
             title: item.title,
           })),
-        }
+        },
       );
 
       return childItems;
@@ -733,7 +741,7 @@ export class AzureService {
           workItemId: workItem.workItemId,
           error: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
-        }
+        },
       );
       throw error;
     }
@@ -760,7 +768,7 @@ export class AzureService {
         childType: childWorkItemType,
         count: childWorkItems.length,
         tasks: childWorkItems.map((t) => ({ title: t.title })),
-      }
+      },
     );
 
     let id = 0;
@@ -779,7 +787,7 @@ export class AzureService {
         parentId: workItem.workItemId,
         childType: childWorkItemType,
         createdIds: childWorkItems.map((t) => t.workItemId),
-      }
+      },
     );
   }
 
@@ -798,7 +806,7 @@ export class AzureService {
     workItem: WorkItem,
     childWorkItem: Feature | UserStory | ProductBacklogItem | Task,
     i: number,
-    total: number
+    total: number,
   ): Promise<number> {
     // Determine the appropriate child work item type based on parent type and process template
     const childWorkItemType = getExpectedChildWorkItemType(workItem, false) || 'Task';
@@ -848,9 +856,15 @@ export class AzureService {
         },
         {
           op: 'add',
+          path: '/fields/Custom.AMAValueArea',
+          value: workItem.amaValueArea || '',
+        },
+        {
+          op: 'add',
           path: '/fields/Custom.BusinessUnit',
           value: workItem.businessUnit || '',
         },
+
         {
           op: 'add',
           path: '/fields/Custom.System',
@@ -860,7 +874,7 @@ export class AzureService {
           op: 'add',
           path: '/fields/Custom.Importance',
           value: c.importance || '',
-        }
+        },
       );
     } else if (childWorkItemType === 'Product Backlog Item') {
       const c = childWorkItem as ProductBacklogItem;
@@ -874,6 +888,11 @@ export class AzureService {
         },
         {
           op: 'add',
+          path: '/fields/Custom.AMAValueArea',
+          value: workItem.amaValueArea || '',
+        },
+        {
+          op: 'add',
           path: '/fields/Custom.BusinessUnit',
           value: workItem.businessUnit || '',
         },
@@ -881,7 +900,7 @@ export class AzureService {
           op: 'add',
           path: '/fields/Custom.System',
           value: workItem.system || '',
-        }
+        },
       );
     } else if (childWorkItemType === 'Feature') {
       const c = childWorkItem as Feature;
@@ -890,6 +909,11 @@ export class AzureService {
           op: 'add',
           path: '/fields/Custom.BusinessUnit',
           value: workItem.businessUnit || '',
+        },
+        {
+          op: 'add',
+          path: '/fields/Custom.AMAValueArea',
+          value: workItem.amaValueArea || '',
         },
         {
           op: 'add',
@@ -905,7 +929,7 @@ export class AzureService {
           op: 'add',
           path: '/fields/Custom.BusinessDeliverable',
           value: c.businessDeliverable || '',
-        }
+        },
       );
     }
 
@@ -946,7 +970,7 @@ export class AzureService {
           parentId: workItem.workItemId,
         });
         throw new Error(
-          `Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}. ${errorText}`
+          `Failed to create ${childWorkItemType}: ${response.status} ${response.statusText}. ${errorText}`,
         );
       }
 
@@ -971,7 +995,7 @@ export class AzureService {
         childType: childWorkItemType,
       });
       throw new Error(
-        `Error creating ${childWorkItemType}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Error creating ${childWorkItemType}: ${error instanceof Error ? error.message : 'Unknown error'}`,
       );
     }
   }

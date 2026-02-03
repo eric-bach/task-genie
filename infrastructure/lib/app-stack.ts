@@ -3,7 +3,6 @@ import { Construct } from 'constructs';
 import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
 import {
   AccessLogFormat,
-  ApiKey,
   ApiKeySourceType,
   CfnAccount,
   Cors,
@@ -12,6 +11,9 @@ import {
   LogGroupLogDestination,
   MethodLoggingLevel,
   RestApi,
+  TokenAuthorizer,
+  IdentitySource,
+  ResponseType,
 } from 'aws-cdk-lib/aws-apigateway';
 import { Bucket, EventType } from 'aws-cdk-lib/aws-s3';
 import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
@@ -29,7 +31,13 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export class AppStack extends Stack {
-  public trackTaskFeedbackFunctionArn: string;
+  public stateMachineArn: string;
+  public evaluateWorkItemFunctionArn: string;
+  public generateWorkItemsFunctionArn: string;
+  public createWorkItemsFunctionArn: string;
+  public addCommentFunctionArn: string;
+  public finalizeResponseFunctionArn: string;
+  public handleErrorFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
   public apiName: string;
 
@@ -56,13 +64,11 @@ export class AppStack extends Stack {
     const azureDevOpsCredentialsSecret = Secret.fromSecretNameV2(
       this,
       'AzureDevOpsCredentialsSecret',
-      azureDevOpsCredentialsSecretName
+      azureDevOpsCredentialsSecretName,
     );
 
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
     const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
-    const feedbackTable = Table.fromTableArn(this, 'FeedbackTable', props.params.feedbackTableArn);
-
     const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
 
     /*
@@ -89,13 +95,6 @@ export class AppStack extends Stack {
             new PolicyStatement({
               actions: ['dynamodb:PutItem'],
               resources: [props.params.resultsTableArn],
-            }),
-            new PolicyStatement({
-              actions: ['dynamodb:Query', 'dynamodb:Scan', 'dynamodb:GetItem'],
-              resources: [
-                feedbackTable.tableArn,
-                `${feedbackTable.tableArn}/index/*`, // For GSI access
-              ],
             }),
           ],
         }),
@@ -125,7 +124,6 @@ export class AppStack extends Stack {
         AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
         RESULTS_TABLE_NAME: resultsTable.tableName,
         CONFIG_TABLE_NAME: configTable.tableName,
-        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
         FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || '',
       },
     });
@@ -181,7 +179,7 @@ export class AppStack extends Stack {
       projectRoot: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/syncKnowledgeBase'),
       depsLockFilePath: path.resolve(
         __dirname,
-        '../../backend/lambda/knowledgeBase/syncKnowledgeBase/package-lock.json'
+        '../../backend/lambda/knowledgeBase/syncKnowledgeBase/package-lock.json',
       ),
       memorySize: 512,
       timeout: Duration.minutes(5),
@@ -212,35 +210,35 @@ export class AppStack extends Stack {
       {
         // Only trigger for non-metadata files (exclude .metadata.json files)
         suffix: '.pdf',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.docx',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.md',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.txt',
-      }
+      },
     );
     dataSourceBucket.addEventNotification(
       EventType.OBJECT_CREATED_PUT,
       new LambdaDestination(syncKnowledgeBaseFunction),
       {
         suffix: '.doc',
-      }
+      },
     );
     // Also trigger for object deletions (covers Delete and DeleteMarkerCreated) to sync removals
     dataSourceBucket.addEventNotification(EventType.OBJECT_REMOVED, new LambdaDestination(syncKnowledgeBaseFunction));
@@ -251,7 +249,7 @@ export class AppStack extends Stack {
       projectRoot: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/generatePresignedUrl'),
       depsLockFilePath: path.resolve(
         __dirname,
-        '../../backend/lambda/knowledgeBase/generatePresignedUrl/package-lock.json'
+        '../../backend/lambda/knowledgeBase/generatePresignedUrl/package-lock.json',
       ),
       memorySize: 384,
       timeout: Duration.seconds(5),
@@ -270,7 +268,7 @@ export class AppStack extends Stack {
       projectRoot: path.resolve(__dirname, '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments'),
       depsLockFilePath: path.resolve(
         __dirname,
-        '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments/package-lock.json'
+        '../../backend/lambda/knowledgeBase/manageKnowledgeBaseDocuments/package-lock.json',
       ),
       memorySize: 512,
       timeout: Duration.seconds(30),
@@ -313,31 +311,34 @@ export class AppStack extends Stack {
     });
     configTable.grantReadWriteData(manageConfigFunction);
 
-    // Feedback Tracking Lambda
-    const trackTaskFeedbackFunction = new TaskGenieLambda(this, 'TrackTaskFeedback', {
-      functionName: `${props.appName}-track-task-feedback-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/lambda/feedback/trackTaskFeedback/index.ts'),
-      projectRoot: path.resolve(__dirname, '../../backend/lambda/feedback/trackTaskFeedback'),
-      depsLockFilePath: path.resolve(__dirname, '../../backend/lambda/feedback/trackTaskFeedback/package-lock.json'),
-      memorySize: 512,
-      timeout: Duration.seconds(30),
+    // Get Work Item Lambda
+    const getWorkItemFunction = new TaskGenieLambda(this, 'GetWorkItem', {
+      functionName: `${props.appName}-get-work-item-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/workflow/getWorkItem/index.ts'),
+      projectRoot: path.resolve(__dirname, '../../backend/lambda/workflow/getWorkItem'),
+      depsLockFilePath: path.resolve(__dirname, '../../backend/lambda/workflow/getWorkItem/package-lock.json'),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
       environment: {
-        FEEDBACK_TABLE_NAME: feedbackTable.tableName,
-        RESULTS_TABLE_NAME: resultsTable.tableName,
-        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || 'false',
+        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
-      policyStatements: [
-        new PolicyStatement({
-          actions: ['dynamodb:PutItem', 'dynamodb:GetItem', 'dynamodb:UpdateItem', 'dynamodb:Query', 'dynamodb:Scan'],
-          resources: [
-            feedbackTable.tableArn,
-            `${feedbackTable.tableArn}/index/*`, // For GSI access
-            resultsTable.tableArn,
-            `${resultsTable.tableArn}/index/*`, // For GSI access
-          ],
-        }),
-      ],
+    });
+    azureDevOpsCredentialsSecret.grantRead(getWorkItemFunction);
+
+    const authorizerFunction = new TaskGenieLambda(this, 'AuthorizerFunction', {
+      functionName: `${props.appName}-authorizer-${props.envName}`,
+      entry: path.resolve(__dirname, '../../backend/lambda/auth/authorizer/index.ts'),
+      projectRoot: path.resolve(__dirname, '../../backend/lambda/auth/authorizer'),
+      depsLockFilePath: path.resolve(__dirname, '../../backend/lambda/auth/authorizer/package-lock.json'),
+      memorySize: 256,
+      timeout: Duration.seconds(10),
+      environment: {
+        EXTENSION_ID: process.env.AZURE_DEVOPS_EXTENSION_ID || '',
+        EXTENSION_SECRET: process.env.AZURE_DEVOPS_EXTENSION_SECRET || '',
+        POWERTOOLS_LOG_LEVEL: 'DEBUG',
+      },
     });
 
     // Create CloudWatch Logs role for API Gateway
@@ -365,7 +366,14 @@ export class AppStack extends Stack {
       defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
-        allowHeaders: ['Content-Type', 'X-Amz-Date', 'X-Api-Key', 'X-Amz-Security-Token', 'X-Amz-User-Agent'],
+        allowHeaders: [
+          'Content-Type',
+          'X-Amz-Date',
+          'X-Api-Key',
+          'X-Amz-Security-Token',
+          'X-Amz-User-Agent',
+          'Authorization',
+        ],
         allowCredentials: true,
       },
       apiKeySourceType: ApiKeySourceType.HEADER,
@@ -386,28 +394,33 @@ export class AppStack extends Stack {
         }),
       },
     });
+
+    // Add comprehensive Gateway Responses for CORS on errors
+    [
+      ResponseType.DEFAULT_4XX,
+      ResponseType.DEFAULT_5XX,
+      ResponseType.ACCESS_DENIED,
+      ResponseType.UNAUTHORIZED,
+      ResponseType.EXPIRED_TOKEN,
+    ].forEach((type) => {
+      api.addGatewayResponse(`GatewayResponse_${type.responseType}`, {
+        type,
+        responseHeaders: {
+          'Access-Control-Allow-Origin': "'*'",
+          'Access-Control-Allow-Headers': "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+        },
+      });
+    });
+
+    const tokenAuthorizer = new TokenAuthorizer(this, 'TaskGenieTokenAuthorizer', {
+      handler: authorizerFunction,
+      resultsCacheTtl: Duration.seconds(300),
+      identitySource: IdentitySource.header('Authorization'),
+    });
+
     new LogRetention(this, 'APIExecutionLogsRetention', {
       logGroupName: `API-Gateway-Execution-Logs_${api.restApiId}/${api.deploymentStage.stageName}`,
       retention: RetentionDays.ONE_MONTH,
-    });
-
-    // Add API key
-    const apiKey = new ApiKey(this, 'TaskGenieApiKey', {
-      apiKeyName: `${props.appName}-web-api-key-${props.envName}`,
-    });
-
-    // Set API usage plan
-    const usagePlan = api.addUsagePlan('TaskGenieUsagePlan', {
-      name: `${props.appName}-usage-plan-${props.envName}`,
-      throttle: {
-        rateLimit: 200,
-        burstLimit: 50,
-      },
-    });
-
-    usagePlan.addApiKey(apiKey);
-    usagePlan.addApiStage({
-      stage: api.deploymentStage,
     });
 
     const executionsResource = api.root.addResource('executions');
@@ -431,101 +444,31 @@ export class AppStack extends Stack {
               }),
             },
           },
-        ],
-        requestTemplates: {
-          'application/json': '$input.body', // Pass the request body directly
-        },
-        requestParameters: {
-          'integration.request.header.X-Amz-Invocation-Type': "'Event'", // Async invocation
-        },
-      }),
-      {
-        apiKeyRequired: true,
-        methodResponses: [
           {
-            statusCode: '202',
-            responseParameters: {
-              'method.response.header.Access-Control-Allow-Origin': true,
-              'method.response.header.Access-Control-Allow-Methods': true,
-              'method.response.header.Access-Control-Allow-Headers': true,
-            },
-          },
-        ],
-      }
-    );
-
-    // Add method to list knowledge base documents
-    //  GET /knowledge-base/documents
-    const knowledgeBaseResource = api.root.addResource('knowledge-base');
-
-    // Add method to generate a S3 presigned URL
-    //  GET /knowledge-base/presigned-url
-    const generatePresignedUrlResource = knowledgeBaseResource.addResource('presigned-url');
-    generatePresignedUrlResource.addMethod(
-      'GET',
-      new LambdaIntegration(generatePresignedUrlFunction, {
-        proxy: true,
-      }),
-      {
-        apiKeyRequired: false, // No API key required for uploading documents
-      }
-    );
-    const documentsResource = knowledgeBaseResource.addResource('documents');
-    documentsResource.addMethod(
-      'GET',
-      new LambdaIntegration(manageKnowledgeBaseDocumentsFunction, {
-        proxy: true,
-      }),
-      {
-        apiKeyRequired: false, // No API key required for listing documents
-      }
-    );
-    documentsResource.addMethod(
-      'DELETE',
-      new LambdaIntegration(manageKnowledgeBaseDocumentsFunction, {
-        proxy: true,
-      }),
-      {
-        apiKeyRequired: false,
-      }
-    );
-
-    // Config API resource
-    //  PUT /config
-    const configResource = api.root.addResource('config');
-    configResource.addMethod('PUT', new LambdaIntegration(manageConfigFunction, { proxy: true }), {
-      apiKeyRequired: false,
-    });
-    configResource.addMethod('GET', new LambdaIntegration(manageConfigFunction, { proxy: true }), {
-      apiKeyRequired: false,
-    });
-    configResource.addMethod('DELETE', new LambdaIntegration(manageConfigFunction, { proxy: true }), {
-      apiKeyRequired: false,
-    });
-
-    // Feedback webhook API resource for Azure DevOps (Asynchronous)
-    //  POST /feedback/track
-    const feedbackResource = api.root.addResource('feedback');
-    const trackFeedbackResource = feedbackResource.addResource('track');
-
-    // Asynchronous Lambda integration for feedback tracking
-    trackFeedbackResource.addMethod(
-      'POST',
-      new LambdaIntegration(trackTaskFeedbackFunction, {
-        proxy: false, // Don't use proxy integration for async
-        integrationResponses: [
-          {
-            statusCode: '202',
+            statusCode: '400',
             responseParameters: {
               'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,POST'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
               'method.response.header.Access-Control-Allow-Headers':
-                "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
+            },
+            responseTemplates: {
+              'application/json': JSON.stringify({ message: 'Bad request' }),
+            },
+          },
+          {
+            statusCode: '500',
+            responseParameters: {
+              'method.response.header.Access-Control-Allow-Origin': "'*'",
+              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
+              'method.response.header.Access-Control-Allow-Headers':
+                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
+              'method.response.header.Access-Control-Allow-Credentials': "'true'",
             },
             responseTemplates: {
               'application/json': JSON.stringify({
-                message: 'Feedback request accepted for processing',
-                timestamp: '$context.requestTime',
+                message: 'Internal server error',
               }),
             },
           },
@@ -549,8 +492,65 @@ export class AppStack extends Stack {
             },
           },
         ],
-      }
+      },
     );
+
+    // Add method to list knowledge base documents
+    //  GET /knowledge-base/documents
+    const knowledgeBaseResource = api.root.addResource('knowledge-base');
+
+    // Add method to generate a S3 presigned URL
+    //  GET /knowledge-base/presigned-url
+    const generatePresignedUrlResource = knowledgeBaseResource.addResource('presigned-url');
+    generatePresignedUrlResource.addMethod(
+      'GET',
+      new LambdaIntegration(generatePresignedUrlFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false, // No API key required for uploading documents
+      },
+    );
+    const documentsResource = knowledgeBaseResource.addResource('documents');
+    documentsResource.addMethod(
+      'GET',
+      new LambdaIntegration(manageKnowledgeBaseDocumentsFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false, // No API key required for listing documents
+      },
+    );
+    documentsResource.addMethod(
+      'DELETE',
+      new LambdaIntegration(manageKnowledgeBaseDocumentsFunction, {
+        proxy: true,
+      }),
+      {
+        apiKeyRequired: false,
+      },
+    );
+
+    // Config API resource
+    //  PUT /config
+    const configResource = api.root.addResource('config');
+    configResource.addMethod('PUT', new LambdaIntegration(manageConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+    configResource.addMethod('GET', new LambdaIntegration(manageConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+    configResource.addMethod('DELETE', new LambdaIntegration(manageConfigFunction, { proxy: true }), {
+      apiKeyRequired: false,
+    });
+
+    // Work Item Details API resource (ADO)
+    //  GET /work-items/{id}
+    const workItemsResource = api.root.addResource('work-items');
+    const workItemResource = workItemsResource.addResource('{id}');
+    workItemResource.addMethod('GET', new LambdaIntegration(getWorkItemFunction, { proxy: true }), {
+      authorizer: tokenAuthorizer,
+    });
 
     // Add method to poll Step Function execution results
     //  GET /executions/{executionId} (URL-encoded execution ID with colons)
@@ -561,15 +561,22 @@ export class AppStack extends Stack {
         proxy: true,
       }),
       {
-        apiKeyRequired: true, // Require API key for polling endpoint
-      }
+        authorizer: tokenAuthorizer,
+      },
     );
+
+    /*
+     * Outputs
+     */
+
+    new CfnOutput(this, 'ApiGatewayUrl', {
+      value: api.url,
+    });
 
     /*
      * Properties
      */
 
-    this.trackTaskFeedbackFunctionArn = trackTaskFeedbackFunction.functionArn;
     this.apiGwAccessLogGroupArn = apiGwAccessLogGroup.logGroupArn;
     this.apiName = api.restApiName;
   }

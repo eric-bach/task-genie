@@ -483,18 +483,3 @@ curl -X DELETE "https://api-url/knowledge-base/documents?key=project-scoped%2FMy
 | 405         | Method Not Allowed    | HTTP method not supported for endpoint             |
 | 429         | Too Many Requests     | Rate limit exceeded                                |
 | 500         | Internal Server Error | Server-side error, check logs                      |
-
-## Webhook Integration
-
-For Azure DevOps Service Hooks integration, configure your webhook to POST to the `/executions` endpoint:
-
-**Webhook URL**: `https://your-api-url/executions`
-
-**Headers**:
-
-```
-Content-Type: application/json
-X-API-Key: your-api-key
-```
-
-**Payload**: Azure DevOps automatically sends work item data in the correct format.
