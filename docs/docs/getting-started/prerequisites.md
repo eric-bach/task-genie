@@ -13,10 +13,8 @@ The following will need to be setup before **Task Genie** can be used on a team'
 For new teams using Task Genie:
 
 1. **Readiness Validation**
-
    - [ ] Have an existing Azure DevOps Boards
    - [ ] Confirm the Area Path, Business Unit, and System values. Task Genie supports alphanumeric characters and some special characters such as spaces ( ), dashes (-, --), and backslashes (/).
-   - [ ] Confirm whether to use the Azure DevOps Extension or Service Hook integration
 
 2. **Installation & Setup**
 
@@ -25,7 +23,6 @@ For new teams using Task Genie:
 3. **Configuration**
 
    Follow the [configurtion](./configuration.md) guide to configure **Task Genie** for further customization
-
    - [ ] Create initial knowledge base documents
    - [ ] Upload architecture documents
    - [ ] Add coding standards and guidelines

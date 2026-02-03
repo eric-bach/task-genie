@@ -92,19 +92,18 @@
       });
 
       window.requirejs(['SDK'], function (SDK) {
-        console.log('RequireJS loaded SDK module:', typeof SDK);
+        console.log('Loading Azure DevOps SDK');
 
         if (typeof SDK !== 'undefined') {
-          console.log('SDK is defined. Initializing work item form control...');
           console.log('Available SDK methods:', Object.keys(SDK));
 
           SDK.init()
             .then(() => {
-              console.log('SDK initialized');
+              console.log('Azure DevOps SDK initialized');
               return SDK.ready();
             })
             .then(() => {
-              console.log('SDK loaded');
+              console.log('Azure DevOps SDK loaded');
 
               // Register the work item form service
               SDK.register(SDK.getContributionId(), () => {
@@ -148,7 +147,6 @@
 
                 // Get App Token for authentication
                 const token = await SDK.getAppToken();
-                console.log('Token: ' + token);
 
                 // Get work item type to set appropriate button text
                 try {

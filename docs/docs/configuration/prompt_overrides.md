@@ -65,7 +65,6 @@ adoKey = "{areaPath}#{businessUnit}#{system}"
 #### **Creating New Prompt Overrides**
 
 1. **Access Configuration Interface**
-
    - Navigate to Task Genie web interface
    - Go to **Configuration** → **Prompt Overrides**
    - Click **New Override** button
@@ -79,7 +78,6 @@ adoKey = "{areaPath}#{businessUnit}#{system}"
    ```
 
 3. **Write Custom Prompt**
-
    - Enter your team-specific task generation instructions
    - Focus on development methodology, coding standards, testing requirements
    - Include domain-specific context and business rules
@@ -92,12 +90,10 @@ adoKey = "{areaPath}#{businessUnit}#{system}"
 #### **Editing Existing Configurations**
 
 1. **Locate Configuration**
-
    - Browse existing prompt overrides in the web interface
    - Use filters to find specific team configurations
 
 2. **Edit Prompt Only**
-
    - Area Path, Business Unit, and System are immutable after creation
    - Only the custom prompt text can be modified
    - This prevents accidental targeting changes
@@ -109,7 +105,6 @@ adoKey = "{areaPath}#{businessUnit}#{system}"
 #### **Deleting Configurations**
 
 1. **Confirmation Required**
-
    - Type "confirm" to proceed with deletion
    - Action cannot be undone
    - Affected work items will fall back to default prompt
@@ -265,38 +260,28 @@ Generate tasks that prioritize patient safety and clinical workflow efficiency.
 #### **Iterative Refinement**
 
 1. **Start Simple**
-
    - Begin with basic team-specific instructions
    - Test with 3-5 representative user stories
    - Identify common gaps in generated tasks
 
 2. **Add Specificity**
-
    - Include specific technology names and patterns
    - Reference internal tools and processes
    - Add examples of well-written tasks
 
 3. **Address Edge Cases**
-
    - Handle integration scenarios
    - Include performance and security considerations
    - Address error handling and validation requirements
 
-4. **Continuous Improvement**
-   - Gather feedback from developers using generated tasks
-   - Monitor task completion rates and quality
-   - Refine prompts based on retrospective insights
-
 #### **Testing and Validation**
 
 1. **Representative Scenarios**
-
    - Test with various story types (feature, bug fix, technical debt)
    - Include stories of different complexity levels
    - Validate with both simple and complex acceptance criteria
 
 2. **Quality Metrics**
-
    - Task clarity and actionability
    - Appropriate scope and granularity
    - Technical accuracy and feasibility
@@ -305,7 +290,6 @@ Generate tasks that prioritize patient safety and clinical workflow efficiency.
 3. **Team Review Process**
    - Have team members review and rate generated tasks
    - Compare custom prompt results with default prompt output
-   - Iterate based on developer feedback and suggestions
 
 ---
 
@@ -367,13 +351,11 @@ Enhanced with knowledge base:
 #### **Prompt Length Optimization**
 
 1. **Token Efficiency**
-
    - Keep prompts concise while maintaining specificity
    - Use bullet points and structured formatting
    - Avoid redundant or overly verbose instructions
 
 2. **Context Window Management**
-
    - Balance custom prompt length with context injection needs
    - Consider that knowledge base content also consumes tokens
    - Monitor total prompt length to stay within model limits
@@ -386,7 +368,6 @@ Enhanced with knowledge base:
 #### **Caching and Performance**
 
 1. **Database Configuration Caching**
-
    - Prompt configurations are cached for performance
    - Changes take effect immediately for new requests
    - No need to restart services after prompt updates
@@ -417,7 +398,6 @@ Enhanced with knowledge base:
    ```
 
 2. Check configuration status in web interface
-
    - Ensure configuration exists and is not deleted
    - Verify prompt content is not empty
 
@@ -449,7 +429,6 @@ Enhanced with knowledge base:
 - Add more specific instructions and examples
 - Include context about team practices and standards
 - Break complex prompts into structured sections
-- Iterate based on developer feedback
 
 #### **Parameter Override Not Working**
 
@@ -538,31 +517,21 @@ Generate 4-6 tasks following these guidelines.
 Test different prompt approaches:
 
 1. **Baseline Measurement**
-
    - Establish metrics with default prompt
    - Track task quality, completion time, developer satisfaction
 
 2. **Controlled Testing**
-
    - Create alternative prompt versions
    - Use parameter overrides for testing
    - Compare results across similar user stories
 
-3. **Data-Driven Decisions**
-   - Measure improvement in task quality metrics
-   - Gather developer feedback on both versions
-   - Implement winning approach as database configuration
-
 #### **Gradual Rollout Strategy**
 
 1. **Team Testing Phase**
-
    - Start with parameter overrides for specific stories
-   - Gather feedback from team members
    - Refine prompt based on initial results
 
 2. **Limited Deployment**
-
    - Create database configuration for subset of work items
    - Monitor performance and quality metrics
    - Address any issues before full deployment
@@ -577,13 +546,11 @@ Test different prompt approaches:
 #### **Continuous Improvement Process**
 
 1. **Sprint Retrospectives**
-
    - Review generated task quality and relevance
    - Identify prompt improvement opportunities
    - Update configurations based on team feedback
 
 2. **Onboarding New Team Members**
-
    - Use custom prompts to reflect current team practices
    - Update prompts as team practices evolve
    - Ensure generated tasks help new developers understand workflow

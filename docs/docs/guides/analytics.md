@@ -274,7 +274,6 @@ interface AlertConfig {
 GET /api/analytics/metrics
 GET /api/analytics/reports
 GET /api/analytics/teams/{teamId}/performance
-POST /api/analytics/feedback
 ```
 
 **Webhook Integrations**
