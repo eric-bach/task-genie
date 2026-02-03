@@ -106,7 +106,7 @@ const agent = new Agent({
 2. First, use the 'evaluate_work_item' tool to evaluate the work item's quality.
 3. If the evaluation result indicates that the work item is not well-defined or has already been evaluated, use the 'add_comment' tool to post the feedback to the original work item and then stop.
 4. If the evaluation passes, use the 'generate_work_items' tool to generate child work items.
-5. After generating the work items, use the 'create_child_work_items' tool to create them in Azure DevOps.
+5. After generating the work items, if the params.preview is false, use the 'create_child_work_items' tool to create them in Azure DevOps. If params.preview is true, do not create the work items and skip to step 7 to use the 'finalize_response' tool.
 6. Finally, use the 'add_comment' tool to post a summary to the parent work item and use the 'add_tag' tool to add a 'Task Genie' tag to the parent work item to denote it has been successully evaluated.
 7. Use the 'finalize_response' tool to signal that the process is complete. Pass the full work item object, the array of child work items created (if any), the outcome, and a brief summary.
 
@@ -160,7 +160,7 @@ app.get('/ping', (_, res) =>
   res.json({
     status: 'Healthy',
     time_of_last_update: Math.floor(Date.now() / 1000),
-  })
+  }),
 );
 
 app.post('/invocations', express.raw({ type: '*/*' }), async (req, res) => {
