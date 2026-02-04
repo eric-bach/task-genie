@@ -219,9 +219,10 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
+        min-height: 32px;
       }
 
-      .results-actions {
+      .header-actions {
         display: flex;
         gap: 8px;
       }
@@ -302,6 +303,122 @@
         gap: 8px;
         margin-top: 8px;
       }
+
+      /* Chat Window */
+      .chat-container {
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #e1dfdd;
+        border-radius: 2px;
+        background-color: #fff;
+        height: 400px; /* Fixed height for now, or flex-grow */
+      }
+
+      .dark-mode .chat-container {
+        background-color: #252526;
+        border-color: #3e3e42;
+      }
+
+      .chat-header {
+        padding: 8px 12px;
+        border-bottom: 1px solid #e1dfdd;
+        font-weight: 600;
+        background-color: #f3f2f1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .dark-mode .chat-header {
+        background-color: #3a3d41;
+        border-color: #3e3e42;
+        color: #f1f1f1;
+      }
+
+      .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .message {
+        max-width: 85%;
+        padding: 8px 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1.4;
+        word-wrap: break-word;
+      }
+
+      .message.user {
+        align-self: flex-end;
+        background-color: #0078d4;
+        color: white;
+        border-bottom-right-radius: 2px;
+      }
+
+      .message.assistant {
+        align-self: flex-start;
+        background-color: #f3f2f1;
+        color: #333;
+        border-bottom-left-radius: 2px;
+      }
+
+      .dark-mode .message.assistant {
+        background-color: #3a3d41;
+        color: #f1f1f1;
+      }
+
+      .chat-input-area {
+        padding: 10px;
+        border-top: 1px solid #e1dfdd;
+        display: flex;
+        gap: 8px;
+        background-color: #fff;
+      }
+
+      .dark-mode .chat-input-area {
+        background-color: #252526;
+        border-color: #3e3e42;
+      }
+
+      .chat-input {
+        flex: 1;
+        padding: 6px 8px;
+        border: 1px solid #8a8886;
+        border-radius: 2px;
+        resize: none;
+        height: 32px;
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 20px;
+      }
+
+      .chat-input:focus {
+        outline: 1px solid #0078d4;
+        border-color: #0078d4;
+      }
+
+      .dark-mode .chat-input {
+        background-color: #1e1e1e;
+        color: #f1f1f1;
+        border-color: #8a8886;
+      }
+
+      .typing-indicator {
+        font-style: italic;
+        color: #666;
+        font-size: 11px;
+        margin-left: 4px;
+        margin-bottom: 4px;
+        display: none;
+      }
+      .dark-mode .typing-indicator {
+        color: #aaa;
+      }
     </style>
   </head>
   <body>
@@ -322,9 +439,16 @@
 
         <!-- Results / Preview Area -->
         <div id="resultsArea" class="results-area hidden">
+          <!-- Status Area -->
+          <div id="statusContainer" class="hidden"></div>
+
           <div class="results-header">
             <h3 style="margin: 0">Generated Work Items</h3>
-            <button id="addItemBtn" class="btn-secondary btn-sm" title="Add New Task">+ Add Task</button>
+            <div class="header-actions">
+              <button id="addItemBtn" class="btn-secondary" title="Add New Task">+ Add Task</button>
+              <button id="createItemsBtn" class="btn-primary">Create Work Items</button>
+              <button id="discardBtn" class="btn-secondary">Discard</button>
+            </div>
           </div>
           <div id="itemsContainer">
             <!-- Items injected here -->
@@ -334,12 +458,49 @@
 
       <!-- Right Column: Status -->
       <div class="right-column">
-        <div class="results-actions">
-          <button id="createItemsBtn" class="btn-primary">Create Work Items</button>
-          <button id="discardBtn" class="btn-secondary">Discard</button>
+        <div class="results-area" style="gap: 12px; display: flex; flex-direction: column">
+          <div class="results-header">
+            <div style="display: flex; align-items: center; gap: 8px">
+              <svg fill="currentColor" height="16" viewBox="0 0 16 16" width="16">
+                <path d="M8 2a4 4 0 100 8 4 4 0 000-8zM8 0a6 6 0 110 12A6 6 0 018 0zm.5 11h-1v4h1v-4z" />
+              </svg>
+              <h3 style="margin: 0">Refine with AI</h3>
+            </div>
+            <button id="clearChatBtn" class="btn-icon" title="Clear Chat">
+              <svg fill="currentColor" height="14" viewBox="0 0 16 16" width="14">
+                <path d="M11 2H9c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1H2v2h9V2zm3 2H1v2h1v10h10V6h1V4zM3 14V6h8v8H3z" />
+              </svg>
+            </button>
+          </div>
+          <!-- LLM Chat Window -->
+          <div id="chatContainer" class="chat-container">
+            <div id="chatMessages" class="chat-messages">
+              <div class="message assistant">
+                Hello! I can help you refine these work items. Tell me what changes you'd like to make.
+              </div>
+            </div>
+            <div id="typingIndicator" class="typing-indicator">AI is thinking...</div>
+            <div class="chat-input-area">
+              <textarea
+                id="chatInput"
+                class="chat-input"
+                placeholder="Type a message... (e.g., 'Make the acceptance criteria more detailed')"
+              ></textarea>
+              <button
+                id="sendChatBtn"
+                class="btn-primary btn-icon"
+                title="Send"
+                style="width: 32px; height: 32px; padding: 0"
+              >
+                <svg fill="currentColor" height="16" viewBox="0 0 16 16" width="16">
+                  <path
+                    d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-        <!-- Status Area -->
-        <div id="statusContainer" class="hidden"></div>
       </div>
     </div>
 
@@ -360,6 +521,9 @@
         let isPollingBackend = false;
 
         SDK.init().then(() => {
+          SDK.register(SDK.getContributionId(), () => {
+            return {};
+          });
           SDK.ready().then(() => {
             initialize();
           });
@@ -376,6 +540,16 @@
           document.getElementById('createItemsBtn').addEventListener('click', onCreateItems);
           document.getElementById('discardBtn').addEventListener('click', onDiscard);
           document.getElementById('addItemBtn').addEventListener('click', onAddItem);
+
+          // Chat listeners
+          document.getElementById('sendChatBtn').addEventListener('click', onSendChatMessage);
+          document.getElementById('clearChatBtn').addEventListener('click', onClearChat);
+          document.getElementById('chatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              onSendChatMessage();
+            }
+          });
 
           // Start polling for data sharing
           startPollingForSharedData();
@@ -572,13 +746,13 @@
                     <div class="edit-mode">
                         <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Type</label>
                         <input type="text" class="edit-input item-type" value="${escapeHtml(item.workItemType)}" placeholder="e.g. Task, User Story" />
-                        
+
                         <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Title</label>
                         <input type="text" class="edit-input item-title" value="${escapeHtml(item.title)}" placeholder="Title" />
-                        
+
                         <label style="display:block;margin-bottom:4px;font-size:11px;font-weight:600;">Description</label>
                         <textarea class="edit-textarea item-desc" placeholder="Description">${escapeHtml(item.description)}</textarea>
-                        
+
                         <div class="edit-controls">
                             <button class="btn-secondary btn-sm cancel-btn">Cancel</button>
                             <button class="btn-primary btn-sm save-btn">Save</button>
@@ -633,7 +807,7 @@
                             </button>
                         </div>
                     </div>
-                    <div class="work-item-description">${item.description}</div> 
+                    <div class="work-item-description">${item.description}</div>
                 `;
 
               card.querySelector('.edit-btn').onclick = () => {
@@ -798,13 +972,71 @@
             return;
           }
 
-          let content = '';
-          if (spinner) content += '<div class="spinner"></div>';
-          content += msg;
+          let content = msg;
+          if (spinner) {
+            content = `<div class="spinner"></div> ${msg}`;
+          }
 
+          el.className = `status-message status-${type}`;
           el.innerHTML = content;
-          el.className = 'status-message status-' + type;
           el.classList.remove('hidden');
+        }
+
+        // --- Chat Functions ---
+
+        async function onSendChatMessage() {
+          const inputEl = document.getElementById('chatInput');
+          const message = inputEl.value.trim();
+
+          if (!message) return;
+
+          // Add user message
+          addMessage(message, 'user');
+          inputEl.value = '';
+
+          // Show typing indicator
+          const typingIndicator = document.getElementById('typingIndicator');
+          typingIndicator.style.display = 'block';
+
+          // Scroll to bottom
+          const messagesContainer = document.getElementById('chatMessages');
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+          // Mock AI response
+          try {
+            // Simulate network delay
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+
+            // Hide typing indicator
+            typingIndicator.style.display = 'none';
+
+            // Mock logic for response
+            let response = 'This chat feature is not yet implemented but will be available in a future release.';
+
+            addMessage(response, 'assistant');
+          } catch (e) {
+            typingIndicator.style.display = 'none';
+            addMessage('Sorry, I encountered an error processing your request.', 'assistant');
+            console.error(e);
+          }
+        }
+
+        function addMessage(text, sender) {
+          const messagesContainer = document.getElementById('chatMessages');
+          const msgDiv = document.createElement('div');
+          msgDiv.className = `message ${sender}`;
+          msgDiv.textContent = text;
+          messagesContainer.appendChild(msgDiv);
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function onClearChat() {
+          const messagesContainer = document.getElementById('chatMessages');
+          messagesContainer.innerHTML = `
+                <div class="message assistant">
+                  Hello! I can help you refine these work items. Tell me what changes you'd like to make.
+                </div>
+            `;
         }
       });
     </script>
