@@ -5,14 +5,16 @@
     <style>
       body {
         margin: 0;
-        padding: 10px;
+        padding: 0;
         font-family: 'Segoe UI VSS (Regular)', '-apple-system', BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        overflow: hidden; /* Prevent scrollbars */
       }
 
       .container {
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        gap: 4px;
+        padding: 2px;
       }
 
       .controls {
@@ -31,6 +33,11 @@
         font-size: 14px;
         font-family: inherit;
         transition: background-color 0.2s;
+        height: 32px; /* Explicit height */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
       }
 
       .task-genie-button:hover {
@@ -111,7 +118,9 @@
                   // Called when the work item is loaded
                   onLoaded: function (workItemLoadedArgs) {
                     console.log('Work item loaded:', workItemLoadedArgs);
-                    setupButton();
+                    setTimeout(() => {
+                      setupButton();
+                    }, 500);
                   },
 
                   // Called when work item field values change
