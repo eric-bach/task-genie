@@ -27,7 +27,7 @@ if (!agentRuntimeArn) {
 
 function generateSessionId(workItem: WorkItem): string {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
-  const prefix = `${workItem.workItemId}-rev${workItem.rev}-`;
+  const prefix = `ado-${workItem.workItemId}-rev-${workItem.rev}-`;
   const length = 33 - prefix.length;
 
   let result = '';
@@ -141,7 +141,7 @@ const validateWorkItem = (resource: any) => {
     throw new InvalidWorkItemError(
       'Unsupported work item type',
       `Work item type '${workItemType}' is not supported. Supported types: ${supportedTypes.join(', ')}.`,
-      400
+      400,
     );
   }
 
@@ -251,13 +251,13 @@ const parseEvent = (event: any): WorkItemRequest => {
   const descriptionImages = extractImageUrls(rawDescription, 'Description');
   const criteriaImages = extractImageUrls(
     rawCriteriaContent,
-    workItemType === 'Product Backlog Item' || workItemType === 'User Story' ? 'AcceptanceCriteria' : 'SuccessCriteria'
+    workItemType === 'Product Backlog Item' || workItemType === 'User Story' ? 'AcceptanceCriteria' : 'SuccessCriteria',
   );
   allImages.push(...descriptionImages, ...criteriaImages);
 
   // Remove duplicates based on URL
   const uniqueImages = allImages.filter(
-    (image, index, self) => index === self.findIndex((img) => img.url === image.url)
+    (image, index, self) => index === self.findIndex((img) => img.url === image.url),
   );
 
   // Create base work item with common fields
