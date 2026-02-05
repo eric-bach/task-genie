@@ -14,6 +14,7 @@ import {
   isEpic,
   isFeature,
 } from '../../types/azureDevOps';
+import { WorkItemGenerationMode } from '../../types/bedrock';
 import { InvalidWorkItemError } from '../../types/errors';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import middy from '@middy/core';
@@ -64,6 +65,9 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
 
     // Parse and sanitize fields
     const { workItem, params } = parseEvent(event);
+
+    // Validate parameters
+    validateParams(params);
 
     const input = {
       runtimeSessionId: generateSessionId(workItem),
@@ -347,6 +351,31 @@ const sanitizeField = (fieldValue: any, fieldName?: string): string => {
     throw new Error(`Invalid field value${fieldContext}: expected a string, got ${typeof fieldValue} (${fieldValue}).`);
   }
   return fieldValue.replace(/<[^>]*>/g, '').trim();
+};
+
+const validateParams = (params: any) => {
+  if (!params) return;
+
+  const { mode, generatedWorkItems } = params;
+
+  if (mode) {
+    const validModes = Object.values(WorkItemGenerationMode);
+    if (!validModes.includes(mode as WorkItemGenerationMode)) {
+      throw new InvalidWorkItemError(
+        'Invalid mode',
+        `Mode '${mode}' is not supported. Supported modes: ${validModes.join(', ')}.`,
+        400,
+      );
+    }
+
+    if (mode === WorkItemGenerationMode.Create && (!generatedWorkItems || generatedWorkItems.length === 0)) {
+      throw new InvalidWorkItemError(
+        'Missing generatedWorkItems',
+        'Mode "create" requires "generatedWorkItems" to be present and non-empty.',
+        400,
+      );
+    }
+  }
 };
 
 export const handler = middy(lambdaHandler).use(injectLambdaContext(logger, { logEvent: true }));

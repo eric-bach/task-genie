@@ -307,6 +307,10 @@ The frontend is deployed using **AWS Amplify Console**.
 
    `npx tfx-cli extension create --rev-version --output-path ./dist`
 
+   To publish the dev version of the Azure DevOps Extension
+
+   `npx tfx-cli extension create --manifest-globs vss-extension.dev.json --rev-version --output-path ./dist`
+
 2. To test the Azure DevOps Extension
 
    `start test-standalone.html`

@@ -81,11 +81,11 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
       maxTokens: number;
       temperature?: number;
       topP?: number;
-      preview: boolean;
+      mode?: string;
     } = {
       prompt,
       maxTokens,
-      preview: true,
+      mode: 'evaluate_and_generate',
     };
 
     if (parameterMode === 'temperature') {

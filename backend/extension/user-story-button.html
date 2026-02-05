@@ -242,7 +242,7 @@
 
                     // Call your REST API here
                     await callTaskGenieAPI(statusMessage, workItemId, fields, revision, {
-                      preview: isPreview,
+                      mode: isPreview ? 'evaluate_and_generate' : 'evaluate_and_generate_and_create',
                       token,
                       apiUrl,
                     });
@@ -341,7 +341,7 @@
                 }
                 const executionId = executionArn.split(':').slice(-2).join(':');
 
-                if (params.preview) {
+                if (params.mode === 'evaluate_and_generate') {
                   try {
                     console.log('Saving execution details: ' + executionId);
 

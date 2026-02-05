@@ -1,0 +1,93 @@
+{
+  "manifestVersion": 1,
+  "id": "task-genie-dev",
+  "publisher": "AMA",
+  "version": "2.0.1",
+  "name": "Task Genie (Dev)",
+  "description": "DEV VERSION - Agile extension to generate child work items from Epics, Features, User Stories, and Product Backlog Items using AI.",
+  "public": false,
+  "categories": ["Azure Boards"],
+  "targets": [
+    {
+      "id": "Microsoft.VisualStudio.Services"
+    }
+  ],
+  "scopes": ["vso.work", "vso.work_write"],
+  "branding": {
+    "color": "#d13438",
+    "theme": "light"
+  },
+  "icons": {
+    "default": "logo.jpg"
+  },
+  "content": {
+    "details": {
+      "path": "overview.md"
+    }
+  },
+  "contributions": [
+    {
+      "id": "task-genie-tab",
+      "type": "ms.vss-work-web.work-item-form-page",
+      "targets": ["ms.vss-work-web.work-item-form"],
+      "properties": {
+        "name": "Task Genie (Dev)",
+        "uri": "task-genie-tab.html"
+      }
+    },
+    {
+      "id": "user-story-button",
+      "type": "ms.vss-work-web.work-item-form-control",
+      "targets": ["ms.vss-work-web.work-item-form"],
+      "properties": {
+        "name": "Task Genie (Dev)",
+        "uri": "user-story-button.html",
+        "height": 80,
+        "inputs": [
+          {
+            "id": "ApiUrl",
+            "name": "DEV API URL",
+            "description": "The Task Genie API endpoint URL",
+            "type": "String"
+          },
+          {
+            "id": "ApiKey",
+            "name": "DEV API Key",
+            "description": "The API key for Task Genie service",
+            "type": "String",
+            "properties": {
+              "isSecret": true
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "files": [
+    {
+      "path": "task-genie-tab.html",
+      "addressable": true
+    },
+    {
+      "path": "user-story-button.html",
+      "addressable": true
+    },
+    {
+      "path": "logo.jpg",
+      "addressable": true
+    },
+    {
+      "path": "azure_devops_extension.png",
+      "addressable": true
+    },
+    {
+      "path": "overview.md",
+      "addressable": true
+    },
+    {
+      "path": "node_modules/azure-devops-extension-sdk",
+      "addressable": true,
+      "packagePath": "lib"
+    }
+  ]
+}
