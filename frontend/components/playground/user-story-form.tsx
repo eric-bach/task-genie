@@ -350,8 +350,6 @@ export function UserStoryForm() {
   }
 
   async function fetchAdoWorkItem(id: string) {
-    const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
-
     if (!id) {
       setAdoError(false);
       setAdoSuccess(false);
@@ -366,7 +364,6 @@ export function UserStoryForm() {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
         },
       });
 

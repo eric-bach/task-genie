@@ -756,7 +756,6 @@ export class AppStack extends Stack {
     });
 
     const executionsResource = api.root.addResource('executions');
-
     executionsResource.addMethod('POST', startExecutionIntegration, {
       authorizer: tokenAuthorizer,
       methodResponses: [
