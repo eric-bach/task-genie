@@ -480,7 +480,7 @@ export class AppStack extends Stack {
         },
       }),
       {
-        apiKeyRequired: true,
+        authorizer: tokenAuthorizer,
         methodResponses: [
           {
             statusCode: '202',
