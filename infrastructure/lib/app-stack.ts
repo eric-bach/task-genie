@@ -31,7 +31,6 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export class AppStack extends Stack {
-  public stateMachineArn: string;
   public evaluateWorkItemFunctionArn: string;
   public generateWorkItemsFunctionArn: string;
   public createWorkItemsFunctionArn: string;
