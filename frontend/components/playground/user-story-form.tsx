@@ -121,7 +121,6 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
@@ -162,7 +161,6 @@ export async function pollForResults(executionId: string, maxAttempts: number = 
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
           Authorization: `Bearer ${apiKey}`,
         },
       });
@@ -352,6 +350,8 @@ export function UserStoryForm() {
   }
 
   async function fetchAdoWorkItem(id: string) {
+    const apiKey = process.env.NEXT_PUBLIC_API_GATEWAY_API_KEY || '';
+
     if (!id) {
       setAdoError(false);
       setAdoSuccess(false);
@@ -366,6 +366,7 @@ export function UserStoryForm() {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
         },
       });
 

@@ -84,7 +84,9 @@ export class DataStack extends Stack {
       },
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
       timeToLiveAttribute: 'ttl',
     });
 
@@ -96,7 +98,9 @@ export class DataStack extends Stack {
       },
       billingMode: BillingMode.PAY_PER_REQUEST,
       removalPolicy: RemovalPolicy.DESTROY,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
       timeToLiveAttribute: 'ttl',
     });
 

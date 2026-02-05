@@ -183,6 +183,7 @@
                   if (!allowedAreaPaths.includes(areaPath)) {
                     // Disable button and show pilot message for non-pilot teams
                     button.disabled = true;
+                    previewCheckbox.disabled = true;
                     statusMessage.textContent = 'Currently only enabled for pilot teams';
                     statusMessage.className = 'status-message';
                     return;
@@ -190,6 +191,7 @@
                 } catch (error) {
                   console.error('Error checking work item type or area path:', error);
                   button.disabled = true;
+                  previewCheckbox.disabled = true;
                   statusMessage.textContent = 'Currently only enabled for pilot teams';
                   statusMessage.className = 'status-message';
                   return;
