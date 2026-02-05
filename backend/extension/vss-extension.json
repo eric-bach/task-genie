@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "task-genie",
   "publisher": "AMA",
-  "version": "1.1.83",
+  "version": "1.1.84",
   "name": "Task Genie",
   "description": "Agile extension to generate child work items from Epics, Features, User Stories, and Product Backlog Items using AI.",
   "public": false,

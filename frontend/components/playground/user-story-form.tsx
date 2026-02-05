@@ -121,7 +121,6 @@ export async function generateTasks(values: z.infer<typeof formSchema>, userId: 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(body),
@@ -162,7 +161,6 @@ export async function pollForResults(executionId: string, maxAttempts: number = 
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': apiKey,
           Authorization: `Bearer ${apiKey}`,
         },
       });
