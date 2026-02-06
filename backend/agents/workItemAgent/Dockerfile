@@ -28,8 +28,12 @@ EXPOSE 8080
 # Health check using the /ping endpoint provided by AgentCore SDK
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8080/ping || exit 1
-    
-# Start the application
-#ENV NODE_OPTIONS="--require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register"
-#CMD ["npm", "start"]
+
+# NOTE: OpenTelemetry session tracing is not yet supported in the TypeScript SDKs
+# - @strands-agents/sdk: See https://github.com/strands-agents/sdk-typescript/issues/69
+# - bedrock-agentcore: Observability marked as "coming soon"
+# The AWS ADOT auto-instrumentation only captures basic HTTP traces, not agent-level spans.
+# For full observability with sessions/traces, consider using the Python SDK.
+
+# Start the application (OTEL auto-instrumentation provides basic HTTP traces only)
 CMD ["node", "--require", "@aws/aws-distro-opentelemetry-node-autoinstrumentation/register", "dist/agent.mjs"]
