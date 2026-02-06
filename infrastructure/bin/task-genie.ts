@@ -30,7 +30,6 @@ export interface AppStackProps extends BaseStackProps {
 }
 export interface ObservabilityStackProps extends BaseStackProps {
   params: {
-    stateMachineArn: string;
     evaluateWorkItemFunctionArn: string;
     generateWorkItemsFunctionArn: string;
     createWorkItemsFunctionArn: string;
@@ -84,7 +83,6 @@ const appProps = new AppStack(app, `${APP_NAME}-app-${ENV_NAME}`, {
 new ObservabilityStack(app, `${APP_NAME}-observability-${ENV_NAME}`, {
   ...baseProps,
   params: {
-    stateMachineArn: appProps.stateMachineArn,
     evaluateWorkItemFunctionArn: appProps.evaluateWorkItemFunctionArn,
     generateWorkItemsFunctionArn: appProps.generateWorkItemsFunctionArn,
     createWorkItemsFunctionArn: appProps.createWorkItemsFunctionArn,
