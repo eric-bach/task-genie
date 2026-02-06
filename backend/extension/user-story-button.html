@@ -154,9 +154,6 @@
                 const config = SDK.getConfiguration();
                 const apiUrl = config.witInputs['ApiUrl'] || '';
 
-                // Get App Token for authentication
-                const token = await SDK.getAppToken();
-
                 // Get work item type to set appropriate button text
                 try {
                   const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
@@ -245,7 +242,6 @@
                     // Call your REST API here
                     await callTaskGenieAPI(statusMessage, workItemId, fields, revision, {
                       preview: isPreview,
-                      token,
                       apiUrl,
                     });
 
@@ -268,7 +264,10 @@
               }
 
               async function callTaskGenieAPI(statusMessage, workItemId, fields, revision, params) {
-                const { apiUrl, token } = params;
+                const { apiUrl } = params;
+
+                // Get fresh token for each API call attempt
+                const token = await SDK.getAppToken();
 
                 console.log('Calling Task Genie API', {
                   workItemId: workItemId,

@@ -640,10 +640,7 @@
             sourceWorkItem = srcItem;
             currentConfig = config;
 
-            // Get App Token
-            const token = await SDK.getAppToken();
-
-            const result = await pollForCompletion(config.apiUrl, token, executionId);
+            const result = await pollForCompletion(config.apiUrl, executionId);
 
             if (result && result.result && result.result.workItems) {
               generatedItems = result.result.workItems;
@@ -689,7 +686,7 @@
           }
         }
 
-        async function pollForCompletion(apiUrl, token, executionId) {
+        async function pollForCompletion(apiUrl, executionId) {
           const pollUrl = `${apiUrl}/${executionId}`;
           const maxAttempts = 60; // 300 seconds timeout
           const delay = 5000;
@@ -699,6 +696,9 @@
             await new Promise((resolve) => setTimeout(resolve, delay));
 
             try {
+              // Get App Token
+              const token = await SDK.getAppToken();
+              
               console.log(`Polling for execution results at ${pollUrl}`);
 
               const resp = await fetch(pollUrl, {
@@ -910,7 +910,7 @@
 
             console.log('Request body:', requestBody);
 
-            // Get token for creation
+            // Get fresh token for creation
             const token = await SDK.getAppToken();
 
             const response = await fetch(currentConfig.apiUrl, {
