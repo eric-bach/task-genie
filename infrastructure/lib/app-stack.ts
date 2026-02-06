@@ -434,7 +434,7 @@ export class AppStack extends Stack {
     executionsResource.addMethod(
       'POST',
       new LambdaIntegration(workItemAgentProxyFunction, {
-        proxy: false, // Don't use proxy integration for async
+        proxy: false, // Use non-proxy for async invocation with custom response
         integrationResponses: [
           {
             statusCode: '202',
@@ -445,38 +445,12 @@ export class AppStack extends Stack {
                 "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
             },
             responseTemplates: {
-              'application/json': JSON.stringify({
-                message: 'Work item submitted for processing',
-                timestamp: '$context.requestTime',
-              }),
-            },
-          },
-          {
-            statusCode: '400',
-            responseParameters: {
-              'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
-              'method.response.header.Access-Control-Allow-Headers':
-                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-              'method.response.header.Access-Control-Allow-Credentials': "'true'",
-            },
-            responseTemplates: {
-              'application/json': JSON.stringify({ message: 'Bad request' }),
-            },
-          },
-          {
-            statusCode: '500',
-            responseParameters: {
-              'method.response.header.Access-Control-Allow-Origin': "'*'",
-              'method.response.header.Access-Control-Allow-Methods': "'OPTIONS,GET,POST'",
-              'method.response.header.Access-Control-Allow-Headers':
-                "'Content-Type,X-Amz-Date,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'",
-              'method.response.header.Access-Control-Allow-Credentials': "'true'",
-            },
-            responseTemplates: {
-              'application/json': JSON.stringify({
-                message: 'Internal server error',
-              }),
+              // Return sessionId from request body for client polling
+              'application/json': `{
+  "message": "Work item submitted for processing",
+  "sessionId": $input.json('$.sessionId'),
+  "timestamp": "$context.requestTime"
+}`,
             },
           },
         ],

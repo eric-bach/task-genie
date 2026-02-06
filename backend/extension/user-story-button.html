@@ -270,9 +270,13 @@
               async function callTaskGenieAPI(statusMessage, workItemId, fields, revision, params) {
                 const { apiUrl, token } = params;
 
+                // Generate sessionId client-side for async API Gateway invocation
+                const sessionId = `ado-${workItemId}-rev-${revision}:${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
                 console.log('Calling Task Genie API', {
                   workItemId: workItemId,
                   revision: revision,
+                  sessionId: sessionId,
                   apiUrl,
                   // Verified token exists
                   hasToken: !!token,
@@ -283,6 +287,7 @@
                 });
 
                 const requestBody = {
+                  sessionId: sessionId,
                   resource: {
                     workItemId: workItemId,
                     rev: revision,
@@ -334,23 +339,17 @@
                   throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                const result = await response.json();
-                console.log('Task Genie response:', result);
-
-                const executionArn = result.executionArn;
-                if (!executionArn) {
-                  throw new Error('No execution ARN received from API');
-                }
-                const executionId = executionArn.split(':').slice(-2).join(':');
+                // API Gateway returns 202 immediately with async invocation
+                // We use the sessionId we generated for polling
+                console.log('Task Genie request accepted, sessionId:', sessionId);
 
                 if (params.mode === 'evaluate_and_generate') {
                   try {
-                    console.log('Saving execution details: ' + executionId);
+                    console.log('Saving execution details for session: ' + sessionId);
 
                     const executionKey = `taskGenie_execution_${workItemId}`;
                     const payload = {
-                      executionId: executionId,
-                      executionArn: executionArn,
+                      executionId: sessionId,
                       sourceWorkItem: requestBody,
                       config: { apiUrl },
                       timestamp: Date.now(),
@@ -362,18 +361,13 @@
 
                     statusMessage.textContent = 'Processing...see the Task Genie tab for results.';
                     statusMessage.className = 'status-message success-message';
-
-                    // Re-enable button quickly since we are not waiting
-                    setTimeout(() => {
-                      // Keep success message for a bit
-                    }, 2000);
                   } catch (err) {
                     console.error('Failed to save execution details', err);
                     statusMessage.textContent = 'Request submitted, but failed to notify tab.';
                     statusMessage.className = 'status-message error-message';
                   }
                 } else {
-                  // Let it asynchronously complete
+                  // Non-preview mode - let it process asynchronously
                   statusMessage.textContent = 'Task Genie is processing...';
                   setTimeout(() => (statusMessage.textContent = ''), 5000);
                 }

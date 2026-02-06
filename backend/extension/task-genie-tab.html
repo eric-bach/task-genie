@@ -519,6 +519,7 @@
         let currentConfig = null; // { apiUrl, apiKey }
         let lastRawData = '';
         let isPollingBackend = false;
+        let pollInterval = null;
 
         SDK.init().then(() => {
           SDK.register(SDK.getContributionId(), () => {
@@ -568,14 +569,13 @@
             // Poll check function
             const checkData = async () => {
               try {
-                // Check for new execution request first
+                // Check for new execution request first (async pattern with AgentCore Runtime)
                 const executionRaw = localStorage.getItem(executionKey);
                 if (executionRaw && executionRaw !== lastRawData && !isPollingBackend) {
                   lastRawData = executionRaw;
                   const executionData = JSON.parse(executionRaw);
 
-                  // Check if this is a fresh request (compare timestamp?)
-                  // For now, if we see it and it changed, we process it.
+                  // Check if this is a fresh request (sessionId stored as executionId)
                   if (executionData && executionData.executionId) {
                     console.log('Found execution details:', executionData.executionId);
                     handleExecutionRequest(executionData);
@@ -627,6 +627,7 @@
           }
         }
 
+        // Handle execution request - poll backend for results using sessionId as executionId
         async function handleExecutionRequest(executionData) {
           isPollingBackend = true;
           showLoadingState();
@@ -689,6 +690,7 @@
           }
         }
 
+        // Poll for completion using sessionId as executionId
         async function pollForCompletion(apiUrl, token, executionId) {
           const pollUrl = `${apiUrl}/${executionId}`;
           const maxAttempts = 60; // 300 seconds timeout
@@ -900,15 +902,24 @@
               return rest;
             });
 
+            // Get work item ID and revision from the SDK service
+            const workItemFormService = await SDK.getService('ms.vss-work-web.work-item-form');
+            const workItemId = await workItemFormService.getId();
+            const revision = await workItemFormService.getRevision();
+
+            // Generate sessionId client-side for async API Gateway invocation
+            const sessionId = `ado-${workItemId}-rev-${revision}:${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
             const requestBody = {
               resource: sourceWorkItem.resource,
-              generatedWorkItems: cleanedItems,
+              sessionId,
               params: {
                 mode: 'create',
+                generatedWorkItems: cleanedItems,
               },
             };
 
-            console.log('Request body:', requestBody);
+            console.log(`Request body for ${sessionId}:`, requestBody);
 
             // Get token for creation
             const token = await SDK.getAppToken();

@@ -114,21 +114,40 @@ const agent = new Agent({
 
 const app = new BedrockAgentCoreApp({
   invocationHandler: {
-    requestSchema: z.object({ body: z.any() }),
+    requestSchema: z.object({
+      body: z.object({
+        workItem: z.any(),
+        params: z.any(),
+        sessionId: z.string().optional(),
+      }),
+    }),
     process: async (req, res: any) => {
       try {
-        // Decode binary payload from AWS SDK
-        const workItem = new TextDecoder().decode(req.body);
-        logger.info('▶️ Decoded work item', { workItem });
+        logger.info('▶️ Received request', { req: req });
 
-        // Invoke the agent
-        const response = await agent.invoke(`Here is the work item: ${workItem}`);
+        const { workItem, params, sessionId } = req.body;
 
-        logger.info('✅ Agent response', { response: response.lastMessage });
+        logger.info('Parsed work item', { workItem, params, sessionId });
 
-        return res.json({ response: response.lastMessage });
+        // Invoke the agent - pass sessionId so it can be used as executionId in DynamoDB
+        const response = await agent.invoke(
+          `Here is the work item and params:\n
+Work Item: ${JSON.stringify(workItem, null, 2)}\n 
+Params: ${JSON.stringify(params, null, 2)}\n
+Session ID (use as executionId): ${sessionId || 'not-provided'}`,
+        );
+
+        // Safely extract the text from the response structure
+        const message = response.lastMessage.content
+          .filter((c) => c.type === 'textBlock')
+          .map((c) => c.text)
+          .join('\n');
+
+        logger.info('✅ Agent response', { response: message });
+
+        return { response: message };
       } catch (err) {
-        logger.error('💣 Error processing request', { error: String(err) });
+        logger.error('🛑 Error processing request', { error: String(err) });
         return res.status(500).json({ error: 'Internal server error' });
       }
     },

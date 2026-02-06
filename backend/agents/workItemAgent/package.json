@@ -23,7 +23,6 @@
     "@aws/aws-distro-opentelemetry-node-autoinstrumentation": "^0.8.1",
     "@strands-agents/sdk": "^0.2.1",
     "bedrock-agentcore": "^0.2.0",
-    "uuid": "^13.0.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {

@@ -2,7 +2,6 @@ import { tool } from '@strands-agents/sdk';
 import { z } from 'zod';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { v4 as uuidv4 } from 'uuid';
 import { WorkItemSchema } from './schemas.js';
 
 const dynamoClient = new DynamoDBClient({});
@@ -38,6 +37,7 @@ const extractWorkItemFields = (workItem: z.infer<typeof WorkItemSchema>) => {
  * Saves the execution result to DynamoDB
  */
 const saveResponseToDynamoDB = async (
+  executionId: string,
   workItem: z.infer<typeof WorkItemSchema>,
   childWorkItems: z.infer<typeof WorkItemSchema>[],
   outcome: string,
@@ -50,7 +50,6 @@ const saveResponseToDynamoDB = async (
     return;
   }
 
-  const executionId = uuidv4();
   const passed = outcome === 'decomposed';
 
   const item = {
@@ -89,8 +88,9 @@ const saveResponseToDynamoDB = async (
 // Define the finalize response tool
 export const finalize_response = tool({
   name: 'finalize_response',
-  description: 'Finalize the response after processing a work item. Provide a summary of what was accomplished.',
+  description: 'Finalize the response after processing a work item. Provide a summary of what was accomplished. Use the sessionId provided in the request as the executionId.',
   inputSchema: z.object({
+    sessionId: z.string().describe('The session ID from the request to use as executionId for DynamoDB storage'),
     workItem: WorkItemSchema.describe('The parent work item that was processed'),
     childWorkItems: z.array(WorkItemSchema).optional().describe('The child work items that were created'),
     outcome: z
@@ -99,7 +99,7 @@ export const finalize_response = tool({
     summary: z.string().describe('A brief summary of what was done'),
   }),
   callback: async (input) => {
-    const { workItem, childWorkItems, outcome, summary } = input;
+    const { sessionId, workItem, childWorkItems, outcome, summary } = input;
     const { workItemId, title: workItemTitle, workItemType } = workItem;
     const childItemsCreated = childWorkItems?.length || 0;
 
@@ -108,8 +108,8 @@ export const finalize_response = tool({
       case 'decomposed':
         response = `✅ Successfully decomposed ${workItemType} #${workItemId} "${workItemTitle}" into ${childItemsCreated} child Tasks. ${summary}`;
 
-        // Save to DynamoDB
-        await saveResponseToDynamoDB(workItem, childWorkItems || [], outcome, response);
+        // Save to DynamoDB using sessionId as executionId
+        await saveResponseToDynamoDB(sessionId, workItem, childWorkItems || [], outcome, response);
 
         break;
       case 'feedback_provided':
