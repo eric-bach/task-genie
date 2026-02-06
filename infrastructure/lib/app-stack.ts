@@ -84,7 +84,12 @@ export class AppStack extends Stack {
               resources: ['*'],
             }),
             new PolicyStatement({
-              actions: ['cloudwatch:PutMetricData', 'logs:CreateLogStream', 'logs:PutLogEvents'],
+              actions: [
+                'cloudwatch:PutMetricData',
+                'logs:CreateLogStream',
+                'logs:PutLogEvents',
+                'application-signals:PutSpan',
+              ],
               resources: ['*'],
             }),
             new PolicyStatement({
@@ -123,7 +128,10 @@ export class AppStack extends Stack {
         AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
         RESULTS_TABLE_NAME: resultsTable.tableName,
         CONFIG_TABLE_NAME: configTable.tableName,
-        FEEDBACK_FEATURE_ENABLED: process.env.FEEDBACK_FEATURE_ENABLED || '',
+        AGENT_OBSERVABILITY_ENABLED: 'true',
+        OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+        OTEL_SERVICE_NAME: 'workItemAgent',
+        OTEL_RESOURCE_ATTRIBUTES: `service.namespace=bedrock-agentcore,service.version=1.0.0`,
       },
     });
     azureDevOpsCredentialsSecret.grantRead(workItemAgent);

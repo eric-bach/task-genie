@@ -10,7 +10,9 @@ import {
 } from 'aws-cdk-lib/aws-cloudwatch';
 import { ObservabilityStackProps } from '../bin/task-genie';
 import * as dotenv from 'dotenv';
-import { LogGroup } from 'aws-cdk-lib/aws-logs';
+import { LogGroup, CfnResourcePolicy } from 'aws-cdk-lib/aws-logs';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 
 dotenv.config();
 
@@ -160,5 +162,66 @@ export class ObservabilityStack extends Stack {
       apiGatewayRequestsWidget,
       apiGatewayLatencyWidget,
     );
+
+    /*
+     * Custom Resources
+     */
+
+    // Allow X-Ray to write to CloudWatch Logs (aws/spans)
+    const xRayLogGroupPolicy = new CfnResourcePolicy(this, 'XRayLogGroupPolicy', {
+      policyName: 'XRayToCloudWatchLogsPolicy',
+      policyDocument: JSON.stringify({
+        Version: '2012-10-17',
+        Statement: [
+          {
+            Sid: 'AllowXRayToWriteLogs',
+            Effect: 'Allow',
+            Principal: {
+              Service: 'xray.amazonaws.com',
+            },
+            Action: ['logs:PutLogEvents', 'logs:CreateLogStream', 'logs:CreateLogGroup'],
+            Resource: '*',
+          },
+        ],
+      }),
+    });
+
+    // Enable CloudWatch Logs as the destination for OTLP traces
+    const updateTraceSegmentDestination = new AwsCustomResource(this, 'UpdateTraceSegmentDestination', {
+      onCreate: {
+        service: 'XRay',
+        action: 'updateTraceSegmentDestination',
+        parameters: {
+          Destination: 'CloudWatchLogs',
+        },
+        physicalResourceId: PhysicalResourceId.of('UpdateTraceSegmentDestination'),
+      },
+      // Since this is a global setting for the account/region, we usually only need to run it once.
+      // However, onUpdate ensures it stays configured if it drifted.
+      onUpdate: {
+        service: 'XRay',
+        action: 'updateTraceSegmentDestination',
+        parameters: {
+          Destination: 'CloudWatchLogs',
+        },
+        physicalResourceId: PhysicalResourceId.of('UpdateTraceSegmentDestination'),
+      },
+      policy: AwsCustomResourcePolicy.fromStatements([
+        new PolicyStatement({
+          actions: [
+            'xray:UpdateTraceSegmentDestination',
+            'application-signals:StartDiscovery',
+            'iam:CreateServiceLinkedRole',
+            'cloudtrail:CreateServiceLinkedChannel',
+          ],
+          resources: ['*'],
+        }),
+        new PolicyStatement({
+          actions: ['logs:PutRetentionPolicy', 'logs:CreateLogGroup', 'logs:DescribeLogGroups'],
+          resources: ['arn:aws:logs:*:*:log-group:aws/spans*'],
+        }),
+      ]),
+    });
+    updateTraceSegmentDestination.node.addDependency(xRayLogGroupPolicy);
   }
 }
