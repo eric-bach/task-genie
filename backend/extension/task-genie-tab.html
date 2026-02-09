@@ -530,6 +530,36 @@
           });
         });
 
+        // Helper to get token with retry for SDK errors (Shared logic)
+        const getAppToken = async () => {
+          try {
+            const token = await SDK.getAppToken();
+
+            // Check client-side expiry
+            const decoded = parseJwt(token);
+            const now = Date.now() / 1000;
+            if (decoded && decoded.exp && decoded.exp < now) {
+              console.warn('Token appears expired client-side. Requesting fresh token...');
+              // In some SDK versions, getAppToken always returns a promise, hopefully a fresh one if the previous is invalid
+              token = await SDK.getAppToken();
+            }
+
+            return token;
+          } catch (e) {
+            console.warn('SDK.getAppToken failed (likely 401/TF400813). Retrying in 2s...', e);
+            await new Promise((r) => setTimeout(r, 2000));
+            return await SDK.getAppToken();
+          }
+        };
+
+        function parseJwt(token) {
+          try {
+            return JSON.parse(atob(token.split('.')[1]));
+          } catch (e) {
+            return null;
+          }
+        }
+
         async function initialize() {
           // Determine theme (simple check)
           const theme = SDK.getConfiguration().colorTheme;
@@ -641,10 +671,7 @@
             sourceWorkItem = srcItem;
             currentConfig = config;
 
-            // Get App Token
-            const token = await SDK.getAppToken();
-
-            const result = await pollForCompletion(config.apiUrl, token, executionId);
+            const result = await pollForCompletion(config.apiUrl, executionId);
 
             if (result && result.result && result.result.workItems) {
               generatedItems = result.result.workItems;
@@ -690,8 +717,7 @@
           }
         }
 
-        // Poll for completion using sessionId as executionId
-        async function pollForCompletion(apiUrl, token, executionId) {
+        async function pollForCompletion(apiUrl, executionId) {
           const pollUrl = `${apiUrl}/${executionId}`;
           const maxAttempts = 60; // 300 seconds timeout
           const delay = 5000;
@@ -701,6 +727,9 @@
             await new Promise((resolve) => setTimeout(resolve, delay));
 
             try {
+              // Get App Token
+              const token = await getAppToken();
+
               console.log(`Polling for execution results at ${pollUrl}`);
 
               const resp = await fetch(pollUrl, {
@@ -921,8 +950,8 @@
 
             console.log(`Request body for ${sessionId}:`, requestBody);
 
-            // Get token for creation
-            const token = await SDK.getAppToken();
+            // Get fresh token for creation
+            const token = await getAppToken();
 
             const response = await fetch(currentConfig.apiUrl, {
               method: 'POST',
