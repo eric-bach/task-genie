@@ -11,8 +11,6 @@ const bedrockService = new BedrockService({
   maxImageSize: 5,
   maxImages: 3,
   configTableName: process.env.CONFIG_TABLE_NAME || '',
-  feedbackTableName: process.env.FEEDBACK_TABLE_NAME || '',
-  feedbackFeatureEnabled: process.env.FEEDBACK_FEATURE_ENABLED ? true : false,
 });
 
 export const evaluate_work_item = tool({

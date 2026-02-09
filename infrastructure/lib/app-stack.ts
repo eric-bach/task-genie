@@ -111,6 +111,12 @@ export class AppStack extends Stack {
       platform: Platform.LINUX_ARM64,
     });
 
+    // TypeScript agent (kept for reference until TypeScript SDK supports OTEL)
+    // const workItemAgentTypeScriptArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
+    //   file: 'backend/agents/workItemAgentTypeScript/Dockerfile',
+    //   platform: Platform.LINUX_ARM64,
+    // });
+
     const workItemAgent = new Runtime(this, 'WorkItemAgent', {
       runtimeName: 'workItemAgent',
       executionRole: role,
