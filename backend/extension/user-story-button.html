@@ -145,6 +145,36 @@
                 };
               });
 
+              // Helper to get token with retry for SDK errors
+              const getAppToken = async () => {
+                try {
+                  const token = await SDK.getAppToken();
+
+                  // Check client-side expiry
+                  const decoded = parseJwt(token);
+                  const now = Date.now() / 1000;
+                  if (decoded && decoded.exp && decoded.exp < now) {
+                    console.warn('Token appears expired client-side. Requesting fresh token...');
+                    // In some SDK versions, getAppToken always returns a promise, hopefully a fresh one if the previous is invalid
+                    token = await SDK.getAppToken();
+                  }
+
+                  return token;
+                } catch (e) {
+                  console.warn('SDK.getAppToken failed (likely 401/TF400813). Retrying in 2s...', e);
+                  await new Promise((r) => setTimeout(r, 2000));
+                  return await SDK.getAppToken();
+                }
+              };
+
+              function parseJwt(token) {
+                try {
+                  return JSON.parse(atob(token.split('.')[1]));
+                } catch (e) {
+                  return null;
+                }
+              }
+
               async function setupButton() {
                 const button = document.getElementById('taskGenieButton');
                 const statusMessage = document.getElementById('statusMessage');
@@ -267,7 +297,7 @@
                 const { apiUrl } = params;
 
                 // Get fresh token for each API call attempt
-                const token = await SDK.getAppToken();
+                const token = await getAppToken();
 
                 console.log('Calling Task Genie API', {
                   workItemId: workItemId,
