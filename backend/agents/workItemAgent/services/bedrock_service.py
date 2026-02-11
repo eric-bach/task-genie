@@ -582,7 +582,7 @@ Visual aids or references that provide additional context for evaluation.
             logger.error(f"Model invocation failed: {e}", extra={
                 "modelId": self.model_id,
                 "messagesCount": len([{"role": "user", "content": content}], {}),
-                "hasInferenceConfig": bool(inferenceConfig),
+                "hasInferenceConfig": bool(inference_config),
                 "contentItems": len(content),
                 "contentTypes": [item.get("type") for item in content],
             })
