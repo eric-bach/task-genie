@@ -49,7 +49,6 @@ AWS_REGION = os.environ["AWS_REGION"]
 AWS_BEDROCK_MODEL_ID = os.environ["AWS_BEDROCK_MODEL_ID"]
 
 # Create the BedrockAgentCoreApp
-# Create the BedrockAgentCoreApp
 app = BedrockAgentCoreApp()
 
 # Create the agent with tools
