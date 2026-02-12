@@ -6,7 +6,8 @@ import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { DataStackProps } from '../bin/task-genie';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { CfnDataSource, CfnKnowledgeBase } from 'aws-cdk-lib/aws-bedrock';
-import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { AccountPrincipal, ArnPrincipal, Effect, PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import { Key } from 'aws-cdk-lib/aws-kms';
 import * as dotenv from 'dotenv';
 import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
 
@@ -33,6 +34,12 @@ export class DataStack extends Stack {
    */
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
+
+    // Validate required environment variables
+    if (!process.env.CROSS_ACCOUNT_ID) {
+      throw new Error('CROSS_ACCOUNT_ID environment variable is required for cross-account access policies');
+    }
+    const crossAccountId = process.env.CROSS_ACCOUNT_ID;
 
     /*
      * Amazon Cognito
@@ -116,6 +123,23 @@ export class DataStack extends Stack {
         type: AttributeType.STRING,
       },
     });
+
+    // Cross-account access for DynamoDB tables
+    const crossAccountPrincipal = new AccountPrincipal(crossAccountId);
+
+    configTable.addToResourcePolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      principals: [crossAccountPrincipal],
+      actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
+      resources: ["*"],
+    }));
+
+    resultsTable.addToResourcePolicy(new PolicyStatement({
+      effect: Effect.ALLOW,
+      principals: [crossAccountPrincipal],
+      actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
+      resources: ['*', 'arn:aws:dynamodb:*:*:table/*/index/*'],
+    }));
 
     /*
      * Amazon S3 Buckets
@@ -264,12 +288,32 @@ export class DataStack extends Stack {
     });
 
     /*
+     * AWS KMS
+     */
+
+    // Customer Managed Key for Secrets Manager (required for cross-account access)
+    const secretsEncryptionKey = new Key(this, 'SecretsEncryptionKey', {
+      alias: `${props.appName}-secrets-key-${props.envName}`,
+      description: 'CMK for encrypting Secrets Manager secrets (cross-account access)',
+      enableKeyRotation: true,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Allow cross-account decrypt access for the CMK
+    secretsEncryptionKey.addToResourcePolicy(new PolicyStatement({
+      actions: ['kms:Decrypt', 'kms:DescribeKey'],
+      principals: [new AccountPrincipal(crossAccountId)],
+      resources: ['*'],
+    }));
+
+    /*
      * AWS Secrets Manager
      */
 
     const azureDevOpsCredentials = new Secret(this, 'AzureDevOpsCredentials', {
       secretName: `${props.appName}/${props.envName}/azure-devops-credentials`,
       description: 'Azure DevOps OAuth credentials',
+      encryptionKey: secretsEncryptionKey,
       secretObjectValue: {
         tenantId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_TENANT_ID || ''),
         clientId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_ID || ''),
@@ -278,6 +322,13 @@ export class DataStack extends Stack {
       },
       removalPolicy: RemovalPolicy.DESTROY,
     });
+
+    // Add resource policy for cross-account access to the secret
+    azureDevOpsCredentials.addToResourcePolicy(new PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue', 'secretsmanager:DescribeSecret'],
+      principals: [new AccountPrincipal(crossAccountId)],
+      resources: ['*'],
+    }));
 
     /*
      * Outputs

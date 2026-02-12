@@ -69,78 +69,79 @@ export class AppStack extends Stack {
     const resultsTable = Table.fromTableArn(this, 'ResultsTable', props.params.resultsTableArn);
     const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
     const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
+    const agentcore_runtime_arn = process.env.BEDROCK_AGENTCORE_RUNTIME_ARN || '';
+    
+    // /*
+    //  * Amazon Bedrock AgentCore
+    //  */
 
-    /*
-     * Amazon Bedrock AgentCore
-     */
+    // const role = new Role(this, 'AgentRole', {
+    //   assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
+    //   inlinePolicies: {
+    //     BedrockAccess: new PolicyDocument({
+    //       statements: [
+    //         new PolicyStatement({
+    //           actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream', 'bedrock:Retrieve'],
+    //           resources: ['*'],
+    //         }),
+    //         new PolicyStatement({
+    //           actions: [
+    //             'cloudwatch:PutMetricData',
+    //             'logs:CreateLogStream',
+    //             'logs:PutLogEvents',
+    //             'application-signals:PutSpan',
+    //           ],
+    //           resources: ['*'],
+    //         }),
+    //         new PolicyStatement({
+    //           actions: ['dynamodb:GetItem'],
+    //           resources: [props.params.configTableArn],
+    //         }),
+    //         new PolicyStatement({
+    //           actions: ['dynamodb:PutItem'],
+    //           resources: [props.params.resultsTableArn],
+    //         }),
+    //       ],
+    //     }),
+    //   },
+    //   managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess')],
+    // });
 
-    const role = new Role(this, 'AgentRole', {
-      assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
-      inlinePolicies: {
-        BedrockAccess: new PolicyDocument({
-          statements: [
-            new PolicyStatement({
-              actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream', 'bedrock:Retrieve'],
-              resources: ['*'],
-            }),
-            new PolicyStatement({
-              actions: [
-                'cloudwatch:PutMetricData',
-                'logs:CreateLogStream',
-                'logs:PutLogEvents',
-                'application-signals:PutSpan',
-              ],
-              resources: ['*'],
-            }),
-            new PolicyStatement({
-              actions: ['dynamodb:GetItem'],
-              resources: [props.params.configTableArn],
-            }),
-            new PolicyStatement({
-              actions: ['dynamodb:PutItem'],
-              resources: [props.params.resultsTableArn],
-            }),
-          ],
-        }),
-      },
-      managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess')],
-    });
-
-    const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
-      file: 'backend/agents/workItemAgent/Dockerfile',
-      platform: Platform.LINUX_ARM64,
-    });
-
-    // TypeScript agent (kept for reference until TypeScript SDK supports OTEL)
-    // const workItemAgentTypeScriptArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
-    //   file: 'backend/agents/workItemAgentTypeScript/Dockerfile',
+    // const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
+    //   file: 'backend/agents/workItemAgent/Dockerfile',
     //   platform: Platform.LINUX_ARM64,
     // });
 
-    const workItemAgent = new Runtime(this, 'WorkItemAgent', {
-      runtimeName: 'workItemAgent',
-      executionRole: role,
-      agentRuntimeArtifact: workItemAgentArtifact,
-      environmentVariables: {
-        AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-        AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
-        AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
-        AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
-        AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
-        AZURE_DEVOPS_CLIENT_SECRET: process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
-        AWS_REGION: process.env.AWS_REGION || this.region,
-        AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
-        AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-        AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
-        RESULTS_TABLE_NAME: resultsTable.tableName,
-        CONFIG_TABLE_NAME: configTable.tableName,
-        AGENT_OBSERVABILITY_ENABLED: 'true',
-        OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
-        OTEL_SERVICE_NAME: 'workItemAgent',
-        OTEL_RESOURCE_ATTRIBUTES: `service.namespace=bedrock-agentcore,service.version=1.0.0`,
-      },
-    });
-    azureDevOpsCredentialsSecret.grantRead(workItemAgent);
+    // // TypeScript agent (kept for reference until TypeScript SDK supports OTEL)
+    // // const workItemAgentTypeScriptArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
+    // //   file: 'backend/agents/workItemAgentTypeScript/Dockerfile',
+    // //   platform: Platform.LINUX_ARM64,
+    // // });
+
+    // const workItemAgent = new Runtime(this, 'WorkItemAgent', {
+    //   runtimeName: 'workItemAgent',
+    //   executionRole: role,
+    //   agentRuntimeArtifact: workItemAgentArtifact,
+    //   environmentVariables: {
+    //     AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
+    //     AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
+    //     AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
+    //     AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
+    //     AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
+    //     AZURE_DEVOPS_CLIENT_SECRET: process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
+    //     AWS_REGION: process.env.AWS_REGION || this.region,
+    //     AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
+    //     AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
+    //     AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
+    //     RESULTS_TABLE_NAME: resultsTable.tableName,
+    //     CONFIG_TABLE_NAME: configTable.tableName,
+    //     AGENT_OBSERVABILITY_ENABLED: 'true',
+    //     OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
+    //     OTEL_SERVICE_NAME: 'workItemAgent',
+    //     OTEL_RESOURCE_ATTRIBUTES: `service.namespace=bedrock-agentcore,service.version=1.0.0`,
+    //   },
+    // });
+    // azureDevOpsCredentialsSecret.grantRead(workItemAgent);
 
     /*
      * AWS Lambda
@@ -155,13 +156,13 @@ export class AppStack extends Stack {
       memorySize: 384,
       timeout: Duration.minutes(5),
       environment: {
-        BEDROCK_AGENTCORE_RUNTIME_ARN: workItemAgent.agentRuntimeArn,
+        BEDROCK_AGENTCORE_RUNTIME_ARN: agentcore_runtime_arn,
         POWERTOOLS_LOG_LEVEL: 'DEBUG',
       },
       policyStatements: [
         new PolicyStatement({
           actions: ['bedrock-agentcore:InvokeAgentRuntime'],
-          resources: [workItemAgent.agentRuntimeArn, `${workItemAgent.agentRuntimeArn}/*`],
+          resources: [agentcore_runtime_arn, `${agentcore_runtime_arn}/*`],
         }),
       ],
     });
