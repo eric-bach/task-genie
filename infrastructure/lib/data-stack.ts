@@ -334,11 +334,10 @@ export class DataStack extends Stack {
           'bedrock:InvokeModel',
           'bedrock:InvokeModelWithResponseStream',
         ],
-        // Converse API calls actually require InvokeModel permissions
+        // Due to cross-region inference the region of the model can be any region
         resources: [
-          `arn:aws:bedrock:${Stack.of(this).region}::foundation-model/*`,
-          `arn:aws:bedrock:${Stack.of(this).region}:${Stack.of(this).account}:inference-profile/*`,
-          `arn:aws:bedrock:${Stack.of(this).region}:${Stack.of(this).account}:application-inference-profile/*`,
+          `arn:aws:bedrock:*::foundation-model/*`,
+          `arn:aws:bedrock:*:${Stack.of(this).account}:inference-profile/*`,
         ],
       }),
     );
