@@ -13,9 +13,9 @@ import {
   isUserStory,
   isEpic,
   isFeature,
-} from '../../types/azureDevOps';
-import { WorkItemGenerationMode } from '../../types/bedrock';
-import { InvalidWorkItemError } from '../../types/errors';
+} from '../../../types/azureDevOps';
+import { WorkItemGenerationMode } from '../../../types/bedrock';
+import { InvalidWorkItemError } from '../../../types/errors';
 import { injectLambdaContext } from '@aws-lambda-powertools/logger/middleware';
 import { v4 as uuid } from 'uuid';
 import middy from '@middy/core';

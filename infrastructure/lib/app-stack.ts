@@ -1,6 +1,6 @@
 import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy, PolicyDocument } from 'aws-cdk-lib/aws-iam';
+import { PolicyStatement, Role, ServicePrincipal, ManagedPolicy } from 'aws-cdk-lib/aws-iam';
 import {
   AccessLogFormat,
   ApiKeySourceType,
@@ -20,8 +20,6 @@ import { LambdaDestination } from 'aws-cdk-lib/aws-s3-notifications';
 import { Table } from 'aws-cdk-lib/aws-dynamodb';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { LogGroup, LogRetention, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { Platform } from 'aws-cdk-lib/aws-ecr-assets';
-import { AgentRuntimeArtifact, Runtime } from '@aws-cdk/aws-bedrock-agentcore-alpha';
 import { AppStackProps } from '../bin/task-genie';
 import { TaskGenieLambda } from './constructs/lambda';
 
@@ -31,12 +29,6 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 export class AppStack extends Stack {
-  public evaluateWorkItemFunctionArn: string;
-  public generateWorkItemsFunctionArn: string;
-  public createWorkItemsFunctionArn: string;
-  public addCommentFunctionArn: string;
-  public finalizeResponseFunctionArn: string;
-  public handleErrorFunctionArn: string;
   public apiGwAccessLogGroupArn: string;
   public apiName: string;
 
@@ -70,78 +62,6 @@ export class AppStack extends Stack {
     const configTable = Table.fromTableArn(this, 'ConfigTable', props.params.configTableArn);
     const dataSourceBucket = Bucket.fromBucketArn(this, 'DataSourceBucket', props.params.dataSourceBucketArn);
     const agentcore_runtime_arn = process.env.BEDROCK_AGENTCORE_RUNTIME_ARN || '';
-    
-    // /*
-    //  * Amazon Bedrock AgentCore
-    //  */
-
-    // const role = new Role(this, 'AgentRole', {
-    //   assumedBy: new ServicePrincipal('bedrock-agentcore.amazonaws.com'),
-    //   inlinePolicies: {
-    //     BedrockAccess: new PolicyDocument({
-    //       statements: [
-    //         new PolicyStatement({
-    //           actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream', 'bedrock:Retrieve'],
-    //           resources: ['*'],
-    //         }),
-    //         new PolicyStatement({
-    //           actions: [
-    //             'cloudwatch:PutMetricData',
-    //             'logs:CreateLogStream',
-    //             'logs:PutLogEvents',
-    //             'application-signals:PutSpan',
-    //           ],
-    //           resources: ['*'],
-    //         }),
-    //         new PolicyStatement({
-    //           actions: ['dynamodb:GetItem'],
-    //           resources: [props.params.configTableArn],
-    //         }),
-    //         new PolicyStatement({
-    //           actions: ['dynamodb:PutItem'],
-    //           resources: [props.params.resultsTableArn],
-    //         }),
-    //       ],
-    //     }),
-    //   },
-    //   managedPolicies: [ManagedPolicy.fromAwsManagedPolicyName('CloudWatchFullAccess')],
-    // });
-
-    // const workItemAgentArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
-    //   file: 'backend/agents/workItemAgent/Dockerfile',
-    //   platform: Platform.LINUX_ARM64,
-    // });
-
-    // // TypeScript agent (kept for reference until TypeScript SDK supports OTEL)
-    // // const workItemAgentTypeScriptArtifact = AgentRuntimeArtifact.fromAsset(path.join(__dirname, '..', '..'), {
-    // //   file: 'backend/agents/workItemAgentTypeScript/Dockerfile',
-    // //   platform: Platform.LINUX_ARM64,
-    // // });
-
-    // const workItemAgent = new Runtime(this, 'WorkItemAgent', {
-    //   runtimeName: 'workItemAgent',
-    //   executionRole: role,
-    //   agentRuntimeArtifact: workItemAgentArtifact,
-    //   environmentVariables: {
-    //     AZURE_DEVOPS_CREDENTIALS_SECRET_NAME: azureDevOpsCredentialsSecretName,
-    //     AZURE_DEVOPS_ORGANIZATION: process.env.AZURE_DEVOPS_ORGANIZATION || '',
-    //     AZURE_DEVOPS_SCOPE: process.env.AZURE_DEVOPS_SCOPE || '',
-    //     AZURE_DEVOPS_TENANT_ID: process.env.AZURE_DEVOPS_TENANT_ID || '',
-    //     AZURE_DEVOPS_CLIENT_ID: process.env.AZURE_DEVOPS_CLIENT_ID || '',
-    //     AZURE_DEVOPS_CLIENT_SECRET: process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
-    //     AWS_REGION: process.env.AWS_REGION || this.region,
-    //     AWS_BEDROCK_MODEL_ID: process.env.AWS_BEDROCK_MODEL_ID || '',
-    //     AWS_BEDROCK_KNOWLEDGE_BASE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_ID || '',
-    //     AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID: process.env.AWS_BEDROCK_KNOWLEDGE_BASE_DATA_SOURCE_ID || '',
-    //     RESULTS_TABLE_NAME: resultsTable.tableName,
-    //     CONFIG_TABLE_NAME: configTable.tableName,
-    //     AGENT_OBSERVABILITY_ENABLED: 'true',
-    //     OTEL_EXPORTER_OTLP_PROTOCOL: 'http/protobuf',
-    //     OTEL_SERVICE_NAME: 'workItemAgent',
-    //     OTEL_RESOURCE_ATTRIBUTES: `service.namespace=bedrock-agentcore,service.version=1.0.0`,
-    //   },
-    // });
-    // azureDevOpsCredentialsSecret.grantRead(workItemAgent);
 
     /*
      * AWS Lambda
@@ -149,9 +69,9 @@ export class AppStack extends Stack {
 
     const workItemAgentProxyFunction = new TaskGenieLambda(this, 'WorkItemAgentProxy', {
       functionName: `${props.appName}-workItemAgentProxy-${props.envName}`,
-      entry: path.resolve(__dirname, '../../backend/agents/workItemAgentProxy/index.ts'),
-      projectRoot: path.resolve(__dirname, '../../backend/agents/workItemAgentProxy'),
-      depsLockFilePath: path.resolve(__dirname, '../../backend/agents/workItemAgentProxy/package-lock.json'),
+      entry: path.resolve(__dirname, '../../backend/lambda/agent/workItemAgentProxy/index.ts'),
+      projectRoot: path.resolve(__dirname, '../../backend/lambda/agent/workItemAgentProxy'),
+      depsLockFilePath: path.resolve(__dirname, '../../backend/lambda/agent/workItemAgentProxy/package-lock.json'),
       handler: 'handler',
       memorySize: 384,
       timeout: Duration.minutes(5),
