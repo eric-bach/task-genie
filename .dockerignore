@@ -1,0 +1,7 @@
+# Exclude node_modules and build artifacts from Docker context
+**/node_modules
+**/cdk.out
+**/.git
+**/.github
+**/dist
+**/build

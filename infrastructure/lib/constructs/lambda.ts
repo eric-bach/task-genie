@@ -12,6 +12,7 @@ export interface TaskGenieLambdaProps {
   functionName: string;
   projectRoot?: string;
   entry: string;
+  depsLockFilePath?: string;
   handler?: string;
   runtime?: Runtime;
   architecture?: Architecture;
@@ -55,6 +56,7 @@ export class TaskGenieLambda extends NodejsFunction {
     super(scope, id, {
       functionName: props.functionName,
       projectRoot: projectRoot,
+      depsLockFilePath: props.depsLockFilePath,
       entry: props.entry,
       handler,
       runtime,

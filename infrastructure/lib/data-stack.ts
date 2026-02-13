@@ -1,12 +1,31 @@
-import { CfnOutput, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
+import {
+  CfnOutput,
+  Duration,
+  RemovalPolicy,
+  SecretValue,
+  Stack,
+} from 'aws-cdk-lib';
 import { Construct } from 'constructs';
-import { AccountRecovery, UserPool, UserPoolClient, UserPoolDomain } from 'aws-cdk-lib/aws-cognito';
+import {
+  AccountRecovery,
+  UserPool,
+  UserPoolClient,
+  UserPoolDomain,
+} from 'aws-cdk-lib/aws-cognito';
 import { Bucket, BucketEncryption, HttpMethods } from 'aws-cdk-lib/aws-s3';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { DataStackProps } from '../bin/task-genie';
 import { Secret } from 'aws-cdk-lib/aws-secretsmanager';
 import { CfnDataSource, CfnKnowledgeBase } from 'aws-cdk-lib/aws-bedrock';
-import { PolicyStatement, Role, ServicePrincipal } from 'aws-cdk-lib/aws-iam';
+import {
+  AccountPrincipal,
+  ArnPrincipal,
+  Effect,
+  PolicyStatement,
+  Role,
+  ServicePrincipal,
+} from 'aws-cdk-lib/aws-iam';
+import { Key } from 'aws-cdk-lib/aws-kms';
 import * as dotenv from 'dotenv';
 import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
 
@@ -33,6 +52,14 @@ export class DataStack extends Stack {
    */
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
+
+    // Validate required environment variables
+    if (!process.env.CROSS_ACCOUNT_ID) {
+      throw new Error(
+        'CROSS_ACCOUNT_ID environment variable is required for cross-account access policies',
+      );
+    }
+    const crossAccountId = process.env.CROSS_ACCOUNT_ID;
 
     /*
      * Amazon Cognito
@@ -117,6 +144,27 @@ export class DataStack extends Stack {
       },
     });
 
+    // Cross-account access for DynamoDB tables
+    const crossAccountPrincipal = new AccountPrincipal(crossAccountId);
+
+    configTable.addToResourcePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        principals: [crossAccountPrincipal],
+        actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
+        resources: ['*'],
+      }),
+    );
+
+    resultsTable.addToResourcePolicy(
+      new PolicyStatement({
+        effect: Effect.ALLOW,
+        principals: [crossAccountPrincipal],
+        actions: ['dynamodb:GetItem', 'dynamodb:PutItem'],
+        resources: ['*', 'arn:aws:dynamodb:*:*:table/*/index/*'],
+      }),
+    );
+
     /*
      * Amazon S3 Buckets
      */
@@ -136,12 +184,16 @@ export class DataStack extends Stack {
       maxAge: 3000,
     });
 
-    const vectorStoreBucket = new CfnVectorBucket(this, 'KnowledgeBaseVectorStoreBucket', {
-      vectorBucketName: `${props.appName}-vector-store-${props.envName}`,
-      encryptionConfiguration: {
-        sseType: 'AES256',
+    const vectorStoreBucket = new CfnVectorBucket(
+      this,
+      'KnowledgeBaseVectorStoreBucket',
+      {
+        vectorBucketName: `${props.appName}-vector-store-${props.envName}`,
+        encryptionConfiguration: {
+          sseType: 'AES256',
+        },
       },
-    });
+    );
     const vectorIndex = new CfnIndex(this, 'KnowledgeBaseVectorIndex', {
       indexName: `${props.appName}-vector-index-${props.envName}`,
       vectorBucketName: vectorStoreBucket.vectorBucketName,
@@ -149,7 +201,10 @@ export class DataStack extends Stack {
       dimension: 1024,
       distanceMetric: 'euclidean',
       metadataConfiguration: {
-        nonFilterableMetadataKeys: ['AMAZON_BEDROCK_TEXT', 'AMAZON_BEDROCK_METADATA'],
+        nonFilterableMetadataKeys: [
+          'AMAZON_BEDROCK_TEXT',
+          'AMAZON_BEDROCK_METADATA',
+        ],
       },
     });
     vectorIndex.node.addDependency(vectorStoreBucket);
@@ -159,23 +214,29 @@ export class DataStack extends Stack {
      */
 
     // Knowledge Base Service Role
-    const knowledgeBaseRole = new Role(this, 'BedrockKnowledgeBaseServiceRole', {
-      roleName: `${props.appName}-bedrock-knowledge-base-role-${props.envName}`,
-      assumedBy: new ServicePrincipal('bedrock.amazonaws.com', {
-        conditions: {
-          StringEquals: {
-            'aws:SourceAccount': this.account,
+    const knowledgeBaseRole = new Role(
+      this,
+      'BedrockKnowledgeBaseServiceRole',
+      {
+        roleName: `${props.appName}-bedrock-knowledge-base-role-${props.envName}`,
+        assumedBy: new ServicePrincipal('bedrock.amazonaws.com', {
+          conditions: {
+            StringEquals: {
+              'aws:SourceAccount': this.account,
+            },
+            ArnLike: {
+              'aws:SourceArn': `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`,
+            },
           },
-          ArnLike: {
-            'aws:SourceArn': `arn:aws:bedrock:${this.region}:${this.account}:knowledge-base/*`,
-          },
-        },
-      }),
-    });
+        }),
+      },
+    );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
         actions: ['bedrock:InvokeModel'],
-        resources: [`arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`],
+        resources: [
+          `arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+        ],
       }),
     );
     knowledgeBaseRole.addToPolicy(
@@ -207,7 +268,12 @@ export class DataStack extends Stack {
     );
     knowledgeBaseRole.addToPolicy(
       new PolicyStatement({
-        actions: ['s3:GetObject', 's3:PutObject', 's3:ListBucket', 's3:DeleteObject'],
+        actions: [
+          's3:GetObject',
+          's3:PutObject',
+          's3:ListBucket',
+          's3:DeleteObject',
+        ],
         resources: [
           `arn:aws:s3:::${vectorStoreBucket.vectorBucketName}`,
           `arn:aws:s3:::${vectorStoreBucket.vectorBucketName}/*`,
@@ -241,27 +307,88 @@ export class DataStack extends Stack {
     });
     knowledgeBase.node.addDependency(knowledgeBaseRole);
 
-    const knowledgeBaseDataSource = new CfnDataSource(this, 'S3KnowledgeBaseDataSource', {
-      knowledgeBaseId: knowledgeBase.ref,
-      name: `${props.appName}-data-source-${props.envName}`,
-      description: 'S3 Data Source for Task Genie Knowledge Base',
-      dataSourceConfiguration: {
-        type: 'S3',
-        s3Configuration: {
-          bucketArn: dataSourceBucket.bucketArn,
+    // Allow agentic account to assume role to access Bedrock
+    const bedrockCrossAccountRole = new Role(this, 'BedrockCrossAccountRole', {
+      assumedBy: new AccountPrincipal(crossAccountId),
+      roleName: `${props.appName}-bedrock-cross-account-role-${props.envName}`,
+    });
+
+    // Grant permission to retrieve from the KB
+    bedrockCrossAccountRole.addToPolicy(
+      new PolicyStatement({
+        actions: ['bedrock:Retrieve'],
+        resources: [
+          Stack.of(this).formatArn({
+            service: 'bedrock',
+            resource: 'knowledge-base',
+            resourceName: knowledgeBase.ref,
+          }),
+        ],
+      }),
+    );
+
+    // Grant permission for the Converse API
+    bedrockCrossAccountRole.addToPolicy(
+      new PolicyStatement({
+        actions: [
+          'bedrock:InvokeModel',
+          'bedrock:InvokeModelWithResponseStream',
+        ],
+        // Due to cross-region inference the region of the model can be any region
+        resources: [
+          `arn:aws:bedrock:*::foundation-model/*`,
+          `arn:aws:bedrock:*:${Stack.of(this).account}:inference-profile/*`,
+        ],
+      }),
+    );
+
+    const knowledgeBaseDataSource = new CfnDataSource(
+      this,
+      'S3KnowledgeBaseDataSource',
+      {
+        knowledgeBaseId: knowledgeBase.ref,
+        name: `${props.appName}-data-source-${props.envName}`,
+        description: 'S3 Data Source for Task Genie Knowledge Base',
+        dataSourceConfiguration: {
+          type: 'S3',
+          s3Configuration: {
+            bucketArn: dataSourceBucket.bucketArn,
+          },
         },
-      },
-      vectorIngestionConfiguration: {
-        chunkingConfiguration: {
-          chunkingStrategy: 'SEMANTIC',
-          semanticChunkingConfiguration: {
-            breakpointPercentileThreshold: 90,
-            bufferSize: 1,
-            maxTokens: 512,
+        vectorIngestionConfiguration: {
+          chunkingConfiguration: {
+            chunkingStrategy: 'SEMANTIC',
+            semanticChunkingConfiguration: {
+              breakpointPercentileThreshold: 90,
+              bufferSize: 1,
+              maxTokens: 512,
+            },
           },
         },
       },
+    );
+
+    /*
+     * AWS KMS
+     */
+
+    // Customer Managed Key for Secrets Manager (required for cross-account access)
+    const secretsEncryptionKey = new Key(this, 'SecretsEncryptionKey', {
+      alias: `${props.appName}-secrets-key-${props.envName}`,
+      description:
+        'CMK for encrypting Secrets Manager secrets (cross-account access)',
+      enableKeyRotation: true,
+      removalPolicy: RemovalPolicy.DESTROY,
     });
+
+    // Allow cross-account decrypt access for the CMK
+    secretsEncryptionKey.addToResourcePolicy(
+      new PolicyStatement({
+        actions: ['kms:Decrypt', 'kms:DescribeKey'],
+        principals: [new AccountPrincipal(crossAccountId)],
+        resources: ['*'],
+      }),
+    );
 
     /*
      * AWS Secrets Manager
@@ -270,14 +397,35 @@ export class DataStack extends Stack {
     const azureDevOpsCredentials = new Secret(this, 'AzureDevOpsCredentials', {
       secretName: `${props.appName}/${props.envName}/azure-devops-credentials`,
       description: 'Azure DevOps OAuth credentials',
+      encryptionKey: secretsEncryptionKey,
       secretObjectValue: {
-        tenantId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_TENANT_ID || ''),
-        clientId: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_ID || ''),
-        clientSecret: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_CLIENT_SECRET || ''),
-        scope: SecretValue.unsafePlainText(process.env.AZURE_DEVOPS_SCOPE || ''),
+        tenantId: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_TENANT_ID || '',
+        ),
+        clientId: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_CLIENT_ID || '',
+        ),
+        clientSecret: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_CLIENT_SECRET || '',
+        ),
+        scope: SecretValue.unsafePlainText(
+          process.env.AZURE_DEVOPS_SCOPE || '',
+        ),
       },
       removalPolicy: RemovalPolicy.DESTROY,
     });
+
+    // Add resource policy for cross-account access to the secret
+    azureDevOpsCredentials.addToResourcePolicy(
+      new PolicyStatement({
+        actions: [
+          'secretsmanager:GetSecretValue',
+          'secretsmanager:DescribeSecret',
+        ],
+        principals: [new AccountPrincipal(crossAccountId)],
+        resources: ['*'],
+      }),
+    );
 
     /*
      * Outputs
@@ -301,6 +449,11 @@ export class DataStack extends Stack {
     new CfnOutput(this, 'KnowledgeBaseDataSourceId', {
       value: knowledgeBaseDataSource.ref,
       exportName: `${props.appName}-knowledge-base-data-source-id-${props.envName}`,
+    });
+
+    new CfnOutput(this, 'BedrockCrossAccountRoleArn', {
+      value: bedrockCrossAccountRole.roleArn,
+      exportName: `${props.appName}-bedrock-cross-account-role-arn-${props.envName}`,
     });
 
     /*

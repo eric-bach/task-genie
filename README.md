@@ -75,16 +75,10 @@
 
 ## 🏗️ Architecture
 
-The architecture is deployed in AWS using a **serverless model** with **Step Functions** orchestrating the AI workflow. Integration with Azure DevOps is done through an Azure DevOps extension.
+The architecture is deployed in AWS using an **agentic architecture model** with **Amazon Bedrock AgentCore**. Integration with Azure DevOps is done through an **Azure DevOps extension**.
 
 <div align="center">
-  <img src="images/architecture_v2.png" alt="Architecture Diagram" width="800">
-</div>
-
-A state machine, leveraging **AWS Step Functions**, orchestrates the workflow for the interaction with the LLM.
-
-<div align="center">
-  <img src="images/state_machine.png" alt="State Machine" width="600">
+  <img src="images/architecture_v3.png" alt="Architecture Diagram" width="800">
 </div>
 
 ### 🛠️ Technology Stack
@@ -112,7 +106,6 @@ Estimated monthly costs (USD) for running in AWS:
 | CloudWatch                  | $3 per dashboard                      | 1        | $3.00          |
 | Amplify                     | $0.01 per minute                      | 10       | $0.10          |
 | Lambda                      | $0.0000166667 per GB-second           | 100,000  | $1.67          |
-| Step Functions              | $0.00001667 per GB-second             | 100,000  | $1.67          |
 | S3 Vectors (storage)        | $0.06 per GB                          | 1        | $0.06          |
 | S3 Vectors (requests)       | $0.20 per GB                          | 1        | $0.20          |
 | S3 Vectors (query requests) | $0.0025 per 1,000 requests            | 1,000    | $2.50          |
@@ -313,6 +306,10 @@ The frontend is deployed using **AWS Amplify Console**.
 1. To publish a new version of the Azure DevOps Extension
 
    `npx tfx-cli extension create --rev-version --output-path ./dist`
+
+   To publish the dev version of the Azure DevOps Extension
+
+   `npx tfx-cli extension create --manifest-globs vss-extension.dev.json --rev-version --output-path ./dist`
 
 2. To test the Azure DevOps Extension
 
