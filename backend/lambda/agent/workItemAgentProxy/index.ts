@@ -1,4 +1,5 @@
 import { BedrockAgentCoreClient, InvokeAgentRuntimeCommand } from '@aws-sdk/client-bedrock-agentcore'; // ES Modules import
+import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import { Logger } from '@aws-lambda-powertools/logger';
 import {
@@ -45,7 +46,13 @@ export const lambdaHandler = async (event: APIGatewayProxyEvent, context: Contex
   }
 
   try {
-    const client = new BedrockAgentCoreClient();
+    const client = new BedrockAgentCoreClient({
+      maxAttempts: 1, // Disable retries to prevent duplicate executions on timeout
+      requestHandler: new NodeHttpHandler({
+        socketTimeout: 300000, // 5 minutes - explicit socket timeout
+        connectionTimeout: 5000, // 5 seconds connection timeout
+      }),
+    });
 
     // Handle different API Gateway integration modes:
     // - Proxy integration (proxy: true): body is in event.body as a string
@@ -301,6 +308,7 @@ const parseEvent = (requestBody: any): WorkItemRequest => {
     teamProject: sanitizeField(fields['System.TeamProject']),
     areaPath: sanitizeField(fields['System.AreaPath']),
     iterationPath: sanitizeField(fields['System.IterationPath']),
+    amaValueArea: fields['Custom.AMAValueArea'] ? sanitizeField(fields['Custom.AMAValueArea']) : undefined, // Custom Field
     businessUnit: fields['Custom.BusinessUnit'] ? sanitizeField(fields['Custom.BusinessUnit']) : undefined, // Custom Field
     system: fields['Custom.System'] ? sanitizeField(fields['Custom.System']) : undefined, // Custom Field
     releaseNotes: fields['Custom.ReleaseNotes'] ? sanitizeField(fields['Custom.ReleaseNotes']) : undefined, // Custom Field
@@ -361,6 +369,7 @@ const parseEvent = (requestBody: any): WorkItemRequest => {
     workItemType: workItem.workItemType,
     title: workItem.title,
     areaPath: workItem.areaPath,
+    amaValueArea: workItem.amaValueArea,
     businessUnit: workItem.businessUnit,
     system: workItem.system,
     releaseNotes: workItem.releaseNotes,
