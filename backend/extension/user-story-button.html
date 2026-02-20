@@ -148,7 +148,7 @@
               // Helper to get token with retry for SDK errors
               const getAppToken = async () => {
                 try {
-                  const token = await SDK.getAppToken();
+                  let token = await SDK.getAppToken();
 
                   // Check client-side expiry
                   const decoded = parseJwt(token);
