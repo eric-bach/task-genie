@@ -530,6 +530,14 @@
           });
         });
 
+        // Custom error for session expiration
+        class SessionExpiredError extends Error {
+          constructor(message) {
+            super(message);
+            this.name = 'SessionExpiredError';
+          }
+        }
+
         // Helper to get token with retry for SDK errors (Shared logic)
         const getAppToken = async () => {
           try {
@@ -546,7 +554,16 @@
 
             return token;
           } catch (e) {
-            console.warn('SDK.getAppToken failed (likely 401/TF400813). Retrying in 2s...', e);
+            // Check if this is a TF400813 authorization error (session expired)
+            const errorMessage = e.message || '';
+            if (errorMessage.includes('TF400813') || e.status === 401) {
+              console.error('Azure DevOps session expired. User needs to refresh the page.', e);
+              throw new SessionExpiredError(
+                'Your Azure DevOps session has expired. Please refresh the page and try again.',
+              );
+            }
+            // For other errors, retry once
+            console.warn('SDK.getAppToken failed. Retrying in 2s...', e);
             await new Promise((r) => setTimeout(r, 2000));
             return await SDK.getAppToken();
           }
@@ -709,7 +726,11 @@
             }
           } catch (e) {
             console.error('Could not find execution results', e);
-            showStatus('Generation failed: ' + e.message, 'error');
+            if (e.name === 'SessionExpiredError') {
+              showStatus(e.message, 'error');
+            } else {
+              showStatus('Generation failed: ' + e.message, 'error');
+            }
             showEmptyState();
           } finally {
             isPollingBackend = false;
@@ -978,7 +999,11 @@
             }, 2000);
           } catch (e) {
             console.error(e);
-            showStatus('Error creating items: ' + e.message, 'error');
+            if (e.name === 'SessionExpiredError') {
+              showStatus(e.message, 'error');
+            } else {
+              showStatus('Error creating items: ' + e.message, 'error');
+            }
             btn.disabled = false;
           }
         }
