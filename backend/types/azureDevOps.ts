@@ -28,6 +28,7 @@ export interface BaseWorkItem {
   releaseNotes?: string; // used for PBI
   qaNotes?: string; // used for PBI
   changedBy: string;
+  originalChangedBy?: string; // The original user who submitted the work item (preserved across updates)
   title: string;
   description: string;
   tags: string[];
@@ -126,6 +127,7 @@ export function getExpectedChildWorkItemType(workItem: WorkItem, plural: boolean
 // Type for DynamoDB stored work item context (extends WorkItem with optional fields)
 export interface StoredWorkItemContext {
   workItemId: number;
+  rev: number;
   title?: string;
   description?: string;
   acceptanceCriteria?: string;
