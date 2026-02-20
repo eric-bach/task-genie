@@ -2,7 +2,7 @@
   "manifestVersion": 1,
   "id": "task-genie-dev",
   "publisher": "AMA",
-  "version": "2.0.8",
+  "version": "2.0.9",
   "name": "Task Genie (Dev)",
   "description": "DEV VERSION - Agile extension to generate child work items from Epics, Features, User Stories, and Product Backlog Items using AI.",
   "public": false,
