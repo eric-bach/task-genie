@@ -273,7 +273,6 @@
                     // Call your REST API here
                     await callTaskGenieAPI(statusMessage, workItemId, fields, revision, {
                       mode: isPreview ? 'evaluate_and_generate' : 'evaluate_and_generate_and_create',
-                      token,
                       apiUrl,
                     });
 
