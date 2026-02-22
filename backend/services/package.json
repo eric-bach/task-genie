@@ -8,12 +8,12 @@
   },
   "dependencies": {
     "@aws-lambda-powertools/logger": "^2.25.1",
-    "@aws-sdk/client-bedrock-agent-runtime": "^3.863.0",
-    "@aws-sdk/client-bedrock-runtime": "^3.864.0",
-    "@aws-sdk/client-cloudwatch": "^3.873.0",
-    "@aws-sdk/client-dynamodb": "^3.864.0",
-    "@aws-sdk/client-secrets-manager": "^3.876.0",
-    "@aws-sdk/lib-dynamodb": "^3.911.0"
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.995.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.995.0",
+    "@aws-sdk/client-cloudwatch": "^3.995.0",
+    "@aws-sdk/client-dynamodb": "^3.995.0",
+    "@aws-sdk/client-secrets-manager": "^3.995.0",
+    "@aws-sdk/lib-dynamodb": "^3.995.0"
   },
   "devDependencies": {
     "@types/node": "^24.2.1",
